@@ -37,6 +37,12 @@ header{display:flex;justify-content:space-between;align-items:center;padding:4px
 .empty{text-align:center;color:var(--mute);padding:40px 16px}
 .fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;font-size:28px;padding:0;box-shadow:0 6px 20px #0006}
 .row{display:flex;gap:8px;justify-content:space-between;align-items:center}
+.wrap{padding-bottom:96px}
+.fab{bottom:calc(78px + env(safe-area-inset-bottom))}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:4px;background:var(--card);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom));z-index:5}
+nav button{flex:1;max-width:160px;background:none;border:0;border-radius:12px;padding:10px 8px;color:var(--mute);font-weight:600}
+nav button.on{color:var(--text);background:var(--line)}
+.av{width:42px;height:42px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-weight:800;color:#fff;flex:none}
 </style>
 </head>
 <body>
@@ -49,25 +55,30 @@ const SUPABASE_KEY = "sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const $ = document.getElementById("app");
-const S = { user:null, interests:[], mine:new Set(), posts:[], filter:"all", mode:"login", err:"", composing:false, picked:new Set(), editing:false };
+const S = { user:null, interests:[], mine:new Set(), posts:[], filter:"all", mode:"login", err:"", composing:false, picked:new Set(), editing:false, tab:"home", people:[] };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ago = d => { const m = Math.floor((Date.now()-new Date(d))/60000); return m<1?"just now":m<60?m+"m ago":m<1440?Math.floor(m/60)+"h ago":Math.floor(m/1440)+"d ago"; };
 const iName = id => { const i = S.interests.find(x => x.id === id); return i ? `${i.emoji||""} ${i.name}` : ""; };
 
 async function boot(){
+  const show = m => $.insertAdjacentHTML("afterbegin", `<div class="err">Error: ${esc(m)}</div>`);
+  window.addEventListener("error", e => show(e.message));
+  window.addEventListener("unhandledrejection", e => show(e.reason?.message || e.reason));
   const { data:{ session } } = await sb.auth.getSession();
   S.user = session?.user || null;
-  sb.auth.onAuthStateChange((_e, s) => { const was = S.user?.id; S.user = s?.user || null; if ((S.user?.id) !== was) load(); });
+  sb.auth.onAuthStateChange((_e, s) => { const was = S.user?.id; S.user = s?.user || null; if ((S.user?.id) !== was) setTimeout(load, 0); });
   load();
 }
 
 async function load(){
   if (!S.user) return render();
+  await sb.from("profiles").upsert({ id:S.user.id, username:"user_" + S.user.id.replace(/-/g,"").slice(0,8), display_name:S.user.user_metadata?.display_name || "New member" }, { onConflict:"id", ignoreDuplicates:true });
   const [i, u] = await Promise.all([
     sb.from("interests").select("*").order("category").order("name"),
     sb.from("user_interests").select("interest_id").eq("user_id", S.user.id)
   ]);
   S.interests = i.data || [];
+  S.err = i.error ? "Could not load interests: " + i.error.message : (!S.interests.length ? "The interest list is empty. Run the catalogue SQL in Supabase." : "");
   S.mine = new Set((u.data || []).map(r => r.interest_id));
   if (S.mine.size) await loadPosts();
   render();
@@ -82,7 +93,7 @@ async function loadPosts(){
 
 function chipsPicker(){
   const cats = [...new Set(S.interests.map(i => i.category))];
-  return cats.map(c => `<div class="cat">${esc(c)}</div><div class="chips">${
+  return cats.map(c => `<div class="cat" style="color:${esc(S.interests.find(i => i.category === c)?.color || "var(--mute)")}">${esc(c)}</div><div class="chips">${
     S.interests.filter(i => i.category === c).map(i =>
       `<button class="chip ${S.picked.has(i.id)?"on":""}" data-pick="${i.id}">${esc(i.emoji)} ${esc(i.name)}</button>`).join("")
   }</div>`).join("");
@@ -114,6 +125,8 @@ function render(){
       ${S.editing ? `<button class="link" id="cancelI">Cancel</button>` : ""}</div>`;
     return;
   }
+  if (S.tab === "people") return renderPeople();
+  if (S.tab === "me") return renderMe();
   const shown = S.posts.filter(p => S.filter === "all" || p.post_interests.some(t => t.interest_id === +S.filter));
   $.innerHTML = `<header><div class="logo">iLike ✦</div>
       <div><button class="link" id="editI">My interests</button> <button class="link" id="out">Log out</button></div></header>
@@ -121,7 +134,32 @@ function render(){
       [...S.mine].map(id => `<button class="chip ${S.filter==id?"on":""}" data-f="${id}">${esc(iName(id))}</button>`).join("")}</div>
     ${shown.length ? shown.map(post).join("") : `<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>`}
     <button class="btn fab" id="new" aria-label="New post">+</button>
-    ${S.composing ? composer() : ""}`;
+    ${S.composing ? composer() : ""}${nav()}`;
+}
+
+const nav = () => `<nav>${[["home","Home"],["people","People"],["me","You"]].map(([k, l]) => `<button class="${S.tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
+
+async function loadPeople(){
+  const { data } = await sb.from("user_interests").select("user_id,interest_id,profiles(display_name)").neq("user_id", S.user.id);
+  const m = {};
+  (data || []).forEach(r => { (m[r.user_id] ||= { id:r.user_id, name:r.profiles?.display_name || "Member", ids:[] }).ids.push(r.interest_id); });
+  S.people = Object.values(m).map(p => ({ ...p, shared:p.ids.filter(i => S.mine.has(i)) })).sort((a, b) => b.shared.length - a.shared.length);
+}
+
+function renderPeople(){
+  $.innerHTML = `<header><div class="logo">iLike ✦</div></header><h2 style="margin:4px 0 12px">People like you</h2>${
+    S.people.length ? S.people.map(p => `<div class="card row" style="justify-content:flex-start;gap:12px"><div class="av">${esc((p.name || "?")[0].toUpperCase())}</div><div><div class="who">${esc(p.name)}</div><div class="time">${p.shared.length ? "You both like " + p.shared.map(i => esc(iName(i))).join(", ") : "No shared interests yet"}</div></div></div>`).join("")
+    : `<div class="empty">No one else has joined yet.<br>Invite a friend to see them here.</div>`}${nav()}`;
+}
+
+function renderMe(){
+  const name = S.user.user_metadata?.display_name || S.user.email || "Me";
+  const mine = S.posts.filter(p => p.author_id === S.user.id);
+  $.innerHTML = `<header><div class="logo">iLike ✦</div></header>
+    <div class="card row" style="justify-content:flex-start;gap:12px"><div class="av">${esc(String(name)[0].toUpperCase())}</div><div><div class="who">${esc(name)}</div><div class="time">${esc(S.user.email)}</div></div></div>
+    <h3 style="margin:14px 0 4px">I like</h3><div class="chips">${[...S.mine].map(id => `<span class="chip">${esc(iName(id))}</span>`).join("")}</div>
+    <div class="row" style="justify-content:flex-start"><button class="btn ghost" id="editI">Edit interests</button><button class="btn ghost" id="out">Log out</button></div>
+    <h3 style="margin:18px 0 8px">My posts</h3>${mine.length ? mine.map(post).join("") : `<div class="empty">You haven't posted yet.</div>`}${nav()}`;
 }
 
 function post(p){
@@ -146,6 +184,7 @@ $.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const id = t.id;
   if (t.dataset.pick) { const n = +t.dataset.pick; S.picked.has(n) ? S.picked.delete(n) : S.picked.add(n); const b = document.getElementById("body")?.value; render(); if (b !== undefined) document.getElementById("body").value = b; return; }
+  if (t.dataset.tab) { S.tab = t.dataset.tab; if (S.tab === "people") await loadPeople(); return render(); }
   if (t.dataset.f) { S.filter = t.dataset.f; return render(); }
   if (t.dataset.same) {
     const p = S.posts.find(x => x.id === t.dataset.same), on = p.sames.some(s => s.user_id === S.user.id);
@@ -166,7 +205,7 @@ $.addEventListener("click", async e => {
     if (r.error) { S.err = r.error.message; render(); }
     return;
   }
-  if (id === "out") { await sb.auth.signOut(); S.picked = new Set(); S.posts = []; return render(); }
+  if (id === "out") { await sb.auth.signOut(); S.picked = new Set(); S.posts = []; S.tab = "home"; return render(); }
   if (id === "editI") { S.editing = true; S.picked = new Set(S.mine); return render(); }
   if (id === "cancelI") { S.editing = false; S.picked = new Set(); return render(); }
   if (id === "saveI") {
