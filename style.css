@@ -261,7 +261,8 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .mod .sheet{width:min(520px,calc(100% - 48px));border-radius:28px;border:1px solid var(--line);padding-bottom:24px;box-shadow:0 30px 80px -20px var(--glow);transform:translateY(24px) scale(.97)}
   .mod.on .sheet{transform:none}
   .sheet::before{display:none}
-  #pv .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  #pv .sheet,#th .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  .thsheet{padding-bottom:16px}
   .btn:hover,.ghost:hover,.fc:hover,.ib:hover{filter:brightness(1.08)}
   .ghost:hover{color:var(--brand)}
 }
@@ -309,3 +310,26 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 .cath{font-weight:800;font-size:13px;margin:16px 0 0}
 body.noapp nav,body.noapp .fab{display:none}
 @media(min-width:1024px){body.noapp #app{padding-left:0}}
+
+/* ── P0: profile, settings, post menu, replies ── */
+.err.ok{color:var(--brand)}
+.lab{display:block;font-size:13px;font-weight:700;color:var(--mute);margin:14px 4px 6px}
+.sheet .lab:first-of-type{margin-top:12px}
+.bio{margin:8px 0}
+.sbtn{margin-top:6px;padding:8px 16px;font-size:13px}
+.bioin{height:84px!important;margin:0 0 4px!important}
+.wide{width:100%;margin-top:10px;display:block}
+.danger{color:#f87171}
+.more{padding:6px;margin:-6px -6px -6px 0;line-height:0}
+.more svg{width:24px;height:24px}
+.thsheet{max-height:88vh;display:flex;flex-direction:column;padding:12px 0 calc(10px + env(safe-area-inset-bottom,0px))}
+#th .sheet::before{display:none}
+.rhead{display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px;flex-shrink:0}
+#thbody{flex:1;overflow-y:auto;min-height:120px}
+.rep{display:flex;gap:10px;align-items:flex-start;padding:10px 18px}
+.rep .av{width:34px;height:34px;font-size:14px;border-width:1px}
+.rep .rbody{overflow-wrap:anywhere;line-height:1.45}
+.rep .ghost{padding:4px 6px;font-size:13px}
+.rbar{display:flex;gap:8px;padding:10px 14px 0;border-top:1px solid var(--line);flex-shrink:0}
+.rbar input{flex:1;min-width:0;padding:12px 16px;border-radius:50px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+.rbar input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 20%,transparent)}

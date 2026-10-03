@@ -4,7 +4,7 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],people:[],cnt:{},names:{},F:'All',tab:'home',mode:'login',err:'',pick:new Set(),pend:null};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,rec:false,loaded:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const iname=n=>S.im.get(n)?.name||'';
@@ -20,8 +20,9 @@ const tgb=n=>S.mine.has(n)?chip(n):`<button class="chip tg" style="--c:${col(n)}
 const say=l=>!l.length?'':l.length==1?l[0]+' said Same':l.length==2?l.join(' & ')+' said Same':l[0]+', '+l[1]+' & others said Same';
 const so=p=>{const a=p.sames.filter(x=>x!=S.user.id);return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
+const findPost=id=>S.pm.get(String(id));
 let toastT;
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1600)}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1800)}
 function share(){
   if(navigator.share){navigator.share({title:'iLike',url:location.href}).catch(()=>{});return}
   if(navigator.clipboard)navigator.clipboard.writeText(location.href).then(()=>toast('Link copied'),()=>toast("Couldn't copy link"));
@@ -35,24 +36,35 @@ function show(id){
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x.dataset.s==id));
 }
 
+// confirm dialog used everywhere (remove interest, delete post, delete reply)
+function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
+function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
+
 // ---------- Auth ----------
 function renderAuth(){
   const su=S.mode=='signup';
-  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your name" autocomplete="name">':''}<input class="fi" id="ae" type="email" placeholder="Email" autocomplete="email"><input class="fi" id="ap" type="password" placeholder="Password (6+ characters)" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err">${esc(S.err)}</div><button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create account':'Log in'}</button><button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button>`;
+  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your name" autocomplete="name">':''}<input class="fi" id="ae" type="email" placeholder="Email" autocomplete="email"><input class="fi" id="ap" type="password" placeholder="Password (6+ characters)" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err ${S.good?'ok':''}">${esc(S.err)}</div><button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create account':'Log in'}</button>${su?'':'<button class="link" onclick="forgot()">Forgot password?</button>'}<button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button>`;
 }
-function swap(){S.mode=S.mode=='login'?'signup':'login';S.err='';renderAuth()}
+function swap(){S.mode=S.mode=='login'?'signup':'login';S.err='';S.good=false;renderAuth()}
 async function go(){
   const email=$('#ae').value.trim(),password=$('#ap').value,name=$('#an')?.value.trim();
-  $('#ago').disabled=true;S.err='';
+  $('#ago').disabled=true;S.err='';S.good=false;
   const r=S.mode=='signup'
     ?await sb.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}})
     :await sb.auth.signInWithPassword({email,password});
   if(r.error)S.err=r.error.message;
-  else if(S.mode=='signup'&&!r.data.session){S.mode='login';S.err='Check your email to confirm your account, then log in.'}
+  else if(S.mode=='signup'&&!r.data.session){S.mode='login';S.err='Check your email to confirm your account, then log in.';S.good=true}
   else return;
   renderAuth();$('#ae').value=email;
 }
-async function logout(){await sb.auth.signOut();S.tab='home';S.F='All'}
+async function forgot(){
+  const email=$('#ae').value.trim();
+  if(!email){S.err='Type your email first.';S.good=false;renderAuth();return}
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  S.err=error?error.message:'Check your email for a reset link.';S.good=!error;
+  renderAuth();$('#ae').value=email;
+}
+async function logout(){await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
 // ---------- Onboarding (first login) ----------
 function renderOb(){
@@ -71,36 +83,65 @@ async function saveOb(b){
 
 // ---------- Data ----------
 async function boot(){
+  if(location.hash.includes('type=recovery'))S.rec=true;
   const{data:{session}}=await sb.auth.getSession();
   S.user=session?.user||null;
-  sb.auth.onAuthStateChange((_e,s)=>{const was=S.user?.id;S.user=s?.user||null;if(S.user?.id!==was)setTimeout(load,0)});
+  sb.auth.onAuthStateChange((e,s)=>{
+    const was=S.user?.id;S.user=s?.user||null;
+    if(e==='PASSWORD_RECOVERY'){S.rec=true;if(S.loaded)recoverUi()}
+    if(S.user?.id!==was)setTimeout(load,0)});
   load();
 }
 async function load(){
-  if(!S.user){S.posts=[];S.mine=new Set();S.names={};renderAuth();show('auth');return}
+  if(!S.user){S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.prof=null;S.loaded=false;renderAuth();show('auth');return}
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
-  const[i,u]=await Promise.all([
+  const[pr,i,u]=await Promise.all([
+    sb.from('profiles').select('username,display_name,bio,city,theme_prefs').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
     sb.from('user_interests').select('interest_id').eq('user_id',S.user.id)]);
+  S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null};
+  S.name=S.prof.display_name||S.name;
+  applyPrefs(S.prof.theme_prefs);
   if(i.error)toast('Could not load interests');
   S.ints=i.data||[];S.im=new Map(S.ints.map(x=>[x.id,x]));
   S.mine=new Set((u.data||[]).map(r=>r.interest_id));S.snap=new Set(S.mine);
   S.names[S.user.id]=S.name;
   if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
   await Promise.all([loadPosts(),loadPeople()]);
-  draw();show(S.tab);
+  draw();show(S.tab);S.loaded=true;
+  if(S.rec)recoverUi();
 }
-async function loadPosts(){
-  const p=await sb.from('posts').select('id,body,created_at,author_id').order('created_at',{ascending:false}).limit(50);
-  if(p.error){toast('Could not load posts');S.posts=[];return}
-  if(!p.data.length){S.posts=[];return}
-  const ids=p.data.map(x=>x.id);
-  const[t,s]=await Promise.all([sb.from('post_interests').select('post_id,interest_id').in('post_id',ids),sb.from('sames').select('post_id,user_id').in('post_id',ids)]);
-  const au=[...new Set([...p.data.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)])];
+
+// One query for the feed, one for my own posts, then fill in tags / sames / reply counts / names
+const COLS='id,body,created_at,edited_at,author_id';
+async function hydrate(rows){
+  if(!rows.length)return[];
+  const ids=rows.map(x=>x.id);
+  const[t,s,r]=await Promise.all([
+    sb.from('post_interests').select('post_id,interest_id').in('post_id',ids),
+    sb.from('sames').select('post_id,user_id').in('post_id',ids),
+    sb.from('replies').select('post_id').in('post_id',ids)]);
+  const au=[...new Set([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)])];
   const a=await sb.from('profiles').select('id,display_name').in('id',au);
   (a.data||[]).forEach(x=>S.names[x.id]=x.display_name);
-  S.posts=p.data.map(x=>({...x,tags:(t.data||[]).filter(r=>r.post_id===x.id).map(r=>r.interest_id),sames:(s.data||[]).filter(r=>r.post_id===x.id).map(r=>r.user_id)}));
+  return rows.map(x=>{
+    let o=S.pm.get(x.id);if(!o){o={};S.pm.set(x.id,o)}
+    return Object.assign(o,x,{
+      tags:(t.data||[]).filter(q=>q.post_id===x.id).map(q=>q.interest_id),
+      sames:(s.data||[]).filter(q=>q.post_id===x.id).map(q=>q.user_id),
+      rc:(r.data||[]).filter(q=>q.post_id===x.id).length})});
+}
+async function loadPosts(){
+  const[f,m]=await Promise.all([
+    sb.from('posts').select(COLS).order('created_at',{ascending:false}).limit(50),
+    sb.from('posts').select(COLS).eq('author_id',S.user.id).order('created_at',{ascending:false}).limit(100)]);
+  if(f.error||m.error){toast('Could not load posts');return}
+  const rows=[...f.data];
+  m.data.forEach(r=>{if(!rows.some(x=>x.id===r.id))rows.push(r)});
+  const by=new Map((await hydrate(rows)).map(p=>[p.id,p]));
+  S.posts=f.data.map(r=>by.get(r.id));
+  S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
   const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name)');
@@ -110,12 +151,14 @@ async function loadPeople(){
 }
 
 // ---------- Home ----------
-function post(p){
-  const on=p.sames.includes(S.user.id);
-  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}</div></div></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div><div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button><button class="ghost" onclick="toast('Replies coming soon')">Reply</button><button class="ghost" onclick="share()">Share</button></div><div class="who2">${sm(p)}</div></article>`;
+function post(p,o){
+  o=o||{};
+  const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
+  const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
+  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div class="grow"><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div><div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share()">Share</button></div><div class="who2">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
-  const p=S.posts.find(x=>String(x.id)===String(id)),u=S.user.id,on=!p.sames.includes(u);
+  const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
   const set=v=>{p.sames=v?[...p.sames,u]:p.sames.filter(x=>x!==u);document.querySelectorAll(`.card[data-pi="${id}"]`).forEach(c=>{c.querySelector('.same').className='same'+(v?' on':'');c.querySelector('.who2').innerHTML=sm(p)})};
   set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
   const r=on?await sb.from('sames').insert({post_id:p.id,user_id:u}):await sb.from('sames').delete().match({post_id:p.id,user_id:u});
@@ -126,7 +169,7 @@ function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F))S.F='All';
   $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New'],...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${t[1]=='All'||t[1]=='Might like'||t[1]=='New'?t[1]:esc(t[1])}</button>`).join('');
   const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):S.posts.filter(p=>p.tags.includes(F));
-  $('#feed').innerHTML=l.map(post).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
+  $('#feed').innerHTML=l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 
@@ -149,6 +192,82 @@ async function publish(){
   btn.disabled=false;$('#txt').value='';closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
   toast(t.error?'Posted, but tags failed':'Posted');
+}
+
+// ---------- My post menu: edit / delete ----------
+function openPm(id){S.pmId=id;$('#pm').classList.add('on')}
+function closePm(){$('#pm').classList.remove('on')}
+function openEd(id){
+  const p=findPost(id);if(!p)return;
+  closePm();S.edId=id;
+  const o=[...new Set([...S.mine,...p.tags])].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
+  $('#edsel').innerHTML=o;
+  $('#edsel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
+  $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';
+  $('#edt').value=p.body;$('#ed').classList.add('on');
+}
+async function saveEd(){
+  const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=+$('#edsel2').value;
+  if(!v){$('#edt').focus();return}
+  if(!a){toast('Pick an interest');return}
+  const btn=$('#eds');btn.disabled=true;
+  const u=await sb.from('posts').update({body:v}).eq('id',id).eq('author_id',S.user.id);
+  if(u.error){btn.disabled=false;toast(u.error.message);return}
+  const want=[...new Set([a,b].filter(Boolean))];
+  const unchanged=want.length===p.tags.length&&want.every(x=>p.tags.includes(x));
+  if(!unchanged){
+    const d=await sb.from('post_interests').delete().eq('post_id',id);
+    if(!d.error)await sb.from('post_interests').insert(want.map(n=>({post_id:id,interest_id:n})));
+  }
+  btn.disabled=false;$('#ed').classList.remove('on');
+  await loadPosts();draw();toast('Saved');
+}
+function delPost(id){
+  closePm();
+  confirmBox('Delete this post?','Delete',async()=>{
+    const{error}=await sb.from('posts').delete().eq('id',id);
+    if(error){toast(error.message);return}
+    S.pm.delete(String(id));
+    S.posts=S.posts.filter(p=>p.id!==id);S.myPosts=S.myPosts.filter(p=>p.id!==id);
+    $('#pv').classList.remove('on');draw();toast('Deleted');
+  });
+}
+
+// ---------- Replies ----------
+const rep=r=>`<div class="rep">${av(r.author_id)}<div class="grow"><div><b>${esc(nm(r.author_id))}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
+function renderThread(){
+  const p=findPost(S.th);if(!p){closeThread();return}
+  $('#thp').innerHTML=post(p,{t:1});
+  $('#thr').innerHTML=S.reps===null?'<div class="empty">Loading...</div>':S.reps.length?S.reps.map(rep).join(''):'<div class="empty">No replies yet.<br>Say something.</div>';
+}
+async function loadReplies(id){
+  S.reps=null;renderThread();
+  const r=await sb.from('replies').select('id,body,created_at,author_id').eq('post_id',id).order('created_at');
+  if(S.th!==id)return;
+  if(r.error){toast('Could not load replies');S.reps=[]}
+  else{
+    const need=[...new Set(r.data.map(x=>x.author_id))].filter(x=>!S.names[x]);
+    if(need.length){const a=await sb.from('profiles').select('id,display_name').in('id',need);(a.data||[]).forEach(x=>S.names[x.id]=x.display_name)}
+    S.reps=r.data;const p=findPost(id);if(p)p.rc=r.data.length;
+  }
+  renderThread();
+}
+function openThread(id){S.th=String(id);$('#rin').value='';$('#th').classList.add('on');loadReplies(S.th)}
+function closeThread(){S.th=null;$('#th').classList.remove('on')}
+async function sendReply(){
+  const v=$('#rin').value.trim();if(!v||!S.th)return;
+  const b=$('#rsend');b.disabled=true;
+  const{error}=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});
+  b.disabled=false;
+  if(error){toast(error.message);return}
+  $('#rin').value='';await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;
+}
+function delReply(id){
+  confirmBox('Delete this reply?','Delete',async()=>{
+    const{error}=await sb.from('replies').delete().eq('id',id);
+    if(error){toast(error.message);return}
+    await loadReplies(S.th);draw();
+  });
 }
 
 // ---------- Discover ----------
@@ -175,25 +294,127 @@ function openCircle(id){ftab(2);$('#q').value=iname(id).toLowerCase();findTab()}
 let pvFn=null;
 function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
 function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
-function openPost(id){showPv(()=>{const p=S.posts.find(x=>String(x.id)===String(id));return p?post(p):''})}
+function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 
 // ---------- You + interests ----------
 function meTab(){
-  $('#mav').textContent=(S.name||'?')[0].toUpperCase();$('#mn').textContent=S.name;$('#mem').textContent=S.user.email||'';
+  const pr=S.prof||{};
+  $('#mav').textContent=(S.name||'?')[0].toUpperCase();$('#mn').textContent=S.name;
+  $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
+  $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
   $('#shelf').innerHTML=[...S.mine].map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
-  $('#mine').innerHTML=S.posts.filter(p=>p.author_id==S.user.id).map(post).join('')||'<div class="empty">No posts yet</div>';
+  $('#mine').innerHTML=S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
 function drawPk(){$('#pkl').innerHTML=S.ints.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('')}
 function openPk(){drawPk();$('#pk').classList.add('on')}
-function ask(n){S.pend=n;const on=S.mine.has(n);$('#cft').textContent=(on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+' your interests?';$('#cfy').textContent=on?'Remove':'Add';$('#cf').classList.add('on')}
-async function cfyes(){
-  const n=S.pend,on=S.mine.has(n);$('#cf').classList.remove('on');
+function ask(n){
+  const on=S.mine.has(n);
+  confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+' your interests?',on?'Remove':'Add',()=>toggleInt(n));
+}
+async function toggleInt(n){
+  const on=S.mine.has(n);
   const r=on?await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n}):await sb.from('user_interests').insert({user_id:S.user.id,interest_id:n});
   if(r.error){toast(r.error.message);return}
   on?S.mine.delete(n):S.mine.add(n);
   draw();if($('#pk').classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
 }
 function draw(){home();findTab();meTab();refreshPv()}
+
+// ---------- Edit profile ----------
+function openPe(){
+  const p=S.prof||{};
+  $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
+  $('#pbc').textContent=($('#peb').value.length)+'/160';$('#pee').textContent='';
+  $('#pe').classList.add('on');
+}
+async function saveProfile(){
+  const display_name=$('#pen').value.trim(),username=$('#peu').value.trim().toLowerCase().replace(/^@/,''),bio=$('#peb').value.trim(),city=$('#pec').value.trim(),e=$('#pee');
+  e.textContent='';
+  if(!display_name){e.textContent='Add your name.';return}
+  if(!/^[a-z0-9_.]{3,20}$/.test(username)){e.textContent='Username: 3 to 20 letters, numbers, _ or .';return}
+  const b=$('#pes');b.disabled=true;
+  const vals={display_name,username,bio:bio||null,city:city||null};
+  const{error}=await sb.from('profiles').update(vals).eq('id',S.user.id);
+  b.disabled=false;
+  if(error){e.textContent=error.code=='23505'?'That username is taken.':error.message;return}
+  Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;
+  $('#pe').classList.remove('on');draw();toast('Profile saved');
+}
+
+// ---------- Settings ----------
+const ACCENTS=[
+  {n:'Purple',h:262,h2:292,h3:351},
+  {n:'Pink',h:330,h2:315,h3:350},
+  {n:'Red',h:0,h2:348,h3:22},
+  {n:'Orange',h:25,h2:38,h3:8},
+  {n:'Green',h:142,h2:162,h3:108},
+  {n:'Teal',h:174,h2:190,h3:152},
+  {n:'Blue',h:217,h2:232,h3:195},
+  {n:'Mono',mono:true}
+];
+const FONTS=[
+  {n:'Default',f:"'Bricolage Grotesque','Manrope',system-ui,-apple-system,sans-serif"},
+  {n:'Classic',f:"Georgia,'Times New Roman',serif"},
+  {n:'Techy',f:"ui-monospace,Menlo,Consolas,monospace"}
+];
+const THEMES=[['auto','Auto'],['light','Light'],['dark','Dark']];
+let curAcc=0,curFont=0,curTheme='auto',prefT;
+function paintCustomize(){
+  document.querySelectorAll('#sws .sw').forEach((x,i)=>x.classList.toggle('on',i==curAcc));
+  document.querySelectorAll('#fcs .fc').forEach((x,i)=>x.classList.toggle('on',i==curFont));
+  document.querySelectorAll('#thm .fc').forEach((x,i)=>x.classList.toggle('on',THEMES[i][0]==curTheme));
+}
+// Remember choices on this device and on the account, so they follow you to other devices
+function savePrefs(){
+  const p={theme:curTheme,acc:curAcc,font:curFont};
+  try{localStorage.setItem('il-prefs',JSON.stringify(p))}catch(e){}
+  if(!S.user)return;
+  clearTimeout(prefT);
+  prefT=setTimeout(()=>sb.from('profiles').update({theme_prefs:p}).eq('id',S.user.id),600);
+}
+function setTheme(m,ns){
+  curTheme=m;const d=document.documentElement;
+  if(m==='auto')delete d.dataset.theme;else d.dataset.theme=m;
+  updateThemeIcon();paintCustomize();if(!ns)savePrefs();
+}
+function accent(i,ns){
+  const a=ACCENTS[i];if(!a)return;
+  const d=document.documentElement,r=d.style;
+  curAcc=i;
+  if(a.mono){d.dataset.palette='mono'}
+  else{delete d.dataset.palette;r.setProperty('--h',a.h);r.setProperty('--h2',a.h2);r.setProperty('--h3',a.h3)}
+  paintCustomize();if(!ns)savePrefs();
+}
+function fnt(i,ns){
+  if(!FONTS[i])return;
+  curFont=i;document.documentElement.style.setProperty('--font',FONTS[i].f);
+  paintCustomize();if(!ns)savePrefs();
+}
+function applyPrefs(p){
+  if(!p)return;
+  if(p.theme)setTheme(p.theme,1);
+  if(p.acc!=null)accent(+p.acc,1);
+  if(p.font!=null)fnt(+p.font,1);
+}
+function openSet(){
+  $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
+  paintCustomize();$('#set').classList.add('on');
+}
+async function changePw(){
+  const v=$('#npw').value,e=$('#npe');e.textContent='';
+  if(v.length<6){e.textContent='Use 6 or more characters.';return}
+  const{error}=await sb.auth.updateUser({password:v});
+  if(error){e.textContent=error.message;return}
+  $('#npw').value='';toast('Password changed');
+}
+function recoverUi(){
+  S.rec=false;history.replaceState(null,'',location.pathname);
+  openSet();toast('Choose a new password');
+  setTimeout(()=>$('#npw').focus(),400);
+}
+$('#thm').innerHTML=THEMES.map(t=>`<button class="fc" onclick="setTheme('${t[0]}')">${t[1]}</button>`).join('');
+$('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
+$('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
 
 // ---------- Chats (coming soon) ----------
 let conv=false,ctab=0;
@@ -209,62 +430,24 @@ document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
   if(s=='find')await loadPeople();else await loadPosts();
   draw();
 });
+$('#fl').addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});
 
- const ACCENTS=[
-  {n:'Purple',h:262,h2:292,h3:351},
-  {n:'Pink',h:330,h2:315,h3:350},
-  {n:'Red',h:0,h2:348,h3:22},
-  {n:'Orange',h:25,h2:38,h3:8},
-  {n:'Green',h:142,h2:162,h3:108},
-  {n:'Teal',h:174,h2:190,h3:152},
-  {n:'Blue',h:217,h2:232,h3:195},
-  {n:'Mono',mono:true}
-];
-const FONTS=[
-  {n:'Default',f:"'Bricolage Grotesque','Manrope',system-ui,-apple-system,sans-serif"},
-  {n:'Classic',f:"Georgia,'Times New Roman',serif"},
-  {n:'Techy',f:"ui-monospace,Menlo,Consolas,monospace"}
-];
-let curAcc=0,curFont=0;
-function paintCustomize(){
-  document.querySelectorAll('#sws .sw').forEach((x,i)=>x.classList.toggle('on',i==curAcc));
-  document.querySelectorAll('#fcs .fc').forEach((x,i)=>x.classList.toggle('on',i==curFont));
-}
-function accent(i){
-  const a=ACCENTS[i],d=document.documentElement,r=d.style;
-  curAcc=i;
-  if(a.mono){d.dataset.palette='mono'}
-  else{delete d.dataset.palette;r.setProperty('--h',a.h);r.setProperty('--h2',a.h2);r.setProperty('--h3',a.h3)}
-  try{localStorage.setItem('il-acc',i)}catch(e){}
-  paintCustomize();
-}
-function fnt(i){
-  curFont=i;document.documentElement.style.setProperty('--font',FONTS[i].f);
-  try{localStorage.setItem('il-font',i)}catch(e){}
-  paintCustomize();
-}
-$('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
-$('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
-try{const sa=+localStorage.getItem('il-acc'),sf=+localStorage.getItem('il-font');if(sa)accent(sa);if(sf)fnt(sf)}catch(e){}
-paintCustomize();
- $('#fl').addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});
-// Theme toggle
+// ---------- Theme toggle (top bar) ----------
 // Dark is the CSS default, so only an explicit light preference counts as light
 function isDark(){
   const t=document.documentElement.dataset.theme;
   return t?t==='dark':!matchMedia('(prefers-color-scheme:light)').matches;
 }
-
 function updateThemeIcon(){
   const dark=isDark();
   $('#themeIcon').innerHTML=dark
     ?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
     :'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
 }
-
-function toggleTheme(){document.documentElement.dataset.theme=isDark()?'light':'dark';updateThemeIcon()}
-
-updateThemeIcon();
+function toggleTheme(){setTheme(isDark()?'light':'dark')}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
+// Apply saved look on this device before login, then boot
+try{applyPrefs(JSON.parse(localStorage.getItem('il-prefs')||'null'))}catch(e){}
+updateThemeIcon();paintCustomize();
 boot();
