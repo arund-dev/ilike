@@ -4,13 +4,13 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
 const iname=n=>S.im.get(n)?.name||'';
 const col=n=>esc(S.im.get(n)?.color||'var(--brand)');
-const em=n=>esc(S.im.get(n)?.emoji||'✦');
+const em=n=>esc(S.im.get(n)?.emoji||(S.im.get(n)?.kind=='artist'?'🎤':'✦'));
 const cat=n=>S.im.get(n)?.category;
 const nm=id=>S.names[id]||(id==S.user?.id?S.name:'Member');
 const PAL=['#8B5CF6','#EC4899','#22C55E','#F59E0B','#14B8A6','#3B82F6','#EF4444'];
@@ -111,9 +111,9 @@ async function logout(){await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=
 
 // ---------- Onboarding (first login) ----------
 function renderOb(){
-  const cats=[...new Set(S.ints.map(i=>i.category))];
+  const L=S.ints.filter(i=>i.kind!='artist'),cats=[...new Set(L.map(i=>i.category))];
   $('#ob').innerHTML=`<h2 style="margin:18px 0 6px">What do you like?</h2><p class="mute">Pick at least 3. Your feed is built from these.</p>${
-    cats.map(c=>`<div class="cath" style="color:${col(S.ints.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${S.ints.filter(i=>i.category===c).map(i=>`<button class="fc" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found. Add rows to the interests table in Supabase.</div>'
+    cats.map(c=>`<div class="cath" style="color:${col(L.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${L.filter(i=>i.category===c).map(i=>`<button class="fc" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found. Add rows to the interests table in Supabase.</div>'
   }<div class="err" id="oe"></div><button class="btn" id="obs" style="width:100%" onclick="saveOb(this)" disabled>Save and continue (0)</button>`;
 }
 function obPick(b,id){S.pick.has(id)?S.pick.delete(id):S.pick.add(id);b.classList.toggle('on');const s=$('#obs');s.disabled=S.pick.size<3;s.textContent='Save and continue ('+S.pick.size+')'}
@@ -140,6 +140,7 @@ async function load(){
   if(!S.user){
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
@@ -158,7 +159,7 @@ async function load(){
   S.names[S.user.id]=S.name;
   if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
   subscribe();
-  await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs()]);
+  await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()]);
   draw();show(S.tab);S.loaded=true;
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
@@ -182,6 +183,7 @@ async function hydrate(rows){
     sb.from('replies').select('post_id').in('post_id',ids),
     sb.from('post_images').select('post_id,url,position').in('post_id',ids).order('position')]);
   await getProfiles([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)]);
+  await ensureInts((t.data||[]).map(q=>q.interest_id));
   return rows.map(x=>{
     let o=S.pm.get(x.id);if(!o){o={};S.pm.set(x.id,o)}
     return Object.assign(o,x,{
@@ -227,28 +229,28 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div class="grow"><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
   const set=v=>{p.sames=v?[...p.sames,u]:p.sames.filter(x=>x!==u);document.querySelectorAll(`.card[data-pi="${id}"]`).forEach(c=>{c.querySelector('.same').className='same'+(v?' on':'');c.querySelector('.who2').innerHTML=sm(p)})};
   set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
   const r=on?await sb.from('sames').insert({post_id:p.id,user_id:u}):await sb.from('sames').delete().match({post_id:p.id,user_id:u});
-  if(r.error){set(!on);toast("Couldn't save that")}
+  if(r.error){set(!on);toast("Couldn't save that")}else if(on)checkAch()
 }
 // Who said Same
 function openSames(id){
   const p=findPost(id);if(!p||!p.sames.length)return;
   const l=so(p);
   $('#slt').textContent=l.length+(l.length==1?' person said Same':' people said Same');
-  $('#sll').innerHTML=l.map(u=>`<div class="prow">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`).join('');
+  $('#sll').innerHTML=l.map(u=>`<div class="prow"><span class="lk" onclick="openProfile('${u}')">${av(u)}</span><b class="grow lk" onclick="openProfile('${u}')">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`).join('');
   $('#sl').classList.add('on');
 }
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
 function home(){
-  if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F))S.F='All';
-  $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New'],...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${t[1]=='All'||t[1]=='Might like'||t[1]=='New'?t[1]:esc(t[1])}</button>`).join('');
-  const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):S.posts.filter(p=>p.tags.includes(F));
+  if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
+  $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
+  const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
   $('#feed').innerHTML=l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
@@ -297,7 +299,7 @@ async function publish(){
   S.photos.forEach(p=>URL.revokeObjectURL(p.prev));S.photos=[];renderPhotos();
   $('#txt').value='';closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
-  toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');
+  toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
 }
 
 // ---------- My post menu: edit / delete ----------
@@ -352,7 +354,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep">${av(r.author_id)}<div class="grow"><div><b>${esc(nm(r.author_id))}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -377,7 +379,7 @@ async function sendReply(){
   const{error}=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});
   b.disabled=false;
   if(error){toast(error.message);return}
-  $('#rin').value='';await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;
+  $('#rin').value='';await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;checkAch();
 }
 function delReply(id){
   confirmBox('Delete this reply?','Delete',async()=>{
@@ -397,8 +399,8 @@ function mix(q){
 }
 function findTab(){
   const q=$('#q').value.toLowerCase();
-  $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><button class="btn" onclick="sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
-  $('#rooms').innerHTML=S.ints.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<button class="room" onclick="openChat(${i.id},1)"><span>${em(i.id)}</span>${esc(i.name)}</button>`).join('')||'<div class="empty">No circles found</div>';
+  $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
+  $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
   $('#fx').innerHTML=m.length?'<div class="gridx">'+m.map(p=>{
     const img=p.imgs&&p.imgs[0];
@@ -417,27 +419,59 @@ function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 
 // ---------- You + interests ----------
 function meTab(){
-  const pr=S.prof||{};
+  const pr=S.prof||{},mine=[...S.mine];
   setMyAv($('#mav'));$('#mn').textContent=S.name;
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
+  $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
-  $('#shelf').innerHTML=[...S.mine].map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
+  $('#shelf').innerHTML=mine.filter(n=>!isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
+  $('#art').innerHTML=mine.filter(n=>isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk('art')">＋ Add</button>`;
+  drawBadges();
   $('#mine').innerHTML=S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
-function drawPk(){$('#pkl').innerHTML=S.ints.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('')}
-function openPk(){drawPk();$('#pk').classList.add('on')}
+// One picker for both lists: interests, or artists (with search + "add a new artist")
+function drawPk(){
+  const art=S.pkm=='art',raw=$('#pks').value.trim().replace(/\s+/g,' '),q=raw.toLowerCase();
+  $('#pkt').textContent=art?'Your artists':'Your interests';$('#pks').hidden=!art;
+  let l=S.ints.filter(i=>art?i.kind=='artist':i.kind!='artist');
+  if(art)l=l.filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>(S.mine.has(b.id)-S.mine.has(a.id))||a.name.localeCompare(b.name)).slice(0,60);
+  let h=l.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('');
+  if(art&&raw.length>=2&&raw.length<=40&&!S.ints.some(i=>i.name.toLowerCase()==q))h+=`<button class="fc addb" onclick="newArtist()">＋ Add “${esc(raw)}”</button>`;
+  if(art&&!h)h='<div class="mute sm">Type an artist name to add them.</div>';
+  $('#pkl').innerHTML=h;
+}
+function openPk(k){
+  S.pkm=k=='art'?'art':'int';$('#pks').value='';drawPk();$('#pk').classList.add('on');
+  loadInts().then(()=>{if($('#pk').classList.contains('on'))drawPk()});
+}
 function ask(n){
   const on=S.mine.has(n);
-  confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+' your interests?',on?'Remove':'Add',()=>toggleInt(n));
+  confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+(isArt(n)?' your artists?':' your interests?'),on?'Remove':'Add',()=>toggleInt(n));
 }
 async function toggleInt(n){
   const on=S.mine.has(n);
   const r=on?await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n}):await sb.from('user_interests').insert({user_id:S.user.id,interest_id:n});
   if(r.error){toast(r.error.message);return}
   on?S.mine.delete(n):S.mine.add(n);
+  S.cnt[n]=Math.max(0,(S.cnt[n]||0)+(on?-1:1));
   draw();if($('#pk').classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
 }
-function draw(){home();findTab();meTab();refreshPv()}
+async function newArtist(){
+  const name=$('#pks').value.trim().replace(/\s+/g,' ');
+  if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
+  const find=()=>S.ints.find(i=>i.name.toLowerCase()==name.toLowerCase());
+  const known=d=>{if(d.kind=='artist'){$('#pks').value='';drawPk();ask(d.id)}else toast('"'+d.name+'" is already an interest')};
+  let d=find();if(d){known(d);return}
+  const color=PAL[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
+  const r=await sb.from('interests').insert({name,emoji:'🎤',color,category:'Artists',kind:'artist'}).select().single();
+  if(r.error){
+    if(r.error.code=='23505'){await loadInts();d=find();if(d){known(d);return}}
+    toast(r.error.message);return;
+  }
+  S.ints.push(r.data);S.im.set(r.data.id,r.data);
+  $('#pks').value='';await toggleInt(r.data.id);
+}
+function draw(){home();findTab();meet();meTab();refreshPv();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
 
 // ---------- Edit profile ----------
 function openPe(){
@@ -469,7 +503,7 @@ async function pickAvatar(inp){
     if(error)throw error;
     if(old)rmFiles('avatars',[old]);
     S.avs[S.user.id]=url;S.prof.avatar_url=url;
-    setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');
+    setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');checkAch();
   }catch(e){toast(e.message||"Couldn't upload that photo")}
 }
 async function removeAvatar(){
@@ -570,7 +604,7 @@ function updateBadges(){
   set('#chb',m);set('#nb',n);
 }
 // Catch up when the app comes back to the foreground (in case a live update was missed)
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch()}});
 
 // ---------- Messages (1-to-1) ----------
 let conv=false,ctab=0;
@@ -581,24 +615,36 @@ async function loadMsgs(){
   if($('#ov').classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
 }
 const convoOf=id=>S.msgs.filter(m=>(m.sender_id==id&&m.to_user==S.user.id)||(m.sender_id==S.user.id&&m.to_user==id));
+function leaveRoom(){
+  if(S.cch){sb.removeChannel(S.cch);S.cch=null}
+  S.room=null;S.cm=null;
+}
+function closeOv(){$('#ov').classList.remove('on');leaveRoom();conv=false;S.dm=null}
+// Bottom bar: normal input for DMs and for circles I am in, a Join bar otherwise
+function setBar(){
+  const room=S.room!=null,can=!room||S.mine.has(S.room);
+  $('#inp').style.display=can?'':'none';$('#jbar').style.display=can?'none':'flex';
+  $('#mi').placeholder=room?'Message the circle...':'Say something nice...';
+  if(room&&!can)$('#jtx').textContent='Join '+iname(S.room)+' to chat here.';
+}
 function openChats(){
-  conv=false;S.dm=null;
+  leaveRoom();conv=false;S.dm=null;setBar();
   $('#ov').classList.add('on');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
   const me=S.user.id;
   const tabs=`<div class="tabs"><button class="${ctab?'':'on'}" onclick="ctab=0;openChats()">Friends</button><button class="${ctab?'on':''}" onclick="ctab=1;openChats()">Circles</button></div>`;
   let body;
   if(ctab){
-    body=S.ints.map(i=>`<div class="card row" onclick="openChat(${i.id},1)"><div class="tile">${em(i.id)}</div><b>${esc(i.name)}</b></div>`).join('');
+    body=[...S.ints].sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<div class="card row" onclick="openChat(${i.id})"><div class="tile">${em(i.id)}</div><div class="grow"><b>${esc(i.name)}</b><div class="mute sm">${S.mine.has(i.id)?'You are in · ':''}${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</div></div></div>`).join('');
   }else{
     const rows=S.people.map(p=>{const l=convoOf(p.id);return{p,last:l[l.length-1],un:l.filter(m=>m.to_user==me&&!m.read_at).length}})
-      .sort((a,b)=>(b.last?+new Date(b.last.created_at):0)-(a.last?+new Date(a.last.created_at):0));
-    body=rows.map(o=>`<div class="card row" onclick="openDm('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b>${o.last?`<div class="mute sm clip">${o.last.sender_id==me?'You: ':''}${esc(o.last.body)}</div>`:'<div class="mute sm">Say hi 👋</div>'}</div>${o.un?`<span class="dot">${o.un}</span>`:''}</div>`).join('')
+      .sort((a,b)=>(b.last?+new Date(b.last.created_at):0)-(a.last?+new Date(a.last.created_at):0)||(S.fol.has(b.p.id)-S.fol.has(a.p.id)));
+    body=rows.map(o=>`<div class="card row" onclick="openDm('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b>${o.last?`<div class="mute sm clip">${o.last.sender_id==me?'You: ':''}${esc(o.last.body)}</div>`:`<div class="mute sm">${S.fol.has(o.p.id)?'Following · ':''}Say hi 👋</div>`}</div>${o.un?`<span class="dot">${o.un}</span>`:''}</div>`).join('')
       ||'<div class="empty">No one else here yet.<br>Invite a friend to start chatting.</div>';
   }
   $('#cl').innerHTML=tabs+body;
 }
 function openDm(id){
-  id=String(id);S.dm=id;conv=true;
+  id=String(id);leaveRoom();S.dm=id;conv=true;setBar();
   $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
   $('#ct').textContent=nm(id);drawDm();markRead(id);
 }
@@ -609,14 +655,60 @@ function drawDm(){
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">👋</div><b>Say hi to ${esc(nm(S.dm))}</b></div>`;
   $('#msgs').scrollTop=1e5;
 }
-// Circle chat is still coming soon
-function openChat(k,room){
-  S.dm=null;conv=true;$('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';$('#ct').textContent=room?iname(k):nm(k);
-  $('#msgs').innerHTML='<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">💬</div><b>Circle chat is coming soon</b></div>';
+// ---------- Circle chat (one live room per interest / artist) ----------
+function openChat(k){
+  k=+k;leaveRoom();S.dm=null;S.room=k;S.cm=null;conv=true;setBar();
+  $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
+  $('#ct').textContent=(S.im.get(k)?.emoji||'✦')+' '+iname(k);
+  drawCircle(1);
+  S.cch=sb.channel('circle-'+k+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'circle_messages',filter:'interest_id=eq.'+k},p=>onCircleMsg(p.new))
+    .subscribe();
+  loadCircle(k);
+}
+async function loadCircle(k){
+  const r=await sb.from('circle_messages').select('id,sender_id,body,created_at').eq('interest_id',k).order('created_at',{ascending:false}).limit(100);
+  if(S.room!==k)return;
+  if(r.error){toast('Could not load the chat');S.cm=[];drawCircle(1);return}
+  const rows=r.data.reverse();
+  await getProfiles(rows.map(m=>m.sender_id));
+  if(S.room!==k)return;
+  const have=new Set(rows.map(m=>m.id));
+  S.cm=[...rows,...(S.cm||[]).filter(m=>!have.has(m.id))];
+  drawCircle(1);
+}
+function drawCircle(snap){
+  const el=$('#msgs'),near=el.scrollHeight-el.scrollTop-el.clientHeight<140,me=S.user.id;
+  if(S.cm===null){el.innerHTML='<div class="empty" style="margin:auto">Loading...</div>';return}
+  el.innerHTML=S.cm.length?S.cm.map(m=>{
+    const t=`<small class="t">${tm(m.created_at)}</small>`;
+    return m.sender_id==me
+      ?`<div class="b me" onclick="delCm('${m.id}')">${esc(m.body)}${t}</div>`
+      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}</span>${esc(m.body)}${t}</div></div>`}).join('')
+    :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
+  if(snap||near)el.scrollTop=1e5;
+}
+async function onCircleMsg(m){
+  if(S.room!==m.interest_id||S.cm===null||S.cm.some(x=>x.id===m.id))return;
+  if(!S.names[m.sender_id])await getProfiles([m.sender_id]);
+  if(S.room!==m.interest_id||S.cm.some(x=>x.id===m.id))return;
+  S.cm.push(m);drawCircle(m.sender_id==S.user.id);
+}
+function delCm(id){
+  confirmBox('Delete this message?','Delete',async()=>{
+    const{error}=await sb.from('circle_messages').delete().eq('id',id);
+    if(error){toast(error.message);return}
+    if(S.cm){S.cm=S.cm.filter(x=>x.id!==id);if(S.room!=null)drawCircle()}
+  });
+}
+async function joinRoom(){
+  const k=S.room;if(k==null)return;
+  await toggleInt(k);
+  if(S.room===k&&S.mine.has(k)){setBar();drawCircle()}
 }
 // "Say hi" from Discover and from the Same list
 function sayHi(id){
-  $('#sl').classList.remove('on');$('#pv').classList.remove('on');closeThread();
+  $('#sl').classList.remove('on');$('#pv').classList.remove('on');closeThread();closePf();
   openDm(id);
 }
 function markRead(id){
@@ -627,11 +719,21 @@ function markRead(id){
 }
 async function send(){
   const v=$('#mi').value.trim();if(!v)return;
-  if(!S.dm){toast('Circle chat is coming soon');return}
+  if(S.room!=null){
+    const k=S.room;
+    if(!S.mine.has(k)){toast('Join this circle to chat');return}
+    $('#mi').value='';
+    const{data,error}=await sb.from('circle_messages').insert({interest_id:k,sender_id:S.user.id,body:v}).select().single();
+    if(error){if(S.room===k)$('#mi').value=v;toast(error.message);return}
+    if(S.room===k&&S.cm&&!S.cm.some(x=>x.id===data.id)){S.cm.push(data);drawCircle(1)}
+    checkAch();return;
+  }
+  if(!S.dm)return;
   $('#mi').value='';
   const{data,error}=await sb.from('messages').insert({sender_id:S.user.id,to_user:S.dm,body:v}).select().single();
   if(error){$('#mi').value=v;toast(error.message);return}
   S.msgs.push(data);if(conv&&S.dm==data.to_user)drawDm();
+  checkAch();
 }
 async function onMsg(m){
   if(S.msgs.some(x=>x.id===m.id))return;
@@ -643,15 +745,16 @@ async function onMsg(m){
   toast(nm(m.sender_id)+': '+(m.body.length>40?m.body.slice(0,40)+'…':m.body));
   if(open&&!conv)openChats();
 }
-function back(){conv?openChats():$('#ov').classList.remove('on')}
+function back(){conv?openChats():closeOv()}
 
 // ---------- Notifications ----------
 async function notifMeta(list){
   await getProfiles(list.map(n=>n.actor_id));
-  const need=[...new Set(list.map(n=>n.post_id))].filter(id=>!(id in S.nposts)&&!findPost(id));
+  const need=[...new Set(list.map(n=>n.post_id))].filter(id=>id&&!(id in S.nposts)&&!findPost(id));
   if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);(r.data||[]).forEach(x=>S.nposts[x.id]=x.body)}
 }
-const nsnip=n=>{const p=findPost(n.post_id),b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
+const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id),b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
+const ntext=n=>n.type=='same'?'said Same to your post':n.type=='reply'?'replied to your post':'started following you';
 async function loadNotifs(){
   const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(40);
   if(r.error)return;
@@ -659,8 +762,8 @@ async function loadNotifs(){
   if($('#nv').classList.contains('on'))drawNotifs();
 }
 function drawNotifs(){
-  $('#nl').innerHTML=S.notifs.map(n=>`<div class="card row nitem ${n.read_at?'':'new'}" onclick="openNotif('${n.id}')">${av(n.actor_id)}<div class="grow"><div><b>${esc(nm(n.actor_id))}</b> ${n.type=='same'?'said Same to your post':'replied to your post'}</div><div class="mute sm clip">${esc(nsnip(n))}</div></div><span class="mute sm">${ago(n.created_at)}</span></div>`).join('')
-    ||'<div class="empty">Nothing yet.<br>When someone says Same or replies, you will see it here.</div>';
+  $('#nl').innerHTML=S.notifs.map(n=>`<div class="card row nitem ${n.read_at?'':'new'}" onclick="openNotif('${n.id}')">${av(n.actor_id)}<div class="grow"><div><b>${esc(nm(n.actor_id))}</b> ${ntext(n)}</div><div class="mute sm clip">${n.type=='follow'?'Tap to see their profile':esc(nsnip(n))}</div></div><span class="mute sm">${ago(n.created_at)}</span></div>`).join('')
+    ||'<div class="empty">Nothing yet.<br>When someone says Same, replies or follows you, you will see it here.</div>';
 }
 function markNotifsRead(){
   const un=S.notifs.filter(n=>!n.read_at);if(!un.length)return;
@@ -670,6 +773,7 @@ function markNotifsRead(){
 function openNotifs(){drawNotifs();$('#nv').classList.add('on');markNotifsRead()}
 async function openNotif(id){
   const n=S.notifs.find(x=>x.id===id);if(!n)return;
+  if(n.type=='follow'){openProfile(n.actor_id);return}
   if(!(await ensurePost(n.post_id)))return;
   n.type=='reply'?openThread(n.post_id):openPost(n.post_id);
 }
@@ -677,13 +781,263 @@ async function onNotif(n){
   await notifMeta([n]);
   if(S.notifs.some(x=>x.id===n.id))return;
   S.notifs.unshift(n);
-  toast(nm(n.actor_id)+(n.type=='same'?' said Same to your post':' replied to your post'));
+  toast(nm(n.actor_id)+' '+ntext(n));
+  if(n.type=='follow'){S.folrs.add(n.actor_id);draw()}else checkAch();
   if($('#nv').classList.contains('on')){drawNotifs();markNotifsRead()}else updateBadges();
+}
+
+// =====================================================================
+// P2: artists, follow + profiles, events, achievements
+// (circle chat lives with the chats code above)
+// =====================================================================
+
+// ---------- Interests / artists ----------
+const isArt=n=>S.im.get(n)?.kind=='artist';
+// Artists can be added by anyone, so fetch any interest we have not seen yet
+async function ensureInts(ids){
+  const miss=[...new Set(ids)].filter(n=>n&&!S.im.has(n));
+  if(!miss.length)return;
+  const r=await sb.from('interests').select('*').in('id',miss);
+  (r.data||[]).forEach(x=>{S.im.set(x.id,x);S.ints.push(x)});
+}
+async function loadInts(){
+  const r=await sb.from('interests').select('*').order('category').order('name');
+  if(r.error)return;
+  S.ints=r.data;S.im=new Map(S.ints.map(x=>[x.id,x]));
+}
+
+// ---------- Follow ----------
+async function loadFollows(){
+  const[a,b]=await Promise.all([
+    sb.from('follows').select('following_id').eq('follower_id',S.user.id),
+    sb.from('follows').select('follower_id').eq('following_id',S.user.id)]);
+  S.fol=new Set((a.data||[]).map(x=>x.following_id));
+  S.folrs=new Set((b.data||[]).map(x=>x.follower_id));
+}
+async function toggleFollow(id){
+  id=String(id);if(id==S.user.id)return;
+  const on=!S.fol.has(id);
+  const set=v=>{
+    v?S.fol.add(id):S.fol.delete(id);
+    if(S.pf&&S.pf.id==id&&typeof S.pf.nf=='number')S.pf.nf=Math.max(0,S.pf.nf+(v?1:-1));
+    draw();
+  };
+  set(on);
+  const r=on?await sb.from('follows').insert({follower_id:S.user.id,following_id:id})
+            :await sb.from('follows').delete().match({follower_id:S.user.id,following_id:id});
+  if(r.error){set(!on);toast("Couldn't update that");return}
+  if(on){toast('Following '+nm(id));checkAch()}
+}
+function peopleSheet(title,ids){
+  $('#slt').textContent=title;
+  $('#sll').innerHTML=ids.map(u=>`<div class="prow lk" onclick="openProfile('${u}')">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b></div>`).join('')||'<div class="empty">Nobody yet</div>';
+  $('#sl').classList.add('on');
+}
+async function openFollows(id,k){
+  const a=k=='ers'?'follower_id':'following_id',b=k=='ers'?'following_id':'follower_id';
+  const r=await sb.from('follows').select(a).eq(b,id).order('created_at',{ascending:false}).limit(200);
+  if(r.error){toast('Could not load that list');return}
+  const ids=r.data.map(x=>x[a]);await getProfiles(ids);
+  peopleSheet(k=='ers'?'Followers':'Following',ids);
+}
+
+// ---------- Other people's profiles ----------
+function closePf(){$('#pf').classList.remove('on');S.pf=null}
+function closeAll(){
+  ['#pv','#pf','#th','#sl','#nv','#info'].forEach(x=>$(x).classList.remove('on'));
+  S.th=null;S.pf=null;closeOv();
+}
+async function openProfile(id){
+  id=String(id);
+  if(id==S.user.id){closeAll();show('me');draw();checkAch();return}
+  closeThread();$('#sl').classList.remove('on');
+  S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
+  const[p,ui,ua,po,c1,c2]=await Promise.all([
+    sb.from('profiles').select('id,username,display_name,bio,city,avatar_url').eq('id',id).maybeSingle(),
+    sb.from('user_interests').select('interest_id').eq('user_id',id),
+    sb.from('user_achievements').select('code,earned_at').eq('user_id',id),
+    sb.from('posts').select(COLS).eq('author_id',id).order('created_at',{ascending:false}).limit(20),
+    sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
+    sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id)]);
+  if(!S.pf||S.pf.id!==id)return;
+  if(!p.data){toast('That profile is gone');closePf();return}
+  S.names[id]=p.data.display_name;
+  if(p.data.avatar_url)S.avs[id]=p.data.avatar_url;else delete S.avs[id];
+  const ints=(ui.data||[]).map(x=>x.interest_id);
+  await ensureInts(ints);
+  const posts=await hydrate(po.data||[]);
+  if(!S.pf||S.pf.id!==id)return;
+  Object.assign(S.pf,{prof:p.data,ints,ach:ua.data||[],posts,nf:c1.count||0,ng:c2.count||0});
+  drawPf();
+}
+function drawPf(){
+  const f=S.pf;if(!f)return;
+  const id=f.id,p=f.prof;
+  if(!p){$('#pfb').innerHTML='<div class="empty">Loading...</div>';return}
+  const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
+  const fo=S.fol.has(id);
+  const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
+  $('#pfb').innerHTML=`<div class="pfh">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}</h3>
+<div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
+${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
+<div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
+<div class="row pfa"><button class="btn ${fo?'off':''}" onclick="toggleFollow('${id}')">${fo?'Following ✓':'Follow'}</button><button class="btn off" onclick="sayHi('${id}')"><span class="wave-btn">👋</span> Say hi</button></div></div>
+${likes.length?`<div class="pfs">Likes</div><div class="pfc">${likes.map(chip).join('')}</div>`:''}
+${arts.length?`<div class="pfs">Artists</div><div class="pfc">${arts.map(chip).join('')}</div>`:''}
+${earned.length?`<div class="pfs">Achievements</div><div class="pfc">${earned.map(x=>`<button class="chip tg" style="--c:#64748B" onclick="showAch('${x.code}','${x.earned_at}')">${esc(x.a.emoji)} ${esc(x.a.title)}</button>`).join('')}</div>`:''}
+<div class="pfs">Posts</div>${f.posts.map(q=>post(q)).join('')||'<div class="empty">No posts yet.</div>'}`;
+}
+
+// ---------- Achievements ----------
+async function loadAch(){
+  if(!S.achCat.length){
+    const c=await sb.from('achievements').select('code,emoji,title,description,sort').order('sort');
+    S.achCat=c.data||[];
+  }
+  const r=await sb.from('user_achievements').select('code,earned_at').eq('user_id',S.user.id);
+  if(r.error)return;
+  const fresh=r.data.filter(x=>!S.achMine.has(x.code));
+  S.achMine=new Map(r.data.map(x=>[x.code,x.earned_at]));
+  if(S.achReady&&fresh.length){
+    const a=S.achCat.find(c=>c.code==fresh[0].code);
+    if(a)setTimeout(()=>toast('🏆 New badge: '+a.emoji+' '+a.title+(fresh.length>1?' +'+(fresh.length-1)+' more':'')),1300);
+  }
+  S.achReady=true;
+  if($('#badges'))drawBadges();
+}
+let achT;
+function checkAch(){clearTimeout(achT);achT=setTimeout(()=>{if(S.user)loadAch()},400)}
+function drawBadges(){
+  const c=S.achCat;
+  $('#badges').innerHTML=c.length
+    ?`<div class="mute sm cnt-line">${S.achMine.size} of ${c.length} earned</div>`+c.map(a=>{
+        const d=S.achMine.get(a.code);
+        return `<button class="chip tg ${d?'':'lock'}" style="--c:#64748B" onclick="showAch('${a.code}','${d||''}')">${d?esc(a.emoji):'🔒'} ${esc(a.title)}</button>`}).join('')
+    :'<span class="mute sm">Coming soon</span>';
+}
+function showAch(code,d){
+  const a=S.achCat.find(x=>x.code==code);if(!a)return;
+  $('#inf').innerHTML=`<div style="font-size:40px">${d?esc(a.emoji):'🔒'}</div><div style="font-size:18px;font-weight:800;margin:6px 0">${esc(a.title)}</div><div class="mute sm">${d?'Earned '+new Date(d).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'}):'Not earned yet'}</div><p style="margin-top:10px">${esc(a.description)}</p>`;
+  $('#info').classList.add('on');
+}
+
+// ---------- Events + "I'm in" ----------
+const EVEM=['📍','🎉','☕','🍜','🎮','🎬','🎵','🥾','⚽','📚','🎨','🏖️','🍕','🎤','🎲','🏃'];
+const evd=d=>{const x=new Date(d);return x.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'})+' · '+x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+const toLocalInput=d=>{const x=new Date(d),p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+'T'+p(x.getHours())+':'+p(x.getMinutes())};
+const ord=l=>l.includes(S.user.id)?[S.user.id,...l.filter(x=>x!=S.user.id)]:l;
+const stack=l=>l.length?`<span class="stk">${l.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'';
+const goTxt=l=>{
+  const n=ord(l).map(x=>x==S.user.id?'You':nm(x));
+  if(!n.length)return 'Be the first to join';
+  const v=n.length==1&&n[0]!='You'?'is':'are';
+  return (n.length==1?n[0]:n.length==2?n.join(' & '):n[0]+', '+n[1]+' & '+(n.length-2)+(n.length==3?' other':' others'))+' '+v+' going';
+};
+const goHtml=e=>stack(ord(e.goers))+esc(goTxt(e.goers));
+const goRow=e=>stack(ord(e.goers))+`<span class="mute sm">${e.goers.length} going</span>`;
+const iminHTML=on=>`<span>${on?"You're in ✓":"I'm in"}</span>`;
+
+async function loadEvents(){
+  const since=new Date(Date.now()-3*36e5).toISOString();
+  const r=await sb.from('events').select('id,organizer_id,title,emoji,starts_at,place,venue,description').gte('starts_at',since).order('starts_at').limit(60);
+  if(r.error){if(!S.evs)S.evs=[];meet();return}
+  const ids=r.data.map(e=>e.id);
+  const g=ids.length?await sb.from('event_goers').select('event_id,user_id').in('event_id',ids):{data:[]};
+  await getProfiles([...r.data.map(e=>e.organizer_id),...(g.data||[]).map(x=>x.user_id)]);
+  S.evs=r.data.map(e=>({...e,goers:(g.data||[]).filter(x=>x.event_id===e.id).map(x=>x.user_id)}));
+  S.evm=new Map(S.evs.map(e=>[e.id,e]));
+  meet();refreshPv();
+}
+function evCard(e){
+  const me=S.user.id,on=e.goers.includes(me),host=e.organizer_id==me;
+  return `<div class="card tapc evc" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">📍 ${esc(e.place)}</div></div></div><div class="row" style="margin-top:12px"><div class="grow who2" data-evg="${e.id}">${goHtml(e)}</div>${host?'<span class="date">You are hosting</span>':`<button class="imin-btn ${on?'on':''}" data-evb="${e.id}" onclick="event.stopPropagation();imin('${e.id}',this)">${iminHTML(on)}</button>`}</div></div>`;
+}
+function meet(){
+  const el=$('#evs');
+  if(!S.evs){el.innerHTML='<div class="empty" style="grid-column:1/-1;padding:60px 16px">Loading...</div>';return}
+  el.innerHTML=S.evs.length?S.evs.map(evCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No plans yet</b><div class="sm" style="margin:6px 0 16px">Hangouts and meetups with people who like what you like.</div><button class="btn" onclick="openEv()">Plan the first one</button></div>`;
+}
+function openEvent(id){showPv(()=>eventHTML(id))}
+function eventHTML(id){
+  const e=S.evm.get(id);if(!e)return '';
+  const me=S.user.id,host=e.organizer_id==me,on=e.goers.includes(me);
+  const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
+  const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
+  return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
+<div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
+<div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
+<div class="ev-row">${usr}<span>Planned by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(host?'you':nm(e.organizer_id))}</b></span></div>
+${e.description?`<p class="evdesc">${esc(e.description)}</p>`:''}
+<div class="evh">WHO'S GOING</div><div class="row evgo lk" data-evg="${e.id}" data-d="1" onclick="openGoers('${e.id}')">${goRow(e)}</div>
+${host?`<div class="evact"><button class="btn off" onclick="openEv('${e.id}')">Edit</button><button class="btn off danger" onclick="delEv('${e.id}')">Delete</button></div>`
+:`<button class="imin-btn imin-full ${on?'on':''}" data-evb="${e.id}" onclick="imin('${e.id}',this)">${iminHTML(on)}</button>`}</div>`;
+}
+function openGoers(id){const e=S.evm.get(id);if(e)peopleSheet('Going ('+e.goers.length+')',ord(e.goers))}
+// Update buttons and "who's going" in place so the wipe animation plays
+function paintEv(e){
+  const on=e.goers.includes(S.user.id);
+  document.querySelectorAll(`[data-evb="${e.id}"]`).forEach(b=>{b.className='imin-btn'+(b.classList.contains('imin-full')?' imin-full':'')+(on?' on':'');b.innerHTML=iminHTML(on)});
+  document.querySelectorAll(`[data-evg="${e.id}"]`).forEach(x=>x.innerHTML=x.dataset.d?goRow(e):goHtml(e));
+}
+async function imin(id,btn){
+  const e=S.evm.get(id),u=S.user.id;if(!e||e.organizer_id==u)return;
+  const on=!e.goers.includes(u);
+  const set=v=>{e.goers=v?[...e.goers,u]:e.goers.filter(x=>x!==u);paintEv(e)};
+  set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
+  const r=on?await sb.from('event_goers').insert({event_id:id,user_id:u}):await sb.from('event_goers').delete().match({event_id:id,user_id:u});
+  if(r.error){set(!on);toast("Couldn't save that");return}
+  if(on)checkAch();
+}
+function drawEvEm(){
+  $('#evEm').innerHTML=[...new Set([S.evEm,...EVEM])].map(x=>`<button type="button" class="${x==S.evEm?'on':''}" onclick="S.evEm='${x}';drawEvEm()">${x}</button>`).join('');
+}
+function openEv(id){
+  const e=id?S.evm.get(id):null;
+  if(id&&!e)return;
+  S.evId=e?e.id:null;S.evEm=e?e.emoji:'📍';drawEvEm();
+  $('#evHead').textContent=e?'Edit event':'Plan an event';
+  $('#evTitle').value=e?e.title:'';
+  let d=new Date();d.setDate(d.getDate()+1);d.setHours(18,0,0,0);
+  $('#evWhen').value=toLocalInput(e?e.starts_at:d);
+  $('#evPlace').value=e?e.place:'';$('#evVenue').value=e?.venue||'';$('#evDesc').value=e?.description||'';
+  $('#evErr').textContent='';$('#evSave').disabled=false;
+  $('#ev').classList.add('on');
+}
+async function saveEv(){
+  const title=$('#evTitle').value.trim(),w=$('#evWhen').value,place=$('#evPlace').value.trim(),venue=$('#evVenue').value.trim(),desc=$('#evDesc').value.trim(),err=$('#evErr');
+  err.textContent='';
+  if(!title){err.textContent='Give your plan a name.';return}
+  if(!w){err.textContent='Pick a date and time.';return}
+  const when=new Date(w);
+  if(isNaN(when)){err.textContent='That date does not look right.';return}
+  if(!S.evId&&when<Date.now()){err.textContent='Pick a time in the future.';return}
+  if(!place){err.textContent='Where is it happening?';return}
+  const vals={title,emoji:S.evEm,starts_at:when.toISOString(),place,venue:venue||null,description:desc||null};
+  const b=$('#evSave');b.disabled=true;
+  let r;
+  if(S.evId)r=await sb.from('events').update(vals).eq('id',S.evId).eq('organizer_id',S.user.id);
+  else r=await sb.from('events').insert({...vals,organizer_id:S.user.id});
+  b.disabled=false;
+  if(r.error){err.textContent=r.error.message;return}
+  const wasNew=!S.evId;
+  $('#ev').classList.remove('on');
+  await loadEvents();draw();toast(wasNew?'Event planned':'Event updated');
+  if(wasNew)checkAch();
+}
+function delEv(id){
+  confirmBox('Delete this event?','Delete',async()=>{
+    const{error}=await sb.from('events').delete().eq('id',id).eq('organizer_id',S.user.id);
+    if(error){toast(error.message);return}
+    $('#pv').classList.remove('on');S.evm.delete(id);
+    await loadEvents();draw();toast('Event deleted');
+  });
 }
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
   const s=b.dataset.s;show(s);
-  if(s=='find')await loadPeople();else await loadPosts();
+  if(s=='find')await loadPeople();else if(s=='meet')await loadEvents();else await loadPosts();
+  if(s=='me')checkAch();
   draw();
 });
 $('#fl').addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});

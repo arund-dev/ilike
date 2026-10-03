@@ -261,7 +261,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .mod .sheet{width:min(520px,calc(100% - 48px));border-radius:28px;border:1px solid var(--line);padding-bottom:24px;box-shadow:0 30px 80px -20px var(--glow);transform:translateY(24px) scale(.97)}
   .mod.on .sheet{transform:none}
   .sheet::before{display:none}
-  #pv .sheet,#th .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  #pv .sheet,#th .sheet,#pf .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
   .thsheet{padding-bottom:16px}
   .btn:hover,.ghost:hover,.fc:hover,.ib:hover{filter:brightness(1.08)}
   .ghost:hover{color:var(--brand)}
@@ -373,3 +373,53 @@ body.noapp nav,body.noapp .fab{display:none}
 .prow{display:flex;align-items:center;gap:12px;padding:8px 6px}
 .nitem.new{border-color:var(--brand)}
 .nitem .mute.sm:last-child{flex:none}
+
+/* ── P2: profiles, follow, artists, events, circle chat, achievements ── */
+:root{color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light}}
+#th{z-index:46}
+#pf .sheet::before{display:none}
+.fi[hidden]{display:none}
+.lk,.tapc{cursor:pointer}
+.acol{display:flex;flex-direction:column;gap:6px;align-items:stretch;flex:none}
+.acol .btn{margin:0;white-space:nowrap}
+.cnts{display:flex;gap:18px;margin:6px 0 2px}
+.cnts button{background:none;border:0;padding:4px 0;font:inherit;font-size:14px;color:var(--mute);cursor:pointer}
+.cnts b{color:var(--text)}
+.tg.lock{opacity:.5}
+.cnt-line{margin:0 4px 6px}
+
+/* person profile sheet */
+.pfh{padding:22px 20px 4px}
+.pfh .av.big{width:84px;height:84px;font-size:34px}
+.pfn{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-top:10px}
+.pfa{margin:12px 0 0}
+.pfa .btn{flex:1;margin:0}
+.pfs{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--mute);margin:18px 18px 4px}
+.pfc{padding:0 14px}
+
+/* circle chat */
+.crow{display:flex;gap:8px;align-items:flex-end;align-self:flex-start;max-width:86%}
+.crow .av{width:30px;height:30px;font-size:12px;border-width:1px;margin:0}
+.crow .b{max-width:none;min-width:0}
+.b{overflow-wrap:anywhere}
+.cn{display:block;font-size:12px;font-weight:800;margin-bottom:2px}
+.room small{display:block;font-size:12px;font-weight:600;color:var(--mute);margin-top:2px}
+
+/* events */
+.evp{padding:0 24px 8px}
+.evbn{height:150px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:64px;margin:0 0 20px}
+.evt{margin:0 0 14px!important;font-size:22px;line-height:1.3}
+.ev-row span{font-size:14px;font-weight:600}
+.ev-row small{font-weight:500;color:var(--mute)}
+.ev-row b{color:var(--text)}
+.evdesc{margin:20px 0;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.evh{font-size:13px;font-weight:800;margin:18px 0 12px;letter-spacing:.5px;color:var(--mute)}
+.evgo{margin-bottom:24px;gap:10px}
+.evem{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.evem button{width:42px;height:42px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:22px;cursor:pointer;transition:.2s}
+.evem button.on{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 18%,var(--card))}
+.evact{display:flex;gap:10px}
+.evact .btn{flex:1}
+.evc .who2{margin:0}
