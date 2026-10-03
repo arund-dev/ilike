@@ -52,13 +52,14 @@ function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy'
 function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
 
 // ---------- Photos: resize in the browser, upload to Supabase Storage ----------
-function prep(file,max,square){
+function prep(file,max,square,ratio){
   return new Promise((res,rej)=>{
     const url=URL.createObjectURL(file),im=new Image();
     im.onload=()=>{
       URL.revokeObjectURL(url);
       let sw=im.naturalWidth,sh=im.naturalHeight,sx=0,sy=0,w,h;
-      if(square){const s=Math.min(sw,sh);sx=(sw-s)/2;sy=(sh-s)/2;sw=sh=s;w=h=Math.min(max,s)}
+      if(ratio){let cw=sw,ch=sw/ratio;if(ch>sh){ch=sh;cw=sh*ratio}sx=(sw-cw)/2;sy=(sh-ch)/2;sw=cw;sh=ch;w=Math.min(max,Math.round(cw));h=Math.round(w/ratio)}
+      else if(square){const s=Math.min(sw,sh);sx=(sw-s)/2;sy=(sh-s)/2;sw=sh=s;w=h=Math.min(max,s)}
       else{const k=Math.min(1,max/Math.max(sw,sh));w=Math.round(sw*k);h=Math.round(sh*k)}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,w,h);
@@ -146,10 +147,10 @@ async function load(){
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
   const[pr,i,u]=await Promise.all([
-    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url').eq('id',S.user.id).single(),
+    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
     sb.from('user_interests').select('interest_id').eq('user_id',S.user.id)]);
-  S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null};
+  S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null,banner_url:null};
   S.name=S.prof.display_name||S.name;
   if(S.prof.avatar_url)S.avs[S.user.id]=S.prof.avatar_url;
   applyPrefs(S.prof.theme_prefs);
@@ -159,7 +160,9 @@ async function load(){
   S.names[S.user.id]=S.name;
   if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
   subscribe();
-  await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()]);
+  S.skel=true;draw();show(S.tab);
+  try{await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()])}
+  finally{S.skel=false}
   draw();show(S.tab);S.loaded=true;
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
@@ -251,18 +254,23 @@ function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
   $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
   const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
-  $('#feed').innerHTML=l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
+  $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 
 // ---------- Compose ----------
 function tapFab(){
+  const pa=$('#sel').value,pb=$('#sel2').value;
   const o=[...S.mine].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
   $('#sel').innerHTML=o;
   $('#sel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
+  setSel($('#sel'),pa);setSel($('#sel2'),pb);restoreDraft();
   $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');
 }
-function closePost(){$('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on')}
+function closePost(){
+  if($('#mod').classList.contains('on')&&$('#txt').value.trim())toast('Draft saved');
+  $('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on')
+}
 function renderPhotos(){
   $('#pph').innerHTML=S.photos.map((ph,i)=>`<div class="ph"><img src="${ph.prev}" alt="Photo ${i+1}"><button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button></div>`).join('');
   $('#padd').hidden=S.photos.length>=4;
@@ -297,7 +305,7 @@ async function publish(){
   }
   btn.disabled=false;btn.textContent='Share';
   S.photos.forEach(p=>URL.revokeObjectURL(p.prev));S.photos=[];renderPhotos();
-  $('#txt').value='';closePost();S.F='All';
+  $('#txt').value='';clearDraft();closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
   toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
 }
@@ -358,7 +366,7 @@ const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
-  $('#thr').innerHTML=S.reps===null?'<div class="empty">Loading...</div>':S.reps.length?S.reps.map(rep).join(''):'<div class="empty">No replies yet.<br>Say something.</div>';
+  $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join(''):'<div class="empty">No replies yet.<br>Say something.</div>';
 }
 async function loadReplies(id){
   S.reps=null;renderThread();
@@ -371,7 +379,7 @@ async function loadReplies(id){
   }
   renderThread();
 }
-function openThread(id){S.th=String(id);$('#rin').value='';$('#th').classList.add('on');loadReplies(S.th)}
+function openThread(id){S.th=String(id);$('#rin').value=rdGet()[S.th]||'';$('#th').classList.add('on');loadReplies(S.th)}
 function closeThread(){S.th=null;$('#th').classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
@@ -379,7 +387,7 @@ async function sendReply(){
   const{error}=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});
   b.disabled=false;
   if(error){toast(error.message);return}
-  $('#rin').value='';await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;checkAch();
+  $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;checkAch();
 }
 function delReply(id){
   confirmBox('Delete this reply?','Delete',async()=>{
@@ -399,10 +407,10 @@ function mix(q){
 }
 function findTab(){
   const q=$('#q').value.toLowerCase();
-  $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
+  $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
   $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
-  $('#fx').innerHTML=m.length?'<div class="gridx">'+m.map(p=>{
+  $('#fx').innerHTML=S.skel&&!S.posts.length?'<div class="gridx">'+'<div class="gt sk-b"></div>'.repeat(6)+'</div>':m.length?'<div class="gridx">'+m.map(p=>{
     const img=p.imgs&&p.imgs[0];
     return `<button class="gt ${img?'has-img':''}" style="--c:${col(p.tags[0])}${img?`;background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.7)),url('${esc(img)}')`:''}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`}).join('')+'</div>':'<div class="empty">Nothing found</div>';
 }
@@ -420,14 +428,14 @@ function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 // ---------- You + interests ----------
 function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
-  setMyAv($('#mav'));$('#mn').textContent=S.name;
+  setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mn').textContent=S.name;
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
   $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
   $('#shelf').innerHTML=mine.filter(n=>!isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
   $('#art').innerHTML=mine.filter(n=>isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk('art')">＋ Add</button>`;
   drawBadges();
-  $('#mine').innerHTML=S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
+  $('#mine').innerHTML=S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
 // One picker for both lists: interests, or artists (with search + "add a new artist")
 function drawPk(){
@@ -479,6 +487,7 @@ function openPe(){
   $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
   $('#pbc').textContent=($('#peb').value.length)+'/160';$('#pee').textContent='';
   setMyAv($('#peav'));$('#perm').hidden=!S.avs[S.user.id];
+  setBanner($('#pebn'),p.banner_url);$('#pebrm').hidden=!p.banner_url;
   $('#pe').classList.add('on');
 }
 async function saveProfile(){
@@ -505,6 +514,30 @@ async function pickAvatar(inp){
     S.avs[S.user.id]=url;S.prof.avatar_url=url;
     setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');checkAch();
   }catch(e){toast(e.message||"Couldn't upload that photo")}
+}
+// Banner: cropped to 3:1, stored in the avatars bucket (your folder), URL in profiles.banner_url
+function setBanner(el,u){
+  if(!el)return;
+  el.style.backgroundImage=u?"url('"+u+"')":'';
+  el.style.backgroundSize=u?'cover':'';el.style.backgroundPosition=u?'center':'';
+}
+async function pickBanner(inp){
+  const f=inp.files[0];inp.value='';if(!f)return;
+  toast('Uploading banner...');
+  try{
+    const blob=await prep(f,1400,false,3),url=await upload('avatars',blob),old=S.prof.banner_url;
+    const{error}=await sb.from('profiles').update({banner_url:url}).eq('id',S.user.id);
+    if(error){rmFiles('avatars',[url]);throw error}
+    if(old)rmFiles('avatars',[old]);
+    S.prof.banner_url=url;setBanner($('#pebn'),url);$('#pebrm').hidden=false;draw();toast('Banner updated');
+  }catch(e){toast(e.message||"Couldn't upload that photo")}
+}
+async function removeBanner(){
+  const old=S.prof.banner_url;if(!old)return;
+  const{error}=await sb.from('profiles').update({banner_url:null}).eq('id',S.user.id);
+  if(error){toast(error.message);return}
+  rmFiles('avatars',[old]);S.prof.banner_url=null;
+  setBanner($('#pebn'),null);$('#pebrm').hidden=true;draw();toast('Banner removed');
 }
 async function removeAvatar(){
   const old=S.avs[S.user.id];if(!old)return;
@@ -536,6 +569,7 @@ function paintCustomize(){
   document.querySelectorAll('#sws .sw').forEach((x,i)=>x.classList.toggle('on',i==curAcc));
   document.querySelectorAll('#fcs .fc').forEach((x,i)=>x.classList.toggle('on',i==curFont));
   document.querySelectorAll('#thm .fc').forEach((x,i)=>x.classList.toggle('on',THEMES[i][0]==curTheme));
+  updateThemeColor();
 }
 // Remember choices on this device and on the account, so they follow you to other devices
 function savePrefs(){
@@ -571,7 +605,7 @@ function applyPrefs(p){
 }
 function openSet(){
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
-  paintCustomize();$('#set').classList.add('on');
+  paintCustomize();refreshInstall();$('#set').classList.add('on');
 }
 async function changePw(){
   const v=$('#npw').value,e=$('#npe');e.textContent='';
@@ -853,7 +887,7 @@ async function openProfile(id){
   closeThread();$('#sl').classList.remove('on');
   S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
   const[p,ui,ua,po,c1,c2]=await Promise.all([
-    sb.from('profiles').select('id,username,display_name,bio,city,avatar_url').eq('id',id).maybeSingle(),
+    sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url').eq('id',id).maybeSingle(),
     sb.from('user_interests').select('interest_id').eq('user_id',id),
     sb.from('user_achievements').select('code,earned_at').eq('user_id',id),
     sb.from('posts').select(COLS).eq('author_id',id).order('created_at',{ascending:false}).limit(20),
@@ -873,11 +907,11 @@ async function openProfile(id){
 function drawPf(){
   const f=S.pf;if(!f)return;
   const id=f.id,p=f.prof;
-  if(!p){$('#pfb').innerHTML='<div class="empty">Loading...</div>';return}
+  if(!p){$('#pfb').innerHTML=skProf();return}
   const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
   const fo=S.fol.has(id);
   const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
-  $('#pfb').innerHTML=`<div class="pfh">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}</h3>
+  $('#pfb').innerHTML=`${p.banner_url?`<div class="pfbn" style="background-image:url('${esc(p.banner_url)}')"></div>`:''}<div class="pfh">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}</h3>
 <div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
 ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 <div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
@@ -954,7 +988,7 @@ function evCard(e){
 }
 function meet(){
   const el=$('#evs');
-  if(!S.evs){el.innerHTML='<div class="empty" style="grid-column:1/-1;padding:60px 16px">Loading...</div>';return}
+  if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
   el.innerHTML=S.evs.length?S.evs.map(evCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No plans yet</b><div class="sm" style="margin:6px 0 16px">Hangouts and meetups with people who like what you like.</div><button class="btn" onclick="openEv()">Plan the first one</button></div>`;
 }
 function openEvent(id){showPv(()=>eventHTML(id))}
@@ -1053,9 +1087,147 @@ function updateThemeIcon(){
   $('#themeIcon').innerHTML=dark
     ?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
     :'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  updateThemeColor();
 }
 function toggleTheme(){setTheme(isDark()?'light':'dark')}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
+
+// =====================================================================
+// P3: loading skeletons, pull to refresh, install as app, drafts
+// =====================================================================
+
+// ---------- Loading skeletons ----------
+const skL=w=>`<i class="sk-l" style="width:${w}%"></i>`;
+const skPost=()=>`<div class="card sk" aria-hidden="true"><div class="who"><span class="av sk-b"></span><div class="grow">${skL(40)}${skL(22)}</div></div>${skL(94)}${skL(68)}<div class="sk-pills"><i class="sk-b"></i><i class="sk-b"></i></div></div>`;
+const skPerson=()=>`<div class="card row sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(45)}${skL(30)}</div><i class="sk-b sk-btn"></i></div>`;
+const skEvent=()=>`<div class="card sk" aria-hidden="true"><div class="row"><i class="sk-b sk-tile"></i><div class="grow">${skL(35)}${skL(60)}${skL(45)}</div></div></div>`;
+const skRep=()=>`<div class="rep sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(30)}${skL(80)}</div></div>`;
+const skProf=()=>`<div class="pfh sk" aria-hidden="true"><span class="av big sk-b"></span>${skL(40)}${skL(25)}${skL(80)}</div>`;
+
+// ---------- Drafts (saved on this device, per account) ----------
+const dKey=()=>'il-draft-'+(S.user?.id||'');
+const rdKey=()=>'il-rdraft-'+(S.user?.id||'');
+function setSel(el,v){if(v&&[...el.options].some(o=>o.value==v))el.value=v}
+function saveDraft(){
+  const t=$('#txt').value;
+  try{
+    if(t.trim())localStorage.setItem(dKey(),JSON.stringify({t,a:$('#sel').value,b:$('#sel2').value}));
+    else localStorage.removeItem(dKey());
+  }catch(e){}
+  $('#pdis').hidden=!t.trim();
+}
+function restoreDraft(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(dKey())||'null')}catch(e){}
+  if(d&&d.t&&!$('#txt').value){
+    $('#txt').value=d.t;setSel($('#sel'),d.a);setSel($('#sel2'),d.b);toast('Draft restored');
+  }
+  $('#pdis').hidden=!$('#txt').value.trim();
+}
+function clearDraft(){try{localStorage.removeItem(dKey())}catch(e){}$('#pdis').hidden=true}
+function discardDraft(){$('#txt').value='';clearDraft();toast('Draft discarded')}
+$('#txt').addEventListener('input',saveDraft);
+$('#sel').addEventListener('change',saveDraft);
+$('#sel2').addEventListener('change',saveDraft);
+// Reply drafts, one per post (last 20 kept)
+function rdGet(){try{return JSON.parse(localStorage.getItem(rdKey())||'{}')||{}}catch(e){return{}}}
+function rdSet(id,v){
+  try{
+    const o=rdGet();
+    if((v||'').trim())o[id]=v;else delete o[id];
+    const k=Object.keys(o);if(k.length>20)delete o[k[0]];
+    localStorage.setItem(rdKey(),JSON.stringify(o));
+  }catch(e){}
+}
+function saveRD(){if(S.th)rdSet(S.th,$('#rin').value)}
+
+// ---------- Refresh (used by pull to refresh and when the connection returns) ----------
+async function refreshAll(){
+  const t=S.tab;
+  if(t=='find')await loadPeople();
+  else if(t=='meet')await loadEvents();
+  else if(t=='me')await Promise.all([loadPosts(),loadFollows(),loadAch()]);
+  else await Promise.all([loadPosts(),loadNotifs(),loadFollows()]);
+  draw();
+}
+
+// ---------- Pull to refresh (touch screens) ----------
+const PT={y:0,d:0,on:false,busy:false,box:null};
+const ptrEl=document.createElement('div');
+ptrEl.id='ptr';ptrEl.setAttribute('aria-hidden','true');
+ptrEl.innerHTML='<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>';
+document.body.appendChild(ptrEl);
+function ptrBox(){
+  switch(S.tab){
+    case 'home':return $('#feed');
+    case 'find':return ['#fp','#fg','#fx'].map($).find(e=>e.style.display!=='none');
+    case 'meet':return $('#s-meet');
+    case 'me':return $('#s-me');
+  }
+}
+function ptrPaint(d,anim){
+  ptrEl.classList.toggle('anim',!!anim);
+  ptrEl.style.transform='translate(-50%,'+(d-48)+'px)';
+  ptrEl.style.opacity=Math.min(1,d/40);
+  ptrEl.firstChild.style.transform=PT.busy?'':'rotate('+(d*5)+'deg)';
+}
+document.addEventListener('touchstart',e=>{
+  PT.on=false;
+  if(e.touches.length!==1||PT.busy||!S.user||!S.loaded||document.querySelector('.mod.on,.ov.on'))return;
+  const b=ptrBox();
+  if(!b||!b.contains(e.target)||b.scrollTop>0)return;
+  PT.box=b;PT.y=e.touches[0].clientY;PT.d=0;PT.on=true;
+},{passive:true});
+document.addEventListener('touchmove',e=>{
+  if(!PT.on)return;
+  const dy=e.touches[0].clientY-PT.y;
+  if(dy<=0){if(PT.d){PT.d=0;ptrPaint(0)}return}
+  if(PT.box.scrollTop>0){PT.on=false;PT.d=0;ptrPaint(0,true);return}
+  if(e.cancelable)e.preventDefault();
+  PT.d=Math.min(dy*.5,90);ptrPaint(PT.d);
+},{passive:false});
+async function ptrEnd(){
+  if(!PT.on)return;
+  PT.on=false;
+  if(PT.d<60){PT.d=0;ptrPaint(0,true);return}
+  PT.busy=true;ptrEl.classList.add('busy');ptrPaint(60,true);
+  try{await Promise.all([refreshAll(),new Promise(r=>setTimeout(r,500))])}
+  catch(e){toast("Couldn't refresh")}
+  PT.busy=false;PT.d=0;ptrEl.classList.remove('busy');ptrPaint(0,true);
+}
+document.addEventListener('touchend',ptrEnd);
+document.addEventListener('touchcancel',ptrEnd);
+
+// ---------- Install as app (PWA) ----------
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let instEv=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;refreshInstall()});
+addEventListener('appinstalled',()=>{instEv=null;refreshInstall();toast('iLike installed')});
+function refreshInstall(){
+  const show=!standalone()&&!!(instEv||isIOS);
+  $('#instl').hidden=!show;$('#instb').hidden=!show;
+}
+async function installApp(){
+  if(instEv){
+    const e=instEv;instEv=null;
+    e.prompt();await e.userChoice.catch(()=>{});
+    refreshInstall();return;
+  }
+  $('#inf').innerHTML='<div style="font-size:40px">📲</div><div style="font-size:18px;font-weight:800;margin:6px 0">Add iLike to your home screen</div><p style="margin-top:10px">Tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>.</p>';
+  $('#info').classList.add('on');
+}
+addEventListener('offline',()=>toast("You're offline"));
+addEventListener('online',()=>{toast('Back online');if(S.user&&S.loaded)refreshAll().catch(()=>{})});
+
+// Browser bar / status bar colour follows the current theme + accent
+function updateThemeColor(){
+  const p=document.createElement('i');p.style.cssText='display:none;color:var(--bg)';
+  document.body.appendChild(p);const c=getComputedStyle(p).color;p.remove();
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m&&c)m.setAttribute('content',c);
+}
 
 // Apply saved look on this device before login, then boot
 try{applyPrefs(JSON.parse(localStorage.getItem('il-prefs')||'null'))}catch(e){}
