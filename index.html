@@ -338,7 +338,12 @@ body.noapp nav,body.noapp .fab{display:none}
 <section class="screen" id="s-home">
 <div class="top">
   <span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span>
-  <button class="ib" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle theme"><svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  <div style="display:flex;gap:8px">
+    <button class="ib" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle theme">
+      <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="ib" onclick="openChats()" aria-label="Chats"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></button>
+  </div>
 </div>
 <div class="fl" id="fl"></div>
 <div id="feed"></div>
@@ -354,13 +359,20 @@ body.noapp nav,body.noapp .fab{display:none}
 <div id="fx" class="pscroll" style="display:none"></div>
 </section>
 
+<section class="screen" id="s-meet">
+<div class="top"><span class="logo-wrap"><span class="logo">Meet</span></span></div>
+<div id="evs"><div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>Events are coming soon</b><div class="sm" style="margin-top:6px">Hangouts and meetups with people who like what you like.</div></div></div>
+</section>
+
 <section class="screen" id="s-me">
 <div id="me">
 <div class="top"><span class="logo-wrap"><span class="logo">You</span></span><button class="ib" onclick="$('#set').classList.add('on')" aria-label="Customize"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button></div>
 <div class="banner"></div>
 <div class="me-body"><div class="col-l">
-<div class="mehead"><span class="av" id="mav" style="--c:var(--brand)"></span><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mem"></div><button class="btn off" style="margin:12px 0 0" onclick="logout()">Log out</button></div>
-<h2>I like</h2><div class="card" id="shelf"></div></div>
+<div class="mehead"><span class="av" id="mav" style="--c:var(--brand)"></span><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mem"></div></div>
+<h2>I like</h2><div class="card" id="shelf"></div>
+<h2>Artists</h2><div class="card" id="art"><span class="mute sm">Coming soon</span></div>
+<h2>Achievements</h2><div class="card" id="badges"><span class="mute sm">Coming soon</span></div></div>
 <div class="col-r"><h2>My posts</h2><div id="mine"></div></div></div>
 </div>
 </section>
@@ -368,14 +380,20 @@ body.noapp nav,body.noapp .fab{display:none}
 <nav id="nav">
 <button class="on" data-s="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home</button>
 <button data-s="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Discover</button>
+<button data-s="meet"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Meet</button>
 <button data-s="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>You</button>
 </nav>
 </div>
 
+<div class="ov" id="ov">
+<div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
+<div id="cl" style="overflow-y:auto"></div>
+<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div id="msgs"></div><div class="inp"><input id="mi" placeholder="Say something nice..." aria-label="Message" onkeydown="if(event.key==='Enter')send()"><button class="btn" onclick="send()">Send</button></div></div>
+</div>
 <div class="mod" id="mod" onclick="if(event.target===this)closePost()"><div class="sheet"><b style="font-size:18px">New post</b><textarea id="txt" maxlength="1000" placeholder="What are you into today?" aria-label="Post text"></textarea><select id="sel" aria-label="Interest"></select><select id="sel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="btn off" onclick="closePost()">Cancel</button><button class="btn" id="shr" onclick="publish()">Share</button></div></div></div>
 <div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b style="font-size:18px">Your interests</b><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="cf" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="cft" style="font-size:18px;font-weight:800"></div><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn off" onclick="$('#cf').classList.remove('on')">Cancel</button><button class="btn" id="cfy" onclick="cfyes()">Add</button></div></div></div>
-<div class="mod" id="set" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><b style="font-size:18px">Customize</b><p class="mute sm" style="margin:10px 0 4px">Theme colour</p><div class="row" style="margin:6px 0 14px" id="sws"></div><p class="mute sm">Font</p><div class="row" style="margin-top:8px" id="fcs"></div><button class="btn" style="width:100%;margin-top:18px" onclick="$('#set').classList.remove('on')">Done</button></div></div>
+<div class="mod" id="set" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><b style="font-size:18px">Customize</b><p class="mute sm" style="margin:10px 0 4px">Theme colour</p><div class="row" style="margin:6px 0 14px" id="sws"></div><p class="mute sm">Font</p><div class="row" style="margin-top:8px" id="fcs"></div><button class="btn off" style="width:100%;margin-top:18px" onclick="$('#set').classList.remove('on');logout()">Log out</button><button class="btn" style="width:100%;margin-top:10px" onclick="$('#set').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="pv" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pvb"></div><div style="padding:0 16px"><button class="btn off" style="width:100%" onclick="$('#pv').classList.remove('on')">Close</button></div></div></div>
 <div id="toast"></div>
 
@@ -494,7 +512,7 @@ async function loadPeople(){
 // ---------- Home ----------
 function post(p){
   const on=p.sames.includes(S.user.id);
-  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}</div></div></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div><div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button><button class="ghost" onclick="share()">Share</button></div><div class="who2">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}</div></div></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div><div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button><button class="ghost" onclick="toast('Replies coming soon')">Reply</button><button class="ghost" onclick="share()">Share</button></div><div class="who2">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=S.posts.find(x=>String(x.id)===String(id)),u=S.user.id,on=!p.sames.includes(u);
@@ -544,7 +562,7 @@ function mix(q){
 function findTab(){
   const q=$('#q').value.toLowerCase();
   $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
-  $('#rooms').innerHTML=S.ints.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<button class="room" style="--c:${col(i.id)}" onclick="openCircle(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<div class="mute sm" style="font-weight:600;margin-top:4px">${S.cnt[i.id]||0} members</div></button>`).join('')||'<div class="empty">No circles found</div>';
+  $('#rooms').innerHTML=S.ints.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<button class="room" onclick="openChat(${i.id},1)"><span>${em(i.id)}</span>${esc(i.name)}</button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
   $('#fx').innerHTML=m.length?'<div class="gridx">'+m.map(p=>`<button class="gt" style="--c:${col(p.tags[0])}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`).join('')+'</div>':'<div class="empty">Nothing found</div>';
 }
@@ -576,6 +594,15 @@ async function cfyes(){
   draw();if($('#pk').classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
 }
 function draw(){home();findTab();meTab();refreshPv()}
+
+// ---------- Chats (coming soon) ----------
+let conv=false,ctab=0;
+function openChats(){conv=false;$('#ov').classList.add('on');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
+ $('#cl').innerHTML=`<div class="tabs"><button class="${ctab?'':'on'}" onclick="ctab=0;openChats()">Friends</button><button class="${ctab?'on':''}" onclick="ctab=1;openChats()">Circles</button></div>`+(ctab?S.ints.map(i=>`<div class="card row" onclick="openChat(${i.id},1)"><div class="tile">${em(i.id)}</div><b>${esc(i.name)}</b></div>`).join(''):S.people.map(p=>`<div class="card row" onclick="openChat('${p.id}',0)">${av(p.id)}<b>${esc(p.name)}</b></div>`).join(''))||'<div class="empty">Nothing here yet</div>'}
+function openChat(k,room){conv=true;$('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';$('#ct').textContent=room?iname(k):nm(k);
+ $('#msgs').innerHTML='<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">💬</div><b>Chats are coming soon</b></div>'}
+function send(){$('#mi').value='';toast('Chat coming soon')}
+function back(){conv?openChats():$('#ov').classList.remove('on')}
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
   const s=b.dataset.s;show(s);
