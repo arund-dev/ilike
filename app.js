@@ -4,9 +4,10 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,rec:false,loaded:false};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
+const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
 const iname=n=>S.im.get(n)?.name||'';
 const col=n=>esc(S.im.get(n)?.color||'var(--brand)');
 const em=n=>esc(S.im.get(n)?.emoji||'✦');
@@ -14,7 +15,13 @@ const cat=n=>S.im.get(n)?.category;
 const nm=id=>S.names[id]||(id==S.user?.id?S.name:'Member');
 const PAL=['#8B5CF6','#EC4899','#22C55E','#F59E0B','#14B8A6','#3B82F6','#EF4444'];
 const ac=id=>id==S.user?.id?'var(--brand)':PAL[[...String(id)].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
-const av=(id,z='')=>`<span class="av ${z}" style="--c:${ac(id)}">${esc((nm(id)||'?')[0].toUpperCase())}</span>`;
+// Avatar: profile photo if the person has one, otherwise their first letter
+const av=(id,z='')=>{const u=S.avs[id];return `<span class="av ${z}" style="--c:${ac(id)}${u?`;background-image:url('${esc(u)}');background-size:cover;background-position:center`:''}">${u?'':esc((nm(id)||'?')[0].toUpperCase())}</span>`};
+function setMyAv(el){
+  const u=S.avs[S.user.id];
+  el.textContent=u?'':(S.name||'?')[0].toUpperCase();
+  el.style.backgroundImage=u?`url('${u}')`:'';el.style.backgroundSize='cover';el.style.backgroundPosition='center';
+}
 const chip=n=>`<span class="chip" style="--c:${col(n)}">${em(n)} ${esc(iname(n))}</span>`;
 const tgb=n=>S.mine.has(n)?chip(n):`<button class="chip tg" style="--c:${col(n)}" onclick="ask(${n})">${em(n)} ${esc(iname(n))}</button>`;
 const say=l=>!l.length?'':l.length==1?l[0]+' said Same':l.length==2?l.join(' & ')+' said Same':l[0]+', '+l[1]+' & others said Same';
@@ -22,10 +29,14 @@ const so=p=>{const a=p.sames.filter(x=>x!=S.user.id);return p.sames.includes(S.u
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
 const findPost=id=>S.pm.get(String(id));
 let toastT;
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1800)}
-function share(){
-  if(navigator.share){navigator.share({title:'iLike',url:location.href}).catch(()=>{});return}
-  if(navigator.clipboard)navigator.clipboard.writeText(location.href).then(()=>toast('Link copied'),()=>toast("Couldn't copy link"));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
+
+// Share a post link (or the app link)
+const postUrl=id=>location.origin+location.pathname+'#post='+id;
+function share(id){
+  const url=id?postUrl(id):location.href;
+  if(navigator.share){navigator.share({title:'iLike',url}).catch(()=>{});return}
+  if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('Link copied'),()=>toast("Couldn't copy link"));
   else toast("Couldn't copy link")
 }
 
@@ -39,6 +50,38 @@ function show(id){
 // confirm dialog used everywhere (remove interest, delete post, delete reply)
 function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
 function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
+
+// ---------- Photos: resize in the browser, upload to Supabase Storage ----------
+function prep(file,max,square){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{
+      URL.revokeObjectURL(url);
+      let sw=im.naturalWidth,sh=im.naturalHeight,sx=0,sy=0,w,h;
+      if(square){const s=Math.min(sw,sh);sx=(sw-s)/2;sy=(sh-s)/2;sw=sh=s;w=h=Math.min(max,s)}
+      else{const k=Math.min(1,max/Math.max(sw,sh));w=Math.round(sw*k);h=Math.round(sh*k)}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,w,h);
+      c.toBlob(b=>b?res(b):rej(new Error('Could not read that photo')),'image/jpeg',.85);
+    };
+    im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('Could not read that photo'))};
+    im.src=url;
+  });
+}
+async function upload(bucket,blob){
+  const path=`${S.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+  const{error}=await sb.storage.from(bucket).upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});
+  if(error)throw error;
+  return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+const pathOf=(url,bucket)=>{const i=url.indexOf('/'+bucket+'/');return i<0?null:decodeURIComponent(url.slice(i+bucket.length+2))};
+async function rmFiles(bucket,urls){
+  const p=urls.map(u=>pathOf(u,bucket)).filter(Boolean);
+  if(p.length)await sb.storage.from(bucket).remove(p);
+}
+function openLb(u){$('#lbi').src=u;$('#lb').classList.add('on')}
+function closeLb(){$('#lb').classList.remove('on')}
+document.addEventListener('click',e=>{const i=e.target.closest('.pimgs img');if(i)openLb(i.src)});
 
 // ---------- Auth ----------
 function renderAuth(){
@@ -84,6 +127,7 @@ async function saveOb(b){
 // ---------- Data ----------
 async function boot(){
   if(location.hash.includes('type=recovery'))S.rec=true;
+  const dl=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(dl)S.deep=dl[1];
   const{data:{session}}=await sb.auth.getSession();
   S.user=session?.user||null;
   sb.auth.onAuthStateChange((e,s)=>{
@@ -93,43 +137,57 @@ async function boot(){
   load();
 }
 async function load(){
-  if(!S.user){S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.prof=null;S.loaded=false;renderAuth();show('auth');return}
+  if(!S.user){
+    if(S.ch){sb.removeChannel(S.ch);S.ch=null}
+    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    renderAuth();show('auth');return;
+  }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
   const[pr,i,u]=await Promise.all([
-    sb.from('profiles').select('username,display_name,bio,city,theme_prefs').eq('id',S.user.id).single(),
+    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
     sb.from('user_interests').select('interest_id').eq('user_id',S.user.id)]);
-  S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null};
+  S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null};
   S.name=S.prof.display_name||S.name;
+  if(S.prof.avatar_url)S.avs[S.user.id]=S.prof.avatar_url;
   applyPrefs(S.prof.theme_prefs);
   if(i.error)toast('Could not load interests');
   S.ints=i.data||[];S.im=new Map(S.ints.map(x=>[x.id,x]));
   S.mine=new Set((u.data||[]).map(r=>r.interest_id));S.snap=new Set(S.mine);
   S.names[S.user.id]=S.name;
   if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
-  await Promise.all([loadPosts(),loadPeople()]);
+  subscribe();
+  await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs()]);
   draw();show(S.tab);S.loaded=true;
   if(S.rec)recoverUi();
+  if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
 }
 
-// One query for the feed, one for my own posts, then fill in tags / sames / reply counts / names
+// Names + profile photos for a list of people
+async function getProfiles(ids){
+  ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
+  const a=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids);
+  (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
+}
+
+// One query for the feed, one for my own posts, then fill in tags / photos / sames / reply counts / names
 const COLS='id,body,created_at,edited_at,author_id';
 async function hydrate(rows){
   if(!rows.length)return[];
   const ids=rows.map(x=>x.id);
-  const[t,s,r]=await Promise.all([
+  const[t,s,r,im]=await Promise.all([
     sb.from('post_interests').select('post_id,interest_id').in('post_id',ids),
     sb.from('sames').select('post_id,user_id').in('post_id',ids),
-    sb.from('replies').select('post_id').in('post_id',ids)]);
-  const au=[...new Set([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)])];
-  const a=await sb.from('profiles').select('id,display_name').in('id',au);
-  (a.data||[]).forEach(x=>S.names[x.id]=x.display_name);
+    sb.from('replies').select('post_id').in('post_id',ids),
+    sb.from('post_images').select('post_id,url,position').in('post_id',ids).order('position')]);
+  await getProfiles([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)]);
   return rows.map(x=>{
     let o=S.pm.get(x.id);if(!o){o={};S.pm.set(x.id,o)}
     return Object.assign(o,x,{
       tags:(t.data||[]).filter(q=>q.post_id===x.id).map(q=>q.interest_id),
       sames:(s.data||[]).filter(q=>q.post_id===x.id).map(q=>q.user_id),
+      imgs:(im.data||[]).filter(q=>q.post_id===x.id).map(q=>q.url),
       rc:(r.data||[]).filter(q=>q.post_id===x.id).length})});
 }
 async function loadPosts(){
@@ -144,18 +202,32 @@ async function loadPosts(){
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
-  const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name)');
+  const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url)');
   const m={},c={};
-  (data||[]).forEach(r=>{c[r.interest_id]=(c[r.interest_id]||0)+1;if(r.user_id===S.user.id)return;(m[r.user_id]||(m[r.user_id]={id:r.user_id,name:r.profiles?.display_name||'Member',ids:[]})).ids.push(r.interest_id)});
+  (data||[]).forEach(r=>{
+    c[r.interest_id]=(c[r.interest_id]||0)+1;if(r.user_id===S.user.id)return;
+    (m[r.user_id]||(m[r.user_id]={id:r.user_id,name:r.profiles?.display_name||'Member',ids:[]})).ids.push(r.interest_id);
+    if(r.profiles?.avatar_url)S.avs[r.user_id]=r.profiles.avatar_url;
+  });
   S.people=Object.values(m);S.cnt=c;S.people.forEach(p=>S.names[p.id]=p.name);
 }
+// Open a post by id (used by share links and notifications)
+async function ensurePost(id){
+  if(findPost(id))return true;
+  const r=await sb.from('posts').select(COLS).eq('id',id).maybeSingle();
+  if(!r.data){toast('That post is gone');return false}
+  await hydrate([r.data]);return true;
+}
+async function openPostId(id){if(await ensurePost(id))openPost(id)}
+addEventListener('hashchange',()=>{const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1])});
 
 // ---------- Home ----------
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
-  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div class="grow"><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div><div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share()">Share</button></div><div class="who2">${sm(p)}</div></article>`;
+  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
+  return `<article class="card" data-pi="${p.id}"><div class="who">${av(p.author_id)}<div class="grow"><b>${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
@@ -163,6 +235,14 @@ async function same(id,btn){
   set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
   const r=on?await sb.from('sames').insert({post_id:p.id,user_id:u}):await sb.from('sames').delete().match({post_id:p.id,user_id:u});
   if(r.error){set(!on);toast("Couldn't save that")}
+}
+// Who said Same
+function openSames(id){
+  const p=findPost(id);if(!p||!p.sames.length)return;
+  const l=so(p);
+  $('#slt').textContent=l.length+(l.length==1?' person said Same':' people said Same');
+  $('#sll').innerHTML=l.map(u=>`<div class="prow">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`).join('');
+  $('#sl').classList.add('on');
 }
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
 function home(){
@@ -181,30 +261,61 @@ function tapFab(){
   $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');
 }
 function closePost(){$('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on')}
+function renderPhotos(){
+  $('#pph').innerHTML=S.photos.map((ph,i)=>`<div class="ph"><img src="${ph.prev}" alt="Photo ${i+1}"><button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button></div>`).join('');
+  $('#padd').hidden=S.photos.length>=4;
+}
+async function pickPhotos(inp){
+  const files=[...inp.files].slice(0,4-S.photos.length);inp.value='';
+  if(!files.length)return;
+  toast('Preparing photos...');
+  for(const f of files){
+    try{const blob=await prep(f,1600,false);S.photos.push({blob,prev:URL.createObjectURL(blob)})}
+    catch(e){toast(e.message)}
+  }
+  renderPhotos();
+}
+function rmPhoto(i){URL.revokeObjectURL(S.photos[i].prev);S.photos.splice(i,1);renderPhotos()}
 async function publish(){
   const v=$('#txt').value.trim(),a=+$('#sel').value,b=+$('#sel2').value;
   if(!v){$('#txt').focus();return}
   if(!a){toast('Add something you like first');return}
-  const btn=$('#shr');btn.disabled=true;
+  const btn=$('#shr');btn.disabled=true;btn.textContent=S.photos.length?'Posting...':'Share';
   const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
-  if(error){btn.disabled=false;toast(error.message);return}
+  if(error){btn.disabled=false;btn.textContent='Share';toast(error.message);return}
   const t=await sb.from('post_interests').insert([...new Set([a,b].filter(Boolean))].map(n=>({post_id:data.id,interest_id:n})));
-  btn.disabled=false;$('#txt').value='';closePost();S.F='All';
+  let imgFail=false;
+  if(S.photos.length){
+    try{
+      const urls=[];
+      for(const ph of S.photos)urls.push(await upload('post-images',ph.blob));
+      const r=await sb.from('post_images').insert(urls.map((url,i)=>({post_id:data.id,url,position:i})));
+      if(r.error)throw r.error;
+    }catch(e){imgFail=true}
+  }
+  btn.disabled=false;btn.textContent='Share';
+  S.photos.forEach(p=>URL.revokeObjectURL(p.prev));S.photos=[];renderPhotos();
+  $('#txt').value='';closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
-  toast(t.error?'Posted, but tags failed':'Posted');
+  toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');
 }
 
 // ---------- My post menu: edit / delete ----------
 function openPm(id){S.pmId=id;$('#pm').classList.add('on')}
 function closePm(){$('#pm').classList.remove('on')}
+function renderEdPh(){
+  const p=findPost(S.edId);
+  $('#edph').innerHTML=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(u)}" alt="Photo"><button onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
+}
+function toggleRm(i){const u=findPost(S.edId).imgs[i];S.edRm.has(u)?S.edRm.delete(u):S.edRm.add(u);renderEdPh()}
 function openEd(id){
   const p=findPost(id);if(!p)return;
-  closePm();S.edId=id;
+  closePm();S.edId=id;S.edRm=new Set();
   const o=[...new Set([...S.mine,...p.tags])].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
   $('#edsel').innerHTML=o;
   $('#edsel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
   $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';
-  $('#edt').value=p.body;$('#ed').classList.add('on');
+  $('#edt').value=p.body;renderEdPh();$('#ed').classList.add('on');
 }
 async function saveEd(){
   const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=+$('#edsel2').value;
@@ -219,14 +330,21 @@ async function saveEd(){
     const d=await sb.from('post_interests').delete().eq('post_id',id);
     if(!d.error)await sb.from('post_interests').insert(want.map(n=>({post_id:id,interest_id:n})));
   }
+  if(S.edRm.size){
+    const urls=[...S.edRm];
+    const d=await sb.from('post_images').delete().eq('post_id',id).in('url',urls);
+    if(!d.error)rmFiles('post-images',urls);
+  }
   btn.disabled=false;$('#ed').classList.remove('on');
   await loadPosts();draw();toast('Saved');
 }
 function delPost(id){
   closePm();
   confirmBox('Delete this post?','Delete',async()=>{
+    const p=findPost(id),imgs=p?[...(p.imgs||[])]:[];
     const{error}=await sb.from('posts').delete().eq('id',id);
     if(error){toast(error.message);return}
+    if(imgs.length)rmFiles('post-images',imgs);
     S.pm.delete(String(id));
     S.posts=S.posts.filter(p=>p.id!==id);S.myPosts=S.myPosts.filter(p=>p.id!==id);
     $('#pv').classList.remove('on');draw();toast('Deleted');
@@ -246,8 +364,7 @@ async function loadReplies(id){
   if(S.th!==id)return;
   if(r.error){toast('Could not load replies');S.reps=[]}
   else{
-    const need=[...new Set(r.data.map(x=>x.author_id))].filter(x=>!S.names[x]);
-    if(need.length){const a=await sb.from('profiles').select('id,display_name').in('id',need);(a.data||[]).forEach(x=>S.names[x.id]=x.display_name)}
+    await getProfiles(r.data.map(x=>x.author_id));
     S.reps=r.data;const p=findPost(id);if(p)p.rc=r.data.length;
   }
   renderThread();
@@ -280,10 +397,12 @@ function mix(q){
 }
 function findTab(){
   const q=$('#q').value.toLowerCase();
-  $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
+  $('#ppl').innerHTML=S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><button class="btn" onclick="sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
   $('#rooms').innerHTML=S.ints.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<button class="room" onclick="openChat(${i.id},1)"><span>${em(i.id)}</span>${esc(i.name)}</button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
-  $('#fx').innerHTML=m.length?'<div class="gridx">'+m.map(p=>`<button class="gt" style="--c:${col(p.tags[0])}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`).join('')+'</div>':'<div class="empty">Nothing found</div>';
+  $('#fx').innerHTML=m.length?'<div class="gridx">'+m.map(p=>{
+    const img=p.imgs&&p.imgs[0];
+    return `<button class="gt ${img?'has-img':''}" style="--c:${col(p.tags[0])}${img?`;background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.7)),url('${esc(img)}')`:''}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`}).join('')+'</div>':'<div class="empty">Nothing found</div>';
 }
 function ftab(i){
   document.querySelectorAll('#ft button').forEach((b,k)=>b.classList.toggle('on',k==i));
@@ -299,7 +418,7 @@ function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 // ---------- You + interests ----------
 function meTab(){
   const pr=S.prof||{};
-  $('#mav').textContent=(S.name||'?')[0].toUpperCase();$('#mn').textContent=S.name;
+  setMyAv($('#mav'));$('#mn').textContent=S.name;
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
   $('#shelf').innerHTML=[...S.mine].map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
@@ -325,6 +444,7 @@ function openPe(){
   const p=S.prof||{};
   $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
   $('#pbc').textContent=($('#peb').value.length)+'/160';$('#pee').textContent='';
+  setMyAv($('#peav'));$('#perm').hidden=!S.avs[S.user.id];
   $('#pe').classList.add('on');
 }
 async function saveProfile(){
@@ -339,6 +459,25 @@ async function saveProfile(){
   if(error){e.textContent=error.code=='23505'?'That username is taken.':error.message;return}
   Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;
   $('#pe').classList.remove('on');draw();toast('Profile saved');
+}
+async function pickAvatar(inp){
+  const f=inp.files[0];inp.value='';if(!f)return;
+  toast('Uploading photo...');
+  try{
+    const blob=await prep(f,512,true),url=await upload('avatars',blob),old=S.avs[S.user.id];
+    const{error}=await sb.from('profiles').update({avatar_url:url}).eq('id',S.user.id);
+    if(error)throw error;
+    if(old)rmFiles('avatars',[old]);
+    S.avs[S.user.id]=url;S.prof.avatar_url=url;
+    setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');
+  }catch(e){toast(e.message||"Couldn't upload that photo")}
+}
+async function removeAvatar(){
+  const old=S.avs[S.user.id];if(!old)return;
+  const{error}=await sb.from('profiles').update({avatar_url:null}).eq('id',S.user.id);
+  if(error){toast(error.message);return}
+  rmFiles('avatars',[old]);delete S.avs[S.user.id];S.prof.avatar_url=null;
+  setMyAv($('#peav'));$('#perm').hidden=true;draw();toast('Photo removed');
 }
 
 // ---------- Settings ----------
@@ -416,14 +555,131 @@ $('#thm').innerHTML=THEMES.map(t=>`<button class="fc" onclick="setTheme('${t[0]}
 $('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
 $('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
 
-// ---------- Chats (coming soon) ----------
+// ---------- Live updates: new messages + notifications ----------
+function subscribe(){
+  if(S.ch)return;
+  const id=S.user.id;
+  S.ch=sb.channel('me-'+id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'to_user=eq.'+id},p=>onMsg(p.new))
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+id},p=>onNotif(p.new))
+    .subscribe();
+}
+function updateBadges(){
+  const me=S.user?.id,m=S.msgs.filter(x=>x.to_user==me&&!x.read_at).length,n=S.notifs.filter(x=>!x.read_at).length;
+  const set=(id,v)=>{const e=$(id);e.hidden=!v;e.textContent=v>9?'9+':v};
+  set('#chb',m);set('#nb',n);
+}
+// Catch up when the app comes back to the foreground (in case a live update was missed)
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs()}});
+
+// ---------- Messages (1-to-1) ----------
 let conv=false,ctab=0;
-function openChats(){conv=false;$('#ov').classList.add('on');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
- $('#cl').innerHTML=`<div class="tabs"><button class="${ctab?'':'on'}" onclick="ctab=0;openChats()">Friends</button><button class="${ctab?'on':''}" onclick="ctab=1;openChats()">Circles</button></div>`+(ctab?S.ints.map(i=>`<div class="card row" onclick="openChat(${i.id},1)"><div class="tile">${em(i.id)}</div><b>${esc(i.name)}</b></div>`).join(''):S.people.map(p=>`<div class="card row" onclick="openChat('${p.id}',0)">${av(p.id)}<b>${esc(p.name)}</b></div>`).join(''))||'<div class="empty">Nothing here yet</div>'}
-function openChat(k,room){conv=true;$('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';$('#ct').textContent=room?iname(k):nm(k);
- $('#msgs').innerHTML='<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">💬</div><b>Chats are coming soon</b></div>'}
-function send(){$('#mi').value='';toast('Chat coming soon')}
+async function loadMsgs(){
+  const r=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(1000);
+  if(r.error)return;
+  S.msgs=r.data.reverse();updateBadges();
+  if($('#ov').classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
+}
+const convoOf=id=>S.msgs.filter(m=>(m.sender_id==id&&m.to_user==S.user.id)||(m.sender_id==S.user.id&&m.to_user==id));
+function openChats(){
+  conv=false;S.dm=null;
+  $('#ov').classList.add('on');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
+  const me=S.user.id;
+  const tabs=`<div class="tabs"><button class="${ctab?'':'on'}" onclick="ctab=0;openChats()">Friends</button><button class="${ctab?'on':''}" onclick="ctab=1;openChats()">Circles</button></div>`;
+  let body;
+  if(ctab){
+    body=S.ints.map(i=>`<div class="card row" onclick="openChat(${i.id},1)"><div class="tile">${em(i.id)}</div><b>${esc(i.name)}</b></div>`).join('');
+  }else{
+    const rows=S.people.map(p=>{const l=convoOf(p.id);return{p,last:l[l.length-1],un:l.filter(m=>m.to_user==me&&!m.read_at).length}})
+      .sort((a,b)=>(b.last?+new Date(b.last.created_at):0)-(a.last?+new Date(a.last.created_at):0));
+    body=rows.map(o=>`<div class="card row" onclick="openDm('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b>${o.last?`<div class="mute sm clip">${o.last.sender_id==me?'You: ':''}${esc(o.last.body)}</div>`:'<div class="mute sm">Say hi 👋</div>'}</div>${o.un?`<span class="dot">${o.un}</span>`:''}</div>`).join('')
+      ||'<div class="empty">No one else here yet.<br>Invite a friend to start chatting.</div>';
+  }
+  $('#cl').innerHTML=tabs+body;
+}
+function openDm(id){
+  id=String(id);S.dm=id;conv=true;
+  $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
+  $('#ct').textContent=nm(id);drawDm();markRead(id);
+}
+function drawDm(){
+  const l=convoOf(S.dm),me=S.user.id;
+  $('#msgs').innerHTML=l.length
+    ?l.map(m=>`<div class="b ${m.sender_id==me?'me':''}">${esc(m.body)}<small class="t">${tm(m.created_at)}</small></div>`).join('')
+    :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">👋</div><b>Say hi to ${esc(nm(S.dm))}</b></div>`;
+  $('#msgs').scrollTop=1e5;
+}
+// Circle chat is still coming soon
+function openChat(k,room){
+  S.dm=null;conv=true;$('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';$('#ct').textContent=room?iname(k):nm(k);
+  $('#msgs').innerHTML='<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">💬</div><b>Circle chat is coming soon</b></div>';
+}
+// "Say hi" from Discover and from the Same list
+function sayHi(id){
+  $('#sl').classList.remove('on');$('#pv').classList.remove('on');closeThread();
+  openDm(id);
+}
+function markRead(id){
+  const me=S.user.id,un=S.msgs.filter(m=>m.sender_id==id&&m.to_user==me&&!m.read_at);
+  if(!un.length)return;
+  const now=new Date().toISOString();un.forEach(m=>m.read_at=now);updateBadges();
+  sb.from('messages').update({read_at:now}).eq('to_user',me).eq('sender_id',id).is('read_at',null).then(()=>{});
+}
+async function send(){
+  const v=$('#mi').value.trim();if(!v)return;
+  if(!S.dm){toast('Circle chat is coming soon');return}
+  $('#mi').value='';
+  const{data,error}=await sb.from('messages').insert({sender_id:S.user.id,to_user:S.dm,body:v}).select().single();
+  if(error){$('#mi').value=v;toast(error.message);return}
+  S.msgs.push(data);if(conv&&S.dm==data.to_user)drawDm();
+}
+async function onMsg(m){
+  if(S.msgs.some(x=>x.id===m.id))return;
+  S.msgs.push(m);
+  if(!S.names[m.sender_id])await getProfiles([m.sender_id]);
+  const open=$('#ov').classList.contains('on');
+  if(open&&conv&&S.dm==m.sender_id){drawDm();markRead(m.sender_id);return}
+  updateBadges();
+  toast(nm(m.sender_id)+': '+(m.body.length>40?m.body.slice(0,40)+'…':m.body));
+  if(open&&!conv)openChats();
+}
 function back(){conv?openChats():$('#ov').classList.remove('on')}
+
+// ---------- Notifications ----------
+async function notifMeta(list){
+  await getProfiles(list.map(n=>n.actor_id));
+  const need=[...new Set(list.map(n=>n.post_id))].filter(id=>!(id in S.nposts)&&!findPost(id));
+  if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);(r.data||[]).forEach(x=>S.nposts[x.id]=x.body)}
+}
+const nsnip=n=>{const p=findPost(n.post_id),b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
+async function loadNotifs(){
+  const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(40);
+  if(r.error)return;
+  await notifMeta(r.data);S.notifs=r.data;updateBadges();
+  if($('#nv').classList.contains('on'))drawNotifs();
+}
+function drawNotifs(){
+  $('#nl').innerHTML=S.notifs.map(n=>`<div class="card row nitem ${n.read_at?'':'new'}" onclick="openNotif('${n.id}')">${av(n.actor_id)}<div class="grow"><div><b>${esc(nm(n.actor_id))}</b> ${n.type=='same'?'said Same to your post':'replied to your post'}</div><div class="mute sm clip">${esc(nsnip(n))}</div></div><span class="mute sm">${ago(n.created_at)}</span></div>`).join('')
+    ||'<div class="empty">Nothing yet.<br>When someone says Same or replies, you will see it here.</div>';
+}
+function markNotifsRead(){
+  const un=S.notifs.filter(n=>!n.read_at);if(!un.length)return;
+  const now=new Date().toISOString();un.forEach(n=>n.read_at=now);updateBadges();
+  sb.from('notifications').update({read_at:now}).eq('user_id',S.user.id).is('read_at',null).then(()=>{});
+}
+function openNotifs(){drawNotifs();$('#nv').classList.add('on');markNotifsRead()}
+async function openNotif(id){
+  const n=S.notifs.find(x=>x.id===id);if(!n)return;
+  if(!(await ensurePost(n.post_id)))return;
+  n.type=='reply'?openThread(n.post_id):openPost(n.post_id);
+}
+async function onNotif(n){
+  await notifMeta([n]);
+  if(S.notifs.some(x=>x.id===n.id))return;
+  S.notifs.unshift(n);
+  toast(nm(n.actor_id)+(n.type=='same'?' said Same to your post':' replied to your post'));
+  if($('#nv').classList.contains('on')){drawNotifs();markNotifsRead()}else updateBadges();
+}
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
   const s=b.dataset.s;show(s);
