@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7c3aed">
+<title>iLike</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--hue:265;--bg:#0f0d17;--card:#1a1726;--line:#2c2740;--text:#f3f1fa;--mute:#9a94b3;--a:#8b5cf6;--b:#ec4899;--grad:linear-gradient(135deg,var(--a),var(--b))}
+@media(prefers-color-scheme:light){:root{--bg:#f7f5fc;--card:#fff;--line:#e5e0f2;--text:#1c1730;--mute:#6f688a}}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding:16px}
+.logo{font-weight:800;font-size:28px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.btn{background:var(--grad);border:0;color:#fff;font-weight:700;border-radius:999px;padding:12px 20px}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--text)}
+.btn:disabled{opacity:.5}
+.link{background:none;border:0;color:var(--mute);text-decoration:underline;padding:8px 0}
+.err{color:#f87171;font-size:14px;min-height:20px;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 13px;font-size:14px}
+.chip.on{background:var(--grad);border-color:transparent;color:#fff}
+.chip.tag{padding:3px 10px;font-size:13px;color:var(--mute)}
+.cat{color:var(--mute);font-size:14px;margin-top:10px}
+header{display:flex;justify-content:space-between;align-items:center;padding:4px 0 8px}
+.who{font-weight:700}.time{color:var(--mute);font-size:13px}
+.post p{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.same{border:1px solid var(--line);background:none;border-radius:999px;padding:6px 14px;font-weight:600}
+.same.on{background:var(--grad);border-color:transparent;color:#fff}
+.empty{text-align:center;color:var(--mute);padding:40px 16px}
+.fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;font-size:28px;padding:0;box-shadow:0 6px 20px #0006}
+.row{display:flex;gap:8px;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="empty">Loading…</p></div>
+
+<script>
+// ---- Your Supabase connection (both values are safe to be public) ----
+const SUPABASE_URL = "https://rgrtwewhiylwkxgbcgyx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = document.getElementById("app");
+const S = { user:null, interests:[], mine:new Set(), posts:[], filter:"all", mode:"login", err:"", composing:false, picked:new Set(), editing:false };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ago = d => { const m = Math.floor((Date.now()-new Date(d))/60000); return m<1?"just now":m<60?m+"m ago":m<1440?Math.floor(m/60)+"h ago":Math.floor(m/1440)+"d ago"; };
+const iName = id => { const i = S.interests.find(x => x.id === id); return i ? `${i.emoji||""} ${i.name}` : ""; };
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  S.user = session?.user || null;
+  sb.auth.onAuthStateChange((_e, s) => { const was = S.user?.id; S.user = s?.user || null; if ((S.user?.id) !== was) load(); });
+  load();
+}
+
+async function load(){
+  if (!S.user) return render();
+  const [i, u] = await Promise.all([
+    sb.from("interests").select("*").order("category").order("name"),
+    sb.from("user_interests").select("interest_id").eq("user_id", S.user.id)
+  ]);
+  S.interests = i.data || [];
+  S.mine = new Set((u.data || []).map(r => r.interest_id));
+  if (S.mine.size) await loadPosts();
+  render();
+}
+
+async function loadPosts(){
+  const { data } = await sb.from("posts")
+    .select("id,body,created_at,author_id,profiles(display_name),post_interests(interest_id),sames(user_id)")
+    .order("created_at", { ascending:false }).limit(50);
+  S.posts = data || [];
+}
+
+function chipsPicker(){
+  const cats = [...new Set(S.interests.map(i => i.category))];
+  return cats.map(c => `<div class="cat">${esc(c)}</div><div class="chips">${
+    S.interests.filter(i => i.category === c).map(i =>
+      `<button class="chip ${S.picked.has(i.id)?"on":""}" data-pick="${i.id}">${esc(i.emoji)} ${esc(i.name)}</button>`).join("")
+  }</div>`).join("");
+}
+
+function render(){
+  if (!S.user) {
+    const su = S.mode === "signup";
+    $.innerHTML = `<div style="padding-top:12vh"><div class="logo">iLike ✦</div>
+      <p style="color:var(--mute);margin:6px 0 24px">Find people who like what you like.</p>
+      <div class="card">
+        ${su ? `<input id="name" placeholder="Your name" autocomplete="name">` : ""}
+        <input id="email" type="email" placeholder="Email" autocomplete="email">
+        <input id="pw" type="password" placeholder="Password (6+ characters)" autocomplete="${su?"new":"current"}-password">
+        <div class="err">${esc(S.err)}</div>
+        <button class="btn" id="go" style="width:100%">${su?"Create account":"Log in"}</button>
+        <button class="link" id="swap">${su?"I already have an account":"New here? Create an account"}</button>
+      </div></div>`;
+    return;
+  }
+  if (!S.mine.size || S.editing) {
+    if (!S.picked.size) S.picked = new Set(S.mine);
+    $.innerHTML = `<div style="padding-top:6vh"><div class="logo">iLike ✦</div>
+      <h2 style="margin:10px 0 4px">What do you like?</h2>
+      <p style="color:var(--mute)">Pick at least 3. Your feed is built from these.</p>
+      ${chipsPicker()}
+      <div class="err">${esc(S.err)}</div>
+      <button class="btn" id="saveI" ${S.picked.size<3?"disabled":""}>Save and continue (${S.picked.size})</button>
+      ${S.editing ? `<button class="link" id="cancelI">Cancel</button>` : ""}</div>`;
+    return;
+  }
+  const shown = S.posts.filter(p => S.filter === "all" || p.post_interests.some(t => t.interest_id === +S.filter));
+  $.innerHTML = `<header><div class="logo">iLike ✦</div>
+      <div><button class="link" id="editI">My interests</button> <button class="link" id="out">Log out</button></div></header>
+    <div class="chips"><button class="chip ${S.filter==="all"?"on":""}" data-f="all">All</button>${
+      [...S.mine].map(id => `<button class="chip ${S.filter==id?"on":""}" data-f="${id}">${esc(iName(id))}</button>`).join("")}</div>
+    ${shown.length ? shown.map(post).join("") : `<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>`}
+    <button class="btn fab" id="new" aria-label="New post">+</button>
+    ${S.composing ? composer() : ""}`;
+}
+
+function post(p){
+  const on = p.sames.some(s => s.user_id === S.user.id);
+  return `<div class="card post"><div class="row"><span class="who">${esc(p.profiles?.display_name || "Member")}</span><span class="time">${ago(p.created_at)}</span></div>
+    <p>${esc(p.body)}</p>
+    <div class="chips" style="margin:0 0 10px">${p.post_interests.map(t => `<span class="chip tag">${esc(iName(t.interest_id))}</span>`).join("")}</div>
+    <button class="same ${on?"on":""}" data-same="${p.id}">Same${p.sames.length ? " · " + p.sames.length : ""}</button></div>`;
+}
+
+function composer(){
+  return `<div style="position:fixed;inset:0;background:#000a;display:flex;align-items:flex-end;justify-content:center" id="shade">
+    <div class="card" style="width:100%;max-width:560px;margin:0;border-radius:22px 22px 0 0;max-height:85%;overflow:auto">
+      <textarea id="body" rows="4" maxlength="1000" placeholder="What are you into today?"></textarea>
+      <div style="color:var(--mute);font-size:14px">Tag it (pick 1 or more)</div>
+      <div class="chips">${S.interests.map(i => `<button class="chip ${S.picked.has(i.id)?"on":""}" data-pick="${i.id}">${esc(i.emoji)} ${esc(i.name)}</button>`).join("")}</div>
+      <div class="err">${esc(S.err)}</div>
+      <div class="row"><button class="btn ghost" id="cancelP">Cancel</button><button class="btn" id="send">Post</button></div></div></div>`;
+}
+
+$.addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const id = t.id;
+  if (t.dataset.pick) { const n = +t.dataset.pick; S.picked.has(n) ? S.picked.delete(n) : S.picked.add(n); const b = document.getElementById("body")?.value; render(); if (b !== undefined) document.getElementById("body").value = b; return; }
+  if (t.dataset.f) { S.filter = t.dataset.f; return render(); }
+  if (t.dataset.same) {
+    const p = S.posts.find(x => x.id === t.dataset.same), on = p.sames.some(s => s.user_id === S.user.id);
+    p.sames = on ? p.sames.filter(s => s.user_id !== S.user.id) : [...p.sames, { user_id:S.user.id }];
+    render();
+    on ? await sb.from("sames").delete().match({ post_id:p.id, user_id:S.user.id })
+       : await sb.from("sames").insert({ post_id:p.id, user_id:S.user.id });
+    return;
+  }
+  if (id === "swap") { S.mode = S.mode === "login" ? "signup" : "login"; S.err = ""; return render(); }
+  if (id === "go") {
+    const email = $.querySelector("#email").value.trim(), password = $.querySelector("#pw").value;
+    const name = $.querySelector("#name")?.value.trim();
+    S.err = ""; t.disabled = true;
+    const r = S.mode === "signup"
+      ? await sb.auth.signUp({ email, password, options:{ data:{ display_name:name || email.split("@")[0] } } })
+      : await sb.auth.signInWithPassword({ email, password });
+    if (r.error) { S.err = r.error.message; render(); }
+    return;
+  }
+  if (id === "out") { await sb.auth.signOut(); S.picked = new Set(); S.posts = []; return render(); }
+  if (id === "editI") { S.editing = true; S.picked = new Set(S.mine); return render(); }
+  if (id === "cancelI") { S.editing = false; S.picked = new Set(); return render(); }
+  if (id === "saveI") {
+    t.disabled = true;
+    await sb.from("user_interests").delete().eq("user_id", S.user.id);
+    const { error } = await sb.from("user_interests").insert([...S.picked].map(n => ({ user_id:S.user.id, interest_id:n })));
+    if (error) { S.err = error.message; return render(); }
+    S.editing = false; S.picked = new Set(); return load();
+  }
+  if (id === "new") { S.composing = true; S.picked = new Set(); S.err = ""; return render(); }
+  if (id === "cancelP") { S.composing = false; S.picked = new Set(); return render(); }
+  if (id === "send") {
+    const body = $.querySelector("#body").value.trim();
+    if (!body) { S.err = "Write something first."; return render(); }
+    if (!S.picked.size) { S.err = "Pick at least one tag."; const b = body; render(); $.querySelector("#body").value = b; return; }
+    t.disabled = true;
+    const { data, error } = await sb.from("posts").insert({ author_id:S.user.id, body }).select("id").single();
+    if (error) { S.err = error.message; return render(); }
+    await sb.from("post_interests").insert([...S.picked].map(n => ({ post_id:data.id, interest_id:n })));
+    S.composing = false; S.picked = new Set(); await loadPosts(); render();
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
