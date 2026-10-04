@@ -7,7 +7,7 @@ const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
@@ -278,7 +278,7 @@ async function load(){
   if(!S.user){
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
-    S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
+    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
@@ -607,10 +607,47 @@ function meTab(){
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
   $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
-  $('#shelf').innerHTML=mine.filter(n=>!isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
-  $('#art').innerHTML=mine.filter(n=>isArt(n)).map(chip).join('')+`<button class="chip addb" onclick="openPk('art')">＋ Add</button>`;
+  const li=mine.filter(n=>!isArt(n)),la=mine.filter(isArt);
+  $('#shelf').innerHTML=(li.length?li.map(chip).join(''):'<span class="mute sm emp">No interests yet. Add some to shape your feed.</span>')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
+  $('#art').innerHTML=(la.length?la.map(chip).join(''):'<span class="mute sm emp">No artists yet. Add the ones you listen to.</span>')+`<button class="chip addb" onclick="openPk('art')">＋ Add</button>`;
   drawBadges();
-  $('#mine').innerHTML=S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
+  $('#mt').innerHTML=['My posts','Liked','Photos'].map((t,i)=>`<button class="${i==S.mt?'on':''}" onclick="setMt(${i})">${t}</button>`).join('');
+  $('#mine').innerHTML=mineBody();
+}
+function mineBody(){
+  if(S.mt==1){
+    if(S.liked===null)return skPost().repeat(2);
+    return S.liked.map(findPost).filter(p=>p&&!bl(p.author_id)).map(p=>post(p)).join('')||'<div class="empty">Nothing liked yet.<br>Tap Same on a post and it will show up here.</div>';
+  }
+  if(S.mt==2){
+    const ph=S.myPosts.flatMap(p=>p.imgs||[]);
+    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo" onclick="openLb(this.src)">`).join('')+'</div>':'<div class="empty">No photos yet.<br>Add photos to a post and they will collect here.</div>';
+  }
+  return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
+}
+function setMt(i){S.mt=i;if(i==1)loadLiked();meTab()}
+// Posts you said Same to (newest posts first; we do not store when you liked them)
+async function loadLiked(){
+  const r=await sb.from('sames').select('post_id').eq('user_id',S.user.id).limit(100);
+  if(r.error){if(S.liked===null)S.liked=[];toast('Could not load your liked posts');meTab();return}
+  const ids=(r.data||[]).map(x=>x.post_id);
+  if(!ids.length){S.liked=[];meTab();return}
+  const pr=await sb.from('posts').select(COLS).in('id',ids).order('created_at',{ascending:false}).limit(50);
+  if(pr.error){if(S.liked===null)S.liked=[];toast('Could not load your liked posts');meTab();return}
+  await hydrate(pr.data);
+  S.liked=pr.data.map(x=>x.id);
+  meTab();
+}
+// Tap your photo or banner to view, change or remove it
+function closePhm(){$('#phm').classList.remove('on')}
+function openPhotoMenu(k){
+  const av=k=='avatar',url=av?S.avs[S.user.id]:S.prof.banner_url,w=av?'photo':'banner';
+  $('#phmt').textContent=av?'Profile photo':'Banner';
+  $('#phmb').innerHTML=(url?`<button class="btn off wide" onclick="closePhm();openLb('${esc(url)}')">View</button>`:'')
+    +`<button class="btn off wide" onclick="closePhm();$('#${av?'pfa':'pfbn'}').click()">${url?'Change':'Add'} ${w}</button>`
+    +(url?`<button class="btn off wide danger" onclick="closePhm();${av?'removeAvatar()':'removeBanner()'}">Remove ${w}</button>`:'')
+    +`<button class="btn off wide" onclick="closePhm()">Cancel</button>`;
+  $('#phm').classList.add('on');
 }
 // Share one searchable picker for profile interests and artists.
 function drawPk(){
@@ -864,7 +901,31 @@ function setBar(){
   $('#inp').style.display=can?'':'none';$('#jbar').style.display=can?'none':'flex';
   $('#mi').placeholder=room?'Message the circle...':'Say something nice...';
   if(room&&!can)$('#jtx').textContent='Join '+iname(S.room)+' to chat here.';
-  syncSend();
+  drawStrip();syncSend();
+}
+function drawStrip(){
+  const el=$('#cstrip');if(!el)return;
+  const k=S.room;
+  if(k==null){el.hidden=true;return}
+  const n=S.cnt[k]||0,mem=S.mine.has(k);
+  el.hidden=false;
+  el.innerHTML=`<button class="cmem" onclick="openMembers()">👥 ${n} ${n==1?'member':'members'} ›</button>`+(mem?`<button class="btn off sbtn" style="margin:0" onclick="leaveCircle()">Leave</button>`:`<button class="btn sbtn" style="margin:0" onclick="joinRoom()">Join</button>`);
+}
+async function openMembers(){
+  const k=S.room;if(k==null)return;
+  const r=await sb.from('user_interests').select('user_id').eq('interest_id',k).limit(200);
+  if(r.error){toast('Could not load members');return}
+  const ids=r.data.map(x=>x.user_id).filter(id=>!bl(id));
+  await getProfiles(ids);
+  ids.sort((a,b)=>(a==S.user.id?-1:b==S.user.id?1:0)||nm(a).localeCompare(nm(b)));
+  peopleSheet(iname(k)+' ('+ids.length+')',ids);
+}
+function leaveCircle(){
+  const k=S.room;if(k==null)return;
+  confirmBox('Leave '+iname(k)+'? This also removes it from your '+(isArt(k)?'artists.':'interests.'),'Leave',async()=>{
+    await toggleInt(k);
+    if(S.room===k){setBar();drawCircle()}
+  });
 }
 function openChats(){
   leaveRoom();conv=false;S.dm=null;setBar();
@@ -1235,10 +1296,10 @@ function checkAch(){clearTimeout(achT);achT=setTimeout(()=>{if(S.user)loadAch()}
 function drawBadges(){
   const c=S.achCat;
   $('#badges').innerHTML=c.length
-    ?`<div class="mute sm cnt-line">${S.achMine.size} of ${c.length} earned</div>`+c.map(a=>{
+    ?`<div class="mute sm cnt-line">${S.achMine.size} of ${c.length} earned${S.achMine.size?'':' · post, follow and say Same to unlock them'}</div>`+c.map(a=>{
         const d=S.achMine.get(a.code);
         return `<button class="chip tg ${d?'':'lock'}" style="--c:#64748B" onclick="showAch('${a.code}','${d||''}')">${d?esc(a.emoji):'🔒'} ${esc(a.title)}</button>`}).join('')
-    :'<span class="mute sm">Coming soon</span>';
+    :'<span class="mute sm emp">Badges unlock as you post, follow people and join in. They will show up here.</span>';
 }
 function showAch(code,d){
   const a=S.achCat.find(x=>x.code==code);if(!a)return;

@@ -53,3 +53,7 @@ Signups require an invite code. The check runs inside the database (a trigger on
 ## First-run onboarding (Batch 4b)
 
 New accounts go through four skippable steps: interests (3 or more), photo and bio, follow a few people (the iLike team and people with shared interests are listed first), and a first post. Completion is stored in `profiles.onboarded_at` (set by the `finish_onboarding()` function from `batch4b.sql`); accounts that existed before that column was added count as onboarded. `seed.sql` adds friendly starter posts from the admin account.
+
+## Profile and circle polish (Batch 5)
+
+On **You**, tap the avatar or banner to view, change or remove it; Edit profile and Settings sit together in the top bar. Profile tabs: **My posts**, **Liked** (posts you said Same to; private to you) and **Photos**. In a circle chat, the strip under the header shows the member count (tap for the list) and a Join or Leave button. A circle is an interest, so leaving a circle also removes that interest from the profile.

@@ -63,14 +63,14 @@
 
 <section class="screen" id="s-me">
 <div id="me">
-<div class="top"><span class="logo-wrap"><span class="logo">You</span></span><button class="ib" onclick="openSet()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><i class="badge" id="rpb" hidden></i></button></div>
-<div class="banner" id="mbn"></div>
+<div class="top"><span class="logo-wrap"><span class="logo">You</span></span><div style="display:flex;gap:8px"><button class="ib" onclick="openPe()" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button><button class="ib" onclick="openSet()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><i class="badge" id="rpb" hidden></i></button></div></div>
+<div class="banner" id="mbn" role="button" aria-label="Change banner" onclick="openPhotoMenu('banner')"><i class="cam">📷</i></div>
 <div class="me-body"><div class="col-l">
-<div class="mehead"><span class="av" id="mav" style="--c:var(--brand)"></span><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mu"></div><div class="cnts" id="mf"></div><p id="mb" class="bio" hidden></p><button class="btn off sbtn" onclick="openPe()">Edit profile</button></div>
+<div class="mehead"><span class="avwrap" role="button" aria-label="Change profile photo" onclick="openPhotoMenu('avatar')"><span class="av" id="mav" style="--c:var(--brand)"></span><i class="cam">📷</i></span><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mu"></div><div class="cnts" id="mf"></div><p id="mb" class="bio" hidden></p></div>
 <h2>Interests</h2><div class="card" id="shelf"></div>
-<h2>Artists</h2><div class="card" id="art"><span class="mute sm">Coming soon</span></div>
-<h2>Achievements</h2><div class="card" id="badges"><span class="mute sm">Coming soon</span></div></div>
-<div class="col-r"><h2>My posts</h2><div id="mine"></div></div></div>
+<h2>Artists</h2><div class="card" id="art"></div>
+<h2>Achievements</h2><div class="card" id="badges"></div></div>
+<div class="col-r"><div class="tabs" id="mt"></div><div id="mine"></div></div></div>
 </div>
 </section>
 
@@ -85,7 +85,7 @@
 <div class="ov" id="ov">
 <div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
 <div id="cl" style="overflow-y:auto"></div>
-<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div><div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div><div class="mcnt" id="mcnt" hidden></div><div class="inp" id="inp"><input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()"><button class="btn" id="sbtn" onclick="send()" disabled>Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
+<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div class="cstrip" id="cstrip" hidden></div><div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div><div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div><div class="mcnt" id="mcnt" hidden></div><div class="inp" id="inp"><input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()"><button class="btn" id="sbtn" onclick="send()" disabled>Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
 </div>
 <div class="mod" id="mod" onclick="if(event.target===this)closePost()"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b style="font-size:18px">New post</b><textarea id="txt" maxlength="1000" placeholder="What are you into today?" aria-label="Post text"></textarea><div class="photos" id="pph"></div><button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos</button><input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)"><select id="sel" aria-label="Interest"></select><select id="sel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button><button class="btn off" onclick="closePost()">Cancel</button><button class="btn" id="shr" onclick="publish()">Share</button></div></div></div>
 <div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search interests" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px"><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
@@ -110,6 +110,7 @@
 <div class="mod" id="rn" style="z-index:53" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><b style="font-size:18px">Rename artist</b><input class="fi" id="rni" maxlength="40" style="margin-top:12px" onkeydown="if(event.key==='Enter')admSaveRename()"><div class="err" id="rne"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#rn').classList.remove('on')">Cancel</button><button class="btn" onclick="admSaveRename()">Save</button></div></div></div>
 <div class="mod" id="mg" style="z-index:53" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="mgt" style="font-size:18px"></b><input class="fi" id="mgs" placeholder="Search artists" maxlength="40" autocomplete="off" oninput="drawMg()" style="margin-top:12px"><div id="mgl" style="margin:8px -6px 0"></div><button class="btn off wide" onclick="$('#mg').classList.remove('on')">Cancel</button></div></div>
 <div class="mod" id="lg" style="z-index:58" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:88vh;overflow-y:auto"><div class="tabs" id="lgt"></div><div class="legal" id="lgb"></div><button class="btn wide" onclick="$('#lg').classList.remove('on')">Done</button></div></div>
+<div class="mod" id="phm" style="z-index:52" onclick="if(event.target===this)closePhm()"><div class="sheet"><b id="phmt" style="font-size:18px"></b><div id="phmb" style="margin-top:8px"></div></div></div>
 <div class="mod lb" id="lb" style="z-index:70" onclick="closeLb()"><img id="lbi" alt="Photo"></div>
 <div id="toast"></div>
 
