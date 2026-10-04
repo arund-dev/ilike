@@ -271,7 +271,7 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${(mine||isMod())&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
@@ -350,7 +350,11 @@ async function publish(){
 }
 
 // ---------- My post menu: edit / delete ----------
-function openPm(id){S.pmId=id;$('#pm').classList.add('on')}
+function openPm(id){
+  S.pmId=id;const p=findPost(id);
+  $('#pmEdit').style.display=p&&p.author_id==S.user.id?'':'none';  // only the author edits; mods can only remove
+  $('#pm').classList.add('on');
+}
 function closePm(){$('#pm').classList.remove('on')}
 function renderEdPh(){
   const p=findPost(S.edId);
@@ -391,8 +395,8 @@ function delPost(id){
   closePm();
   confirmBox('Delete this post?','Delete',async()=>{
     const p=findPost(id),imgs=p?[...(p.imgs||[])]:[];
-    const{error}=await sb.from('posts').delete().eq('id',id);
-    if(error){toast(error.message);return}
+    const{data,error}=await sb.from('posts').delete().eq('id',id).select('id');
+    if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the post");return}
     if(imgs.length)rmFiles('post-images',imgs);
     S.pm.delete(String(id));
     S.posts=S.posts.filter(p=>p.id!==id);S.myPosts=S.myPosts.filter(p=>p.id!==id);
@@ -401,7 +405,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id||isMod()?`<button class="ghost" onclick="delReply('${r.id}')">${r.author_id==S.user.id?'Delete':'Remove'}</button>`:''}</div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -430,8 +434,8 @@ async function sendReply(){
 }
 function delReply(id){
   confirmBox('Delete this reply?','Delete',async()=>{
-    const{error}=await sb.from('replies').delete().eq('id',id);
-    if(error){toast(error.message);return}
+    const{data,error}=await sb.from('replies').delete().eq('id',id).select('id');
+    if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the reply");return}
     await loadReplies(S.th);draw();
   });
 }
@@ -782,7 +786,11 @@ const moreBtn=(k,id)=>`<button class="mmore" onclick="event.stopPropagation();ms
 let mmSel=null;
 const msgTable=k=>k=='dm'?'messages':'circle_messages';
 const getMsg=s=>s&&(s.k=='dm'?S.msgs:(S.cm||[])).find(x=>String(x.id)===String(s.id));
-function msgMenu(k,id){mmSel={k,id};$('#mm').classList.add('on')}
+function msgMenu(k,id){
+  mmSel={k,id};const m=getMsg(mmSel);
+  $('#mmEdit').style.display=m&&m.sender_id==S.user.id?'':'none';  // mods can remove others' messages, not edit them
+  $('#mm').classList.add('on');
+}
 function closeMm(){mmSel=null;$('#mm').classList.remove('on')}
 function editMsg(){
   const sel=mmSel,m=getMsg(sel);closeMm();if(!m)return;
@@ -805,7 +813,9 @@ async function saveMsgEdit(v){
 function delMsg(){
   const sel=mmSel,m=getMsg(sel);closeMm();if(!m)return;
   confirmBox('Delete this message?','Delete',async()=>{
-    const{data,error}=await sb.from(msgTable(sel.k)).delete().eq('id',m.id).eq('sender_id',S.user.id).select();
+    let q=sb.from(msgTable(sel.k)).delete().eq('id',m.id);
+    if(sel.k=='dm'||m.sender_id==S.user.id)q=q.eq('sender_id',S.user.id);  // mods may only remove circle messages of others
+    const{data,error}=await q.select();
     if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the message");return}
     if(S.edit&&String(S.edit.id)===String(m.id))resetEdit();
     if(sel.k=='dm'){S.msgs=S.msgs.filter(x=>x.id!==m.id);updateBadges();if(conv&&S.dm)drawDm()}
@@ -859,7 +869,7 @@ function drawCircle(snap){
     const ed=m.edited_at?' · edited':'';
     return m.sender_id==me
       ?`<div class="b me">${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
-      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t">${tm(m.created_at)}${ed}</small></div></div>`}).join('')
+      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t ${isMod()?'f':''}"><span>${tm(m.created_at)}${ed}</span>${isMod()?moreBtn('cm',m.id):''}</small></div></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
   const last=S.cm[S.cm.length-1];
   settle(el,near,snap,S.cm.length,!last||last.sender_id==me);
