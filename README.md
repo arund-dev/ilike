@@ -65,3 +65,7 @@ A failed post, reply or chat message stays in its input and shows a **Retry** bu
 ## Content cleanup (Batch 7b)
 
 Adding an artist now ignores case, accents, spaces and punctuation (`nameKey` in `app.js`, `norm_name()` in `batch7b.sql`), and shows a **Did you mean...?** sheet for look-alikes (typos, extra words) with a "No, add as new" choice. In **Moderation tools > Lists**, **Find duplicates** scans the artist list and merges a pair in one tap. `batch7b.sql` also adds a unique index on the normalised artist name once no duplicates remain. Hosts and moderators can **Cancel event**: it stays listed as Cancelled (no I'm in button) until it passes. **Show past events** at the bottom of Meet loads the last 20 events on demand. Cancel uses the `cancel_event()` function from `batch7b.sql` and the new `events.cancelled_at` column.
+
+## Admin stats (Batch 7c)
+
+**Moderation tools > Stats** (admins only) shows people, active today / 7 / 30 days, a bar chart of signups, posts, replies or messages for the last 7, 14 or 30 days, and the top interests and artists. It calls the `admin_stats()` function from `batch7c.sql`, which returns only counts (no names, no per-person data) and refuses anyone who is not an admin. No tracking script is involved, so the privacy text needs no change. Real-device testing steps are in `DEVICE-CHECKLIST.md`.

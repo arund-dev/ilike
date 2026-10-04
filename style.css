@@ -571,3 +571,14 @@ body.noapp nav,body.noapp .fab{display:none}
 .evbadge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:50px;background:#b42318;color:#fff}
 .evcx{margin:10px 0;padding:10px 14px;border-radius:12px;font-weight:800;background:#b42318;color:#fff}
 .evcx.soft{background:var(--card);color:var(--mute)}
+
+/* 7c: admin stats */
+#mot .tabs button{padding:10px 2px;font-size:13px}
+.stgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 10px}
+.stat{text-align:center}
+.stn{font-size:28px;font-weight:800;line-height:1.1}
+.sbars{display:flex;align-items:flex-end;gap:3px;height:150px;padding-top:16px}
+.sbar{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
+.sbar i{display:block;width:100%;max-width:26px;border-radius:6px 6px 2px 2px;background:var(--grad)}
+.sbv{font-size:10px;font-weight:800;color:var(--mute);height:14px}
+.sbl{font-size:10px;color:var(--mute);height:14px;white-space:nowrap;overflow:visible}

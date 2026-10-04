@@ -1909,6 +1909,36 @@ async function sendFb(){
   if(error){e.textContent=error.message||'Could not send. Try again.';return}
   closeFb();toast('Thanks, we got it');
 }
+// ---------- Admin: stats (counts only, no per-person data) ----------
+async function drawStats(){
+  if(!S.st)$('#mob').innerHTML='<div class="empty">Loading...</div>';
+  const r=await sb.rpc('admin_stats',{days:S.stN||14});
+  if(mtab!=5)return;
+  if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  S.st=r.data;paintStats();
+}
+function setStN(n){S.stN=n;S.st=null;drawStats()}
+function paintStats(){
+  const d=S.st;if(!d||mtab!=5)return;
+  const N=S.stN||14,M=S.stM||'posts',days=d.days||[];
+  const lab={signups:'Signups',posts:'Posts',replies:'Replies',messages:'Messages'};
+  const sum=k=>days.reduce((t,x)=>t+(x[k]||0),0),max=Math.max(1,...days.map(x=>x[M]||0));
+  const stat=(n,l)=>`<div class="card stat"><div class="stn">${n}</div><div class="mute sm">${l}</div></div>`;
+  const chip=(on,txt,fn)=>`<button class="fc ${on?'on':''}" onclick="${fn}">${txt}</button>`;
+  const bars=days.map(x=>{
+    const v=x[M]||0,h=Math.round(v/max*100),day=x.d.slice(8),first=x===days[0]||day=='01';
+    return `<div class="sbar" title="${esc(x.d)}: ${v}"><span class="sbv">${N<=14?v:''}</span><i style="height:${Math.max(v?4:1,h)}%"></i><span class="sbl">${N>14&&days.indexOf(x)%4?'':first?x.d.slice(5):day}</span></div>`;
+  }).join('');
+  const top=l=>l.map(t=>`<div class="prow"><span class="tile" style="width:36px;height:36px;font-size:18px">${esc(t.emoji||'✦')}</span><b class="grow">${esc(t.name)}</b><span class="mute sm">${t.members} ${t.members==1?'member':'members'} · ${t.posts30} ${t.posts30==1?'post':'posts'}</span></div>`).join('')||'<div class="mute sm">Nothing yet.</div>';
+  $('#mob').innerHTML=`<div class="stgrid">${stat(d.total_users,'People')}${stat(d.dau,'Active today')}${stat(d.wau,'Active 7 days')}${stat(d.mau,'Active 30 days')}</div>
+<div class="card"><div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${Object.keys(lab).map(k=>chip(k==M,lab[k],`S.stM='${k}';paintStats()`)).join('')}</div>
+<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:12px">${[7,14,30].map(n=>chip(n==N,'Last '+n+' days',`setStN(${n})`)).join('')}</div>
+<div class="sbars">${bars}</div>
+<div class="mute sm" style="margin-top:8px">${lab[M]}: ${sum(M)} in the last ${N} days (days are UTC). "Active" means posted, replied or sent a message.</div></div>
+<div class="card"><b>Top interests</b><div style="margin-top:6px">${top(d.top||[])}</div></div>
+<div class="card"><b>Top artists</b><div style="margin-top:6px">${top(d.artists||[])}</div></div>
+<button class="link" style="margin:4px auto 20px;display:block" onclick="S.st=null;drawStats()">Refresh</button>`;
+}
 async function drawFeedback(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.from('feedback').select('*').eq('handled',false).order('created_at',{ascending:false}).limit(50);
@@ -2051,9 +2081,9 @@ function paintRepBadge(){
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
 function drawMod(){
-  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites','Feedback']:[]);
+  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
-  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else if(mtab==3)drawInvites();else drawFeedback();
+  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else if(mtab==3)drawInvites();else if(mtab==4)drawFeedback();else drawStats();
 }
 async function drawReports(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
