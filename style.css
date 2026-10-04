@@ -536,3 +536,19 @@ body.noapp nav,body.noapp .fab{display:none}
 .crmask{position:absolute;inset:0;pointer-events:none}
 .crst.avatar .crmask{border-radius:50%;box-shadow:0 0 0 999px rgba(0,0,0,.6);border:2px solid #fff}
 #crz{accent-color:var(--brand)}
+
+/* ---- Batch 6b: notifications, settings, feedback, delete account ---- */
+.sethd{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:22px 4px 2px;padding-top:16px;border-top:1px solid var(--line)}
+.sethd.first{border:0;padding-top:0;margin-top:12px}
+.sethd[hidden]{display:none}
+.btn.dfill{background:#dc2626;color:#fff;box-shadow:none}
+.btn.dfill:disabled{opacity:.4;cursor:default}
+.nitem.new{background:color-mix(in srgb,var(--brand) 9%,var(--card))}
+.nitem .ntm{flex:none}
+.ngav{position:relative;flex:none;display:block}
+.ngn{position:absolute;right:-6px;bottom:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:50px;background:var(--grad);color:#fff;font-style:normal;font-size:11px;font-weight:800;display:grid;place-items:center;border:2px solid var(--card)}
+:root[data-palette="mono"] .ngn{color:var(--on-grad)}
+.nck{flex:none;padding:6px 9px;border-radius:50%;border:1px solid var(--line);font-size:13px;line-height:1}
+.nmr{width:auto;font-size:13px;font-weight:800;white-space:nowrap}
+.nmr[hidden]{display:none}
+.fbk .fc,#fbk .fc{flex:1}

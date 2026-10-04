@@ -1290,21 +1290,44 @@ async function loadNotifs(){
   await notifMeta(r.data);S.notifs=r.data;updateBadges();
   if($('#nv').classList.contains('on'))drawNotifs();
 }
+// Notifications are grouped: "Sam, Priya and 3 others said Same to your post" is one row.
+// Same / reply rows group per post; follow rows group per day.
+function ngroups(){
+  const g=[],idx=new Map();
+  for(const n of S.notifs){
+    const day=n.type=='follow'?new Date(n.created_at).toDateString():'';
+    const k=n.type+'|'+(n.post_id||'')+'|'+day;
+    let x=idx.get(k);
+    if(!x){x={type:n.type,post_id:n.post_id,items:[],actors:[]};idx.set(k,x);g.push(x)}
+    x.items.push(n);if(!x.actors.includes(n.actor_id))x.actors.push(n.actor_id);
+  }
+  return g;
+}
+const gnames=a=>{const b=x=>'<b>'+esc(nm(x))+'</b>';return a.length==1?b(a[0]):a.length==2?b(a[0])+' and '+b(a[1]):b(a[0])+', '+b(a[1])+' and '+(a.length-2)+(a.length==3?' other':' others')};
 function drawNotifs(){
-  $('#nl').innerHTML=S.notifs.map(n=>`<div class="card row nitem ${n.read_at?'':'new'}" onclick="openNotif('${n.id}')">${av(n.actor_id)}<div class="grow"><div><b>${esc(nm(n.actor_id))}</b> ${ntext(n)}</div><div class="mute sm clip">${n.type=='follow'?'Tap to see their profile':esc(nsnip(n))}</div></div><span class="mute sm">${ago(n.created_at)}</span></div>`).join('')
-    ||'<div class="empty">Nothing yet.<br>When someone says Same, replies or follows you, you will see it here.</div>';
+  S.ng=ngroups();
+  $('#nl').innerHTML=S.ng.map((g,i)=>{
+    const un=g.items.some(n=>!n.read_at),newest=g.items[0];
+    return `<div class="card row nitem ${un?'new':''}" onclick="openNg(${i})"><span class="ngav">${av(g.actors[0])}${g.actors.length>1?`<i class="ngn">+${g.actors.length-1}</i>`:''}</span><div class="grow"><div>${gnames(g.actors)} ${ntext(newest)}</div><div class="mute sm clip">${g.type=='follow'?(g.actors.length>1?'Tap to see your followers':'Tap to see their profile'):esc(nsnip(newest))}</div></div><span class="mute sm ntm">${ago(newest.created_at)}</span>${un?`<button class="ghost nck" onclick="event.stopPropagation();readNg(${i})" aria-label="Mark as read">✓</button>`:''}</div>`;
+  }).join('')||'<div class="empty">Nothing yet.<br>When someone says Same, replies or follows you, you will see it here.</div>';
+  $('#nmr').hidden=!S.notifs.some(n=>!n.read_at);
 }
-function markNotifsRead(){
-  const un=S.notifs.filter(n=>!n.read_at);if(!un.length)return;
-  const now=new Date().toISOString();un.forEach(n=>n.read_at=now);updateBadges();
-  sb.from('notifications').update({read_at:now}).eq('user_id',S.user.id).is('read_at',null).then(()=>{});
+function markIds(ids){
+  if(!ids.length)return;
+  const now=new Date().toISOString(),set=new Set(ids);
+  S.notifs.forEach(n=>{if(set.has(n.id))n.read_at=now});
+  updateBadges();if($('#nv').classList.contains('on'))drawNotifs();
+  sb.from('notifications').update({read_at:now}).in('id',ids).eq('user_id',S.user.id).then(r=>{if(r.error)loadNotifs()});
 }
-function openNotifs(){drawNotifs();$('#nv').classList.add('on');markNotifsRead()}
-async function openNotif(id){
-  const n=S.notifs.find(x=>x.id===id);if(!n)return;
-  if(n.type=='follow'){openProfile(n.actor_id);return}
-  if(!(await ensurePost(n.post_id)))return;
-  n.type=='reply'?openThread(n.post_id):openPost(n.post_id);
+function readNg(i){const g=S.ng&&S.ng[i];if(g)markIds(g.items.filter(n=>!n.read_at).map(n=>n.id))}
+function markNotifsRead(){markIds(S.notifs.filter(n=>!n.read_at).map(n=>n.id))}
+function openNotifs(){drawNotifs();$('#nv').classList.add('on')}
+async function openNg(i){
+  const g=S.ng&&S.ng[i];if(!g)return;
+  markIds(g.items.filter(n=>!n.read_at).map(n=>n.id));
+  if(g.type=='follow'){g.actors.length>1?openFollows(S.user.id,'ers'):openProfile(g.actors[0]);return}
+  if(!(await ensurePost(g.post_id)))return;
+  g.type=='reply'?openThread(g.post_id):openPost(g.post_id);
 }
 async function onNotif(n){
   await notifMeta([n]);
@@ -1312,7 +1335,8 @@ async function onNotif(n){
   S.notifs.unshift(n);
   toast(nm(n.actor_id)+' '+ntext(n));
   if(n.type=='follow'){S.folrs.add(n.actor_id);draw()}else checkAch();
-  if($('#nv').classList.contains('on')){drawNotifs();markNotifsRead()}else updateBadges();
+  if($('#nv').classList.contains('on'))drawNotifs();
+  updateBadges();
 }
 
 // =====================================================================
@@ -1772,6 +1796,72 @@ function blockUser(id){
     toast('Blocked '+nm(id));
   });
 }
+// ---------- Send feedback ----------
+const APP_VER='6b',FBK=[['bug','🐞 Bug'],['idea','💡 Idea'],['other','Other']];
+function paintFbk(){$('#fbk').innerHTML=FBK.map(k=>`<button class="fc ${S.fbk==k[0]?'on':''}" onclick="S.fbk='${k[0]}';paintFbk()">${k[1]}</button>`).join('')}
+function openFb(){
+  $('#set').classList.remove('on');S.fbk='idea';paintFbk();
+  $('#fbt').value='';$('#fbc').textContent='0/1000';$('#fbe').textContent='';$('#fbs').disabled=false;
+  $('#fb').classList.add('on');
+}
+function closeFb(){$('#fb').classList.remove('on')}
+async function sendFb(){
+  const body=$('#fbt').value.trim(),e=$('#fbe');e.textContent='';
+  if(body.length<3){e.textContent='Write a little more first.';return}
+  const b=$('#fbs');b.disabled=true;
+  const{error}=await sb.from('feedback').insert({user_id:S.user.id,kind:S.fbk||'other',body,ua:(navigator.userAgent||'').slice(0,200),app_ver:APP_VER});
+  b.disabled=false;
+  if(error){e.textContent=error.message||'Could not send. Try again.';return}
+  closeFb();toast('Thanks, we got it');
+}
+async function drawFeedback(){
+  $('#mob').innerHTML='<div class="empty">Loading...</div>';
+  const r=await sb.from('feedback').select('*').eq('handled',false).order('created_at',{ascending:false}).limit(50);
+  if(mtab!=4)return;
+  if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  await getProfiles(r.data.map(x=>x.user_id));
+  if(mtab!=4)return;
+  const ic={bug:'🐞 Bug',idea:'💡 Idea',other:'Message'};
+  $('#mob').innerHTML=r.data.map(x=>`<div class="card rpc"><div class="mute sm">${esc(nm(x.user_id))} · ${ic[x.kind]||'Message'} · ${ago(x.created_at)}</div><div class="rquote">${esc(x.body)}</div><div class="mute sm clip">${esc((x.app_ver?'v'+x.app_ver+' · ':'')+(x.ua||''))}</div><div class="row rpa"><button class="btn off sbtn" onclick="openProfile('${x.user_id}')">View profile</button><button class="btn sbtn" onclick="fbDone('${x.id}')">Done</button></div></div>`).join('')||'<div class="empty">No open feedback 🎉</div>';
+}
+async function fbDone(id){
+  const{data,error}=await sb.from('feedback').update({handled:true}).eq('id',id).select('id');
+  if(error||!data||!data.length){toast(error?error.message:"Couldn't update");return}
+  drawFeedback();
+}
+
+// ---------- Delete my account ----------
+function openDa(){$('#set').classList.remove('on');$('#dat').value='';$('#dae').textContent='';$('#dab').disabled=true;$('#dab').textContent='Delete forever';$('#da').classList.add('on')}
+function closeDa(){if(S.deleting)return;$('#da').classList.remove('on')}
+function daCheck(){$('#dab').disabled=$('#dat').value.trim().toUpperCase()!=='DELETE'}
+async function doDelete(){
+  if(S.deleting||$('#dat').value.trim().toUpperCase()!=='DELETE')return;
+  const b=$('#dab'),e=$('#dae'),uid=S.user.id;
+  S.deleting=true;b.disabled=true;b.textContent='Deleting...';e.textContent='';
+  const fail=m=>{S.deleting=false;b.disabled=false;b.textContent='Delete forever';e.textContent=m||'Could not delete your account. Nothing was changed.'};
+  // 1. Check first (e.g. the only admin can't leave), so nothing is removed if it will be refused
+  const chk=await sb.rpc('delete_my_account',{dry:true});
+  if(chk.error){fail(chk.error.message);return}
+  // 2. Remove this person's uploaded files
+  try{
+    for(const bk of ['avatars','post-images']){
+      for(let k=0;k<20;k++){
+        const l=await sb.storage.from(bk).list(uid,{limit:100});
+        if(l.error||!l.data||!l.data.length)break;
+        const r=await sb.storage.from(bk).remove(l.data.map(f=>uid+'/'+f.name));
+        if(r.error||l.data.length<100)break;
+      }
+    }
+  }catch(x){}
+  // 3. Remove the account and everything in the database
+  const{error}=await sb.rpc('delete_my_account',{dry:false});
+  if(error){fail(error.message);return}
+  try{localStorage.removeItem('il-draft-'+uid);localStorage.removeItem('il-rdraft-'+uid)}catch(x){}
+  S.deleting=false;$('#da').classList.remove('on');
+  await sb.auth.signOut({scope:'local'});S.tab='home';S.F='All';S.loaded=false;
+  toast('Your account was deleted');
+}
+
 async function openBlocked(){
   $('#set').classList.remove('on');
   const ids=[...S.blocked];await getProfiles(ids);
@@ -1866,9 +1956,9 @@ function paintRepBadge(){
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
 function drawMod(){
-  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites']:[]);
+  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites','Feedback']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
-  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else drawInvites();
+  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else if(mtab==3)drawInvites();else drawFeedback();
 }
 async function drawReports(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
