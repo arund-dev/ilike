@@ -56,4 +56,4 @@ New accounts go through four skippable steps: interests (3 or more), photo and b
 
 ## Profile and circle polish (Batch 5)
 
-On **You**, tap the avatar or banner to view, change or remove it; Edit profile and Settings sit together in the top bar. Profile tabs: **My posts**, **Liked** (posts you said Same to; private to you) and **Photos**. In a circle chat, the strip under the header shows the member count (tap for the list) and a Join or Leave button. A circle is an interest, so leaving a circle also removes that interest from the profile.
+On **You**, Edit profile and Settings sit together in the top bar. Choosing a profile photo or banner (in Edit profile, and during onboarding) opens a crop editor: drag to move, pinch or use the slider to zoom, and the avatar shows the circle that will appear on the profile. Profile tabs: **My posts**, **Liked** (posts you said Same to; private to you) and **Photos**. In a circle chat, the strip under the header shows the member count (tap for the list) and a Join or Leave button. A circle is an interest, so leaving a circle also removes that interest from the profile.

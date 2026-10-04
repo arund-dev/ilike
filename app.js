@@ -195,17 +195,13 @@ function obProfileUi(el){
   el.innerHTML=`${obHead(2)}<h2 style="margin:6px 0 6px">Put a face to your name</h2><p class="mute">A photo and a line about you help people say hi. You can skip this and do it later.</p><div class="obav"><span class="av big" id="obav" style="--c:var(--brand)"></span><button class="btn off sbtn" id="obab" onclick="$('#obf').click()">${has?'Change photo':'Add photo'}</button><input type="file" id="obf" accept="image/*" hidden onchange="obAvatar(this)"></div><label class="lab" for="obb">Bio</label><textarea id="obb" class="bioin" maxlength="160" placeholder="Tell people what you are into">${esc(S.prof.bio||'')}</textarea><label class="lab" for="obc">City</label><input class="fi" id="obc" maxlength="40" autocomplete="address-level2" value="${esc(S.prof.city||'')}"><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obProf(this)">Continue</button><button class="link" onclick="obGo(2)">Skip for now</button>`;
   setMyAv($('#obav'));
 }
-async function obAvatar(inp){
+function obAvatar(inp){
   const f=inp.files[0];inp.value='';if(!f)return;
-  toast('Uploading photo...');
-  try{
-    const blob=await prep(f,512,true),url=await upload('avatars',blob),old=S.avs[S.user.id];
-    const{error}=await sb.from('profiles').update({avatar_url:url}).eq('id',S.user.id);
-    if(error)throw error;
-    if(old)rmFiles('avatars',[old]);
-    S.avs[S.user.id]=url;S.prof.avatar_url=url;
-    setMyAv($('#obav'));$('#obab').textContent='Change photo';toast('Photo added');
-  }catch(e){toast(e.message||"Couldn't upload that photo")}
+  cropFile(f,'avatar',async blob=>{
+    toast('Uploading photo...');
+    try{await setAvatarBlob(blob);setMyAv($('#obav'));$('#obab').textContent='Change photo';toast('Photo added')}
+    catch(e){toast(e.message||"Couldn't upload that photo")}
+  });
 }
 async function obProf(b){
   const bio=$('#obb').value.trim(),city=$('#obc').value.trim();
@@ -638,17 +634,6 @@ async function loadLiked(){
   S.liked=pr.data.map(x=>x.id);
   meTab();
 }
-// Tap your photo or banner to view, change or remove it
-function closePhm(){$('#phm').classList.remove('on')}
-function openPhotoMenu(k){
-  const av=k=='avatar',url=av?S.avs[S.user.id]:S.prof.banner_url,w=av?'photo':'banner';
-  $('#phmt').textContent=av?'Profile photo':'Banner';
-  $('#phmb').innerHTML=(url?`<button class="btn off wide" onclick="closePhm();openLb('${esc(url)}')">View</button>`:'')
-    +`<button class="btn off wide" onclick="closePhm();$('#${av?'pfa':'pfbn'}').click()">${url?'Change':'Add'} ${w}</button>`
-    +(url?`<button class="btn off wide danger" onclick="closePhm();${av?'removeAvatar()':'removeBanner()'}">Remove ${w}</button>`:'')
-    +`<button class="btn off wide" onclick="closePhm()">Cancel</button>`;
-  $('#phm').classList.add('on');
-}
 // Share one searchable picker for profile interests and artists.
 function drawPk(){
   const art=S.pkm=='art',raw=$('#pks').value.trim().replace(/\s+/g,' '),q=raw.toLowerCase();
@@ -741,17 +726,20 @@ async function saveProfile(){
   Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;
   $('#pe').classList.remove('on');draw();toast('Profile saved');
 }
-async function pickAvatar(inp){
+async function setAvatarBlob(blob){
+  const url=await upload('avatars',blob),old=S.avs[S.user.id];
+  const{error}=await sb.from('profiles').update({avatar_url:url}).eq('id',S.user.id);
+  if(error){rmFiles('avatars',[url]);throw error}
+  if(old)rmFiles('avatars',[old]);
+  S.avs[S.user.id]=url;S.prof.avatar_url=url;
+}
+function pickAvatar(inp){
   const f=inp.files[0];inp.value='';if(!f)return;
-  toast('Uploading photo...');
-  try{
-    const blob=await prep(f,512,true),url=await upload('avatars',blob),old=S.avs[S.user.id];
-    const{error}=await sb.from('profiles').update({avatar_url:url}).eq('id',S.user.id);
-    if(error)throw error;
-    if(old)rmFiles('avatars',[old]);
-    S.avs[S.user.id]=url;S.prof.avatar_url=url;
-    setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');checkAch();
-  }catch(e){toast(e.message||"Couldn't upload that photo")}
+  cropFile(f,'avatar',async blob=>{
+    toast('Uploading photo...');
+    try{await setAvatarBlob(blob);setMyAv($('#peav'));$('#perm').hidden=false;draw();toast('Photo updated');checkAch()}
+    catch(e){toast(e.message||"Couldn't upload that photo")}
+  });
 }
 // Banner: cropped to 3:1, stored in the avatars bucket (your folder), URL in profiles.banner_url
 function setBanner(el,u){
@@ -759,16 +747,18 @@ function setBanner(el,u){
   el.style.backgroundImage=u?"url('"+u+"')":'';
   el.style.backgroundSize=u?'cover':'';el.style.backgroundPosition=u?'center':'';
 }
-async function pickBanner(inp){
+function pickBanner(inp){
   const f=inp.files[0];inp.value='';if(!f)return;
-  toast('Uploading banner...');
-  try{
-    const blob=await prep(f,1400,false,3),url=await upload('avatars',blob),old=S.prof.banner_url;
-    const{error}=await sb.from('profiles').update({banner_url:url}).eq('id',S.user.id);
-    if(error){rmFiles('avatars',[url]);throw error}
-    if(old)rmFiles('avatars',[old]);
-    S.prof.banner_url=url;setBanner($('#pebn'),url);$('#pebrm').hidden=false;draw();toast('Banner updated');
-  }catch(e){toast(e.message||"Couldn't upload that photo")}
+  cropFile(f,'banner',async blob=>{
+    toast('Uploading banner...');
+    try{
+      const url=await upload('avatars',blob),old=S.prof.banner_url;
+      const{error}=await sb.from('profiles').update({banner_url:url}).eq('id',S.user.id);
+      if(error){rmFiles('avatars',[url]);throw error}
+      if(old)rmFiles('avatars',[old]);
+      S.prof.banner_url=url;setBanner($('#pebn'),url);$('#pebrm').hidden=false;draw();toast('Banner updated');
+    }catch(e){toast(e.message||"Couldn't upload that photo")}
+  });
 }
 async function removeBanner(){
   const old=S.prof.banner_url;if(!old)return;
@@ -784,6 +774,68 @@ async function removeAvatar(){
   rmFiles('avatars',[old]);delete S.avs[S.user.id];S.prof.avatar_url=null;
   setMyAv($('#peav'));$('#perm').hidden=true;draw();toast('Photo removed');
 }
+
+// ---------- Crop editor: move, zoom and see the circle before saving a photo or banner ----------
+const CR={ptrs:new Map()};
+function cropFile(file,kind,cb){
+  const url=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{
+    Object.assign(CR,{k:kind,im,url,cb,z:1,d0:0});CR.ptrs.clear();
+    $('#crt').textContent=kind=='avatar'?'Adjust your photo':'Adjust your banner';
+    $('#crh').textContent=kind=='avatar'?'Drag to move. Pinch or use the slider to zoom. Only the circle will show on your profile.':'Drag to move. Pinch or use the slider to zoom. Your profile photo covers the bottom left corner.';
+    $('#crst').className='crst '+kind;$('#cri').src=url;$('#crz').value=1;
+    $('#cr').classList.add('on');
+    requestAnimationFrame(()=>{
+      const st=$('#crst');CR.sw=st.clientWidth;CR.sh=st.clientHeight;
+      CR.min=Math.max(CR.sw/im.naturalWidth,CR.sh/im.naturalHeight);
+      const sc=CR.min;CR.x=(CR.sw-im.naturalWidth*sc)/2;CR.y=(CR.sh-im.naturalHeight*sc)/2;
+      crPaint();
+    });
+  };
+  im.onerror=()=>{URL.revokeObjectURL(url);toast('Could not read that photo')};
+  im.src=url;
+}
+function crPaint(){
+  const im=CR.im;if(!im)return;
+  const sc=CR.min*CR.z,w=im.naturalWidth*sc,h=im.naturalHeight*sc;
+  CR.x=Math.min(0,Math.max(CR.sw-w,CR.x));CR.y=Math.min(0,Math.max(CR.sh-h,CR.y));
+  const el=$('#cri');el.style.width=w+'px';el.style.height=h+'px';el.style.transform=`translate(${CR.x}px,${CR.y}px)`;
+}
+function crSetZ(z,fx,fy){
+  if(!CR.im)return;
+  z=Math.min(4,Math.max(1,z));
+  const old=CR.min*CR.z,px=(fx-CR.x)/old,py=(fy-CR.y)/old,ns=CR.min*z;
+  CR.z=z;CR.x=fx-px*ns;CR.y=fy-py*ns;
+  $('#crz').value=z;crPaint();
+}
+function crClose(){$('#cr').classList.remove('on');if(CR.url)URL.revokeObjectURL(CR.url);CR.url=null;CR.im=null;CR.cb=null;CR.ptrs.clear()}
+function crCancel(){crClose()}
+function crSave(){
+  const im=CR.im,k=CR.k,cb=CR.cb;if(!im)return;
+  const sc=CR.min*CR.z,nw=im.naturalWidth,nh=im.naturalHeight;
+  const w=Math.min(nw,CR.sw/sc),h=Math.min(nh,CR.sh/sc);
+  const sx=Math.max(0,Math.min(nw-w,-CR.x/sc)),sy=Math.max(0,Math.min(nh-h,-CR.y/sc));
+  const ow=Math.max(1,Math.round(Math.min(k=='avatar'?512:1400,w))),oh=k=='avatar'?ow:Math.max(1,Math.round(ow/3));
+  const cv=document.createElement('canvas');cv.width=ow;cv.height=oh;
+  cv.getContext('2d').drawImage(im,sx,sy,w,h,0,0,ow,oh);
+  cv.toBlob(b=>{crClose();if(b&&cb)cb(b);else toast('Could not read that photo')},'image/jpeg',.85);
+}
+(()=>{
+  const st=$('#crst');
+  const rect=()=>st.getBoundingClientRect();
+  st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);CR.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});CR.d0=0});
+  st.addEventListener('pointermove',e=>{
+    const p=CR.ptrs.get(e.pointerId);if(!p||!CR.im)return;
+    if(CR.ptrs.size==1){CR.x+=e.clientX-p.x;CR.y+=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;crPaint();return}
+    p.x=e.clientX;p.y=e.clientY;
+    const[a,b]=[...CR.ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y),r=rect();
+    if(CR.d0)crSetZ(CR.z*d/CR.d0,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);
+    CR.d0=d;
+  });
+  const up=e=>{CR.ptrs.delete(e.pointerId);CR.d0=0};
+  st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
+  st.addEventListener('wheel',e=>{e.preventDefault();const r=rect();crSetZ(CR.z*(e.deltaY<0?1.08:.93),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+})();
 
 // ---------- Settings ----------
 const ACCENTS=[
