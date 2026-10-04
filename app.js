@@ -1315,7 +1315,7 @@ function drawPf(){
   const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
   const fo=S.fol.has(id);
   const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
-  $('#pfb').innerHTML=`<div class="banner pfbn"${p.banner_url?` style="background-image:url('${esc(p.banner_url)}');background-size:cover;background-position:center"`:''}></div><div class="pfh ov">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}${rb(id)}</h3>
+  $('#pfb').innerHTML=`<div class="banner pfbn"${p.banner_url?` style="background-image:url('${esc(p.banner_url)}');background-size:cover;background-position:center"`:''}></div><div class="pfh pfov">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}${rb(id)}</h3>
 <div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
 ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 <div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
