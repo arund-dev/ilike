@@ -3,6 +3,8 @@ const SUPABASE_URL="https://rgrtwewhiylwkxgbcgyx.supabase.co";
 const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 // Shown on the Terms / Privacy / Contact sheet. Must be an inbox you check.
+// Push notifications: paste the PUBLIC key from PUSH-SETUP.md here. While this is empty, the notification settings stay hidden.
+const VAPID_PUBLIC='';
 const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
@@ -270,7 +272,7 @@ async function forgot(){
   S.err=error?authMsg(error):'Check your email for a reset link.';S.good=!error;
   renderAuth();keep({ae:email});
 }
-async function logout(){await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
+async function logout(){try{await pushDrop()}catch(e){}await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
 // ---------- Onboarding (first login): interests, profile, follow, first post ----------
 const obHead=n=>`<div class="obp">Step ${n} of 4</div>`;
@@ -375,6 +377,7 @@ async function boot(){
   if(location.hash.includes('type=recovery'))S.rec=true;
   const iv=location.hash.match(/^#invite=([A-Za-z0-9_-]{3,40})/i);if(iv){S.invite=iv[1].toUpperCase();S.mode='signup';history.replaceState(null,'',location.pathname)}
   const dl=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(dl)S.deep=dl[1];
+  const dm=location.hash.match(/^#dm=([0-9a-f-]{36})/i);if(dm)S.deepDm=dm[1];
   const{data:{session}}=await sb.auth.getSession();
   S.user=session?.user||null;
   sb.auth.onAuthStateChange((e,s)=>{
@@ -421,6 +424,8 @@ async function load(){
   draw();show(S.tab);S.loaded=true;
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
+  if(S.deepDm){const d=S.deepDm;S.deepDm=null;openDm(d)}
+  pushSync();
 }
 
 // Keep curated entries and their developer-assigned categories in sync without changing their IDs.
@@ -502,7 +507,7 @@ async function ensurePost(id){
   await hydrate([r.data]);return true;
 }
 async function openPostId(id){if(await ensurePost(id))openPost(id)}
-addEventListener('hashchange',()=>{const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1])});
+addEventListener('hashchange',()=>{const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1]);const d=location.hash.match(/^#dm=([0-9a-f-]{36})/i);if(d&&S.loaded)openDm(d[1])});
 
 // ---------- Home ----------
 const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
@@ -1046,9 +1051,72 @@ function applyPrefs(p){
   if(p.acc!=null)accent(+p.acc,1);
   if(p.font!=null)fnt(+p.font,1);
 }
+// ---------- Push notifications (Batch 7c) ----------
+const pushOK=()=>!!VAPID_PUBLIC&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const NP_KEYS=[['messages','Messages'],['same','Same'],['replies','Replies'],['follows','New followers']];
+const b64u=s=>{const p='='.repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
+async function pushSub(create){
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub&&create)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUBLIC)});
+  return sub;
+}
+async function pushSave(sub){
+  const j=sub.toJSON();
+  const r=await sb.rpc('register_push',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
+  return !r.error;
+}
+// On every start: if this device had notifications on, make sure the server still has its address
+async function pushSync(){
+  try{
+    if(!pushOK()||Notification.permission!=='granted'||localStorage.getItem('il-push')!=='1')return;
+    const sub=await pushSub(true);if(sub)await pushSave(sub);
+  }catch(e){}
+}
+async function pushDrop(){
+  if(!pushOK())return;
+  try{const sub=await pushSub(false);if(sub){await sb.rpc('unregister_push',{p_endpoint:sub.endpoint});await sub.unsubscribe()}}catch(e){}
+  try{localStorage.removeItem('il-push')}catch(e){}
+}
+async function enablePush(){
+  if(!pushOK()){toast(isIOS&&!standalone()?'Add iLike to your Home Screen first':'Notifications are not supported here');return}
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast(perm=='denied'?'Notifications are blocked for iLike':'Notifications stay off');paintPush();return}
+    const sub=await pushSub(true);
+    if(!sub||!(await pushSave(sub))){toast("Couldn't turn notifications on");return}
+    localStorage.setItem('il-push','1');toast('Notifications are on');
+  }catch(e){toast("Couldn't turn notifications on")}
+  paintPush();
+}
+async function disablePush(){await pushDrop();toast('Notifications are off');paintPush()}
+async function togglePref(k){
+  const np=S.np||(S.np={messages:true,same:true,replies:true,follows:true});
+  np[k]=!np[k];paintPush();
+  const r=await sb.from('notification_prefs').upsert({user_id:S.user.id,...np});
+  if(r.error){np[k]=!np[k];paintPush();toast("Couldn't save that")}
+}
+async function paintPush(){
+  const hd=$('#pushhd'),bx=$('#pushbox');if(!hd||!bx)return;
+  hd.hidden=bx.hidden=!VAPID_PUBLIC;if(!VAPID_PUBLIC)return;
+  if(!pushOK()){bx.innerHTML=`<p class="mute sm" style="margin:0 4px 10px">${isIOS&&!standalone()?'On iPhone, add iLike to your Home Screen (see Install above), then open it from there to turn on notifications.':'This browser does not support notifications.'}</p>`;return}
+  let sub=null;try{sub=await pushSub(false)}catch(e){}
+  const perm=Notification.permission,on=perm=='granted'&&!!sub;
+  if(!S.np){const r=await sb.from('notification_prefs').select('messages,same,replies,follows').eq('user_id',S.user.id).maybeSingle();S.np=Object.assign({messages:true,same:true,replies:true,follows:true},r.data||{})}
+  bx.innerHTML=(perm=='denied'?'<p class="mute sm" style="margin:0 4px 10px">Notifications are blocked. Turn them on for iLike in your phone settings, then come back.</p>':on
+    ?`<button class="btn off wide" onclick="disablePush()">Turn off on this phone</button><p class="lab">Tell me about</p><div class="row" style="flex-wrap:wrap;gap:6px">${NP_KEYS.map(([k,t])=>`<button class="fc ${S.np[k]?'on':''}" onclick="togglePref('${k}')">${t}</button>`).join('')}</div>`
+    :`<button class="btn off wide" onclick="enablePush()">🔔 Turn on notifications</button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, Same, replies and new followers. This applies to this phone only.</p>`);
+}
+// A tapped notification asks the open app to go to the right place
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
+  if(!e.data||e.data.type!=='open'||!S.loaded)return;
+  const u=String(e.data.url||'');
+  const p=u.match(/#post=([0-9a-f-]{36})/i),d=u.match(/#dm=([0-9a-f-]{36})/i);
+  if(p)openPostId(p[1]);else if(d)openDm(d[1]);
+});
 function openSet(){
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
-  paintCustomize();refreshInstall();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
+  paintCustomize();refreshInstall();paintPush();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
 }
 async function changePw(){
   const v=$('#npw').value,e=$('#npe');e.textContent='';

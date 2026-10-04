@@ -1,6 +1,6 @@
 // iLike service worker: lets the app install and open instantly.
 // Bump VERSION when you want every device to drop its old cache.
-const VERSION='ilike-v17';
+const VERSION='ilike-v18';
 const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
 const LIBS=['cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'];
 
@@ -38,4 +38,20 @@ self.addEventListener('fetch',e=>{
     })));
   }
   // Everything else (Supabase API, storage, realtime) goes straight to the network
+});
+
+// Push notifications: the server sends {title, body, url, tag}; we always show it.
+self.addEventListener('push',e=>{
+  let d={};try{d=e.data.json()}catch(x){}
+  e.waitUntil(self.registration.showNotification(d.title||'iLike',{
+    body:d.body||'',icon:'assets/icon-192.png',badge:'assets/icon-192.png',tag:d.tag||undefined,data:{url:d.url||'./'}
+  }));
+});
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  const url=(e.notification.data&&e.notification.data.url)||'./';
+  e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{
+    for(const c of list){c.postMessage({type:'open',url});return c.focus()}
+    return clients.openWindow(url);
+  }));
 });

@@ -69,3 +69,7 @@ Adding an artist now ignores case, accents, spaces and punctuation (`nameKey` in
 ## Admin stats (Batch 7c)
 
 **Moderation tools > Stats** (admins only) shows people, active today / 7 / 30 days, a bar chart of signups, posts, replies or messages for the last 7, 14 or 30 days, and the top interests and artists. It calls the `admin_stats()` function from `batch7c.sql`, which returns only counts (no names, no per-person data) and refuses anyone who is not an admin. No tracking script is involved, so the privacy text needs no change. Real-device testing steps are in `DEVICE-CHECKLIST.md`.
+
+## Push notifications (Batch 7c)
+
+Optional. Setup steps are in `PUSH-SETUP.md`. Until `VAPID_PUBLIC` in `app.js` is filled in, the Settings > Notifications section stays hidden and nothing changes. Each phone opts in separately (Settings > Notifications) and chooses what to hear about (messages, Same, replies, new followers). The Edge Function `supabase/functions/send-push` is triggered by two database webhooks (new `notifications` row, new `messages` row), skips people who blocked the sender, and removes dead subscriptions. Tapping a push opens the post (`#post=ID`) or the chat (`#dm=ID`). On iPhone, push only works after Add to Home Screen (iOS 16.4+).
