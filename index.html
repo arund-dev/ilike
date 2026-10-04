@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="iLike">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <title>iLike ✦</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,7 +67,7 @@
 <div class="banner" id="mbn"></div>
 <div class="me-body"><div class="col-l">
 <div class="mehead"><span class="av" id="mav" style="--c:var(--brand)"></span><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mu"></div><div class="cnts" id="mf"></div><p id="mb" class="bio" hidden></p><button class="btn off sbtn" onclick="openPe()">Edit profile</button></div>
-<h2>I like</h2><div class="card" id="shelf"></div>
+<h2>Interests</h2><div class="card" id="shelf"></div>
 <h2>Artists</h2><div class="card" id="art"><span class="mute sm">Coming soon</span></div>
 <h2>Achievements</h2><div class="card" id="badges"><span class="mute sm">Coming soon</span></div></div>
 <div class="col-r"><h2>My posts</h2><div id="mine"></div></div></div>
@@ -88,7 +88,7 @@
 <div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div id="msgs"></div><div class="inp" id="inp"><input id="mi" placeholder="Say something nice..." aria-label="Message" onkeydown="if(event.key==='Enter')send()"><button class="btn" onclick="send()">Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
 </div>
 <div class="mod" id="mod" onclick="if(event.target===this)closePost()"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b style="font-size:18px">New post</b><textarea id="txt" maxlength="1000" placeholder="What are you into today?" aria-label="Post text"></textarea><div class="photos" id="pph"></div><button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos</button><input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)"><select id="sel" aria-label="Interest"></select><select id="sel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button><button class="btn off" onclick="closePost()">Cancel</button><button class="btn" id="shr" onclick="publish()">Share</button></div></div></div>
-<div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search or add an artist" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px" hidden><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
+<div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search interests" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px"><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="pv" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pvb"></div><div style="padding:0 16px"><button class="btn off" style="width:100%" onclick="$('#pv').classList.remove('on')">Close</button></div></div></div>
 <div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
 <div class="mod" id="pf" style="z-index:44" onclick="if(event.target===this)closePf()"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pfb"></div><div style="padding:0 16px;margin-top:8px"><button class="btn off" style="width:100%" onclick="closePf()">Close</button></div></div></div>

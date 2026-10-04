@@ -14,6 +14,16 @@ const em=n=>esc(S.im.get(n)?.emoji||(S.im.get(n)?.kind=='artist'?'🎤':'✦'));
 const cat=n=>S.im.get(n)?.category;
 const nm=id=>S.names[id]||(id==S.user?.id?S.name:'Member');
 const PAL=['#8B5CF6','#EC4899','#22C55E','#F59E0B','#14B8A6','#3B82F6','#EF4444'];
+// Developer-managed menu. Add categories and choices here; the app syncs them to Supabase on login.
+const INTEREST_CATALOG=[
+  {category:'Creative',color:'#EC3996',items:[['Photography','📷'],['Reading','📚']]},
+  {category:'Food',color:'#F59E0B',items:[['Coffee','☕'],['Kottu','🍲']]},
+  {category:'Games',color:'#8B5CF6',items:[['Gaming','🎮']]},
+  {category:'Music',color:'#3B82F6',items:[['Pop','🎤'],['Rock','🎸']]},
+  {category:'Outdoors',color:'#14B8A6',items:[['Travel','🧭']]},
+  {category:'Shows',color:'#EF4444',items:[['Anime','🍥'],['Cartoons','📺']]}
+];
+const CATALOG_INTERESTS=INTEREST_CATALOG.flatMap(group=>group.items.map(([name,emoji])=>({name,emoji,color:group.color,category:group.category})));
 const ac=id=>id==S.user?.id?'var(--brand)':PAL[[...String(id)].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
 // Avatar: profile photo if the person has one, otherwise their first letter
 const av=(id,z='')=>{const u=S.avs[id];return `<span class="av ${z}" style="--c:${ac(id)}${u?`;background-image:url('${esc(u)}');background-size:cover;background-position:center`:''}">${u?'':esc((nm(id)||'?')[0].toUpperCase())}</span>`};
@@ -146,6 +156,8 @@ async function load(){
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
+  const catalogError=await syncInterestCatalog();
+  if(catalogError)toast('Interest catalog sync failed: '+catalogError.message);
   const[pr,i,u]=await Promise.all([
     sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
@@ -166,6 +178,28 @@ async function load(){
   draw();show(S.tab);S.loaded=true;
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
+}
+
+// Keep curated entries and their developer-assigned categories in sync without changing their IDs.
+async function syncInterestCatalog(){
+  const{data,error}=await sb.from('interests').select('id,name,emoji,color,category,kind');
+  if(error)return error;
+  const inserts=[],updates=[];
+  for(const item of CATALOG_INTERESTS){
+    const current=(data||[]).find(row=>row.kind!='artist'&&row.name.toLowerCase()===item.name.toLowerCase());
+    if(!current){inserts.push(item);continue}
+    const changes={};
+    for(const field of ['emoji','color','category'])if(current[field]!==item[field])changes[field]=item[field];
+    if(Object.keys(changes).length)updates.push(sb.from('interests').update(changes).eq('id',current.id));
+  }
+  const results=await Promise.all(updates);
+  const updateError=results.find(result=>result.error)?.error;
+  if(updateError)return updateError;
+  if(inserts.length){
+    const result=await sb.from('interests').insert(inserts);
+    if(result.error&&result.error.code!=='23505')return result.error;
+  }
+  return null;
 }
 
 // Names + profile photos for a list of people
@@ -437,19 +471,27 @@ function meTab(){
   drawBadges();
   $('#mine').innerHTML=S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
-// One picker for both lists: interests, or artists (with search + "add a new artist")
+// Share one searchable picker for profile interests and artists.
 function drawPk(){
   const art=S.pkm=='art',raw=$('#pks').value.trim().replace(/\s+/g,' '),q=raw.toLowerCase();
-  $('#pkt').textContent=art?'Your artists':'Your interests';$('#pks').hidden=!art;
+  $('#pkt').textContent=art?'Your artists':'Your interests';
+  $('#pks').placeholder=art?'Search or add an artist':'Search or add an interest';
   let l=S.ints.filter(i=>art?i.kind=='artist':i.kind!='artist');
-  if(art)l=l.filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>(S.mine.has(b.id)-S.mine.has(a.id))||a.name.localeCompare(b.name)).slice(0,60);
+  l=l.filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>(S.mine.has(b.id)-S.mine.has(a.id))||a.name.localeCompare(b.name)).slice(0,60);
   let h=l.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('');
-  if(art&&raw.length>=2&&raw.length<=40&&!S.ints.some(i=>i.name.toLowerCase()==q))h+=`<button class="fc addb" onclick="newArtist()">＋ Add “${esc(raw)}”</button>`;
-  if(art&&!h)h='<div class="mute sm">Type an artist name to add them.</div>';
+  if(raw.length>=2&&raw.length<=40&&!S.ints.some(i=>i.name.toLowerCase()==q))h+=`<button class="fc addb" onclick="${art?'newArtist()':'newInterest()'}">＋ Add “${esc(raw)}”${art?' as an artist':' as an interest'}</button>`;
+  if(!h)h=`<div class="mute sm">Type a ${art?'artist':'interest'} name to add it.</div>`;
+  if(!art){
+    const categories=[...new Set(l.map(i=>i.category||'Other'))];
+    h=categories.map(category=>{
+      const items=l.filter(i=>(i.category||'Other')===category);
+      return `<div class="cath" style="color:${col(items[0].id)}">${esc(category)}</div><div class="pkl">${items.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('')}</div>`;
+    }).join('')||'<div class="empty">No listed interests match your search.</div>';
+  }
   $('#pkl').innerHTML=h;
 }
 function openPk(k){
-  S.pkm=k=='art'?'art':'int';$('#pks').value='';drawPk();$('#pk').classList.add('on');
+  S.pkm=k=='art'?'art':'int';$('#pks').value='';drawPk();$('#pk').classList.add('on');$('#pks').focus();
   loadInts().then(()=>{if($('#pk').classList.contains('on'))drawPk()});
 }
 function ask(n){
@@ -457,6 +499,7 @@ function ask(n){
   confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+(isArt(n)?' your artists?':' your interests?'),on?'Remove':'Add',()=>toggleInt(n));
 }
 async function toggleInt(n){
+  // A profile adds or removes its own membership; the shared interest stays available to everyone.
   const on=S.mine.has(n);
   const r=on?await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n}):await sb.from('user_interests').insert({user_id:S.user.id,interest_id:n});
   if(r.error){toast(r.error.message);return}
@@ -478,6 +521,21 @@ async function newArtist(){
   }
   S.ints.push(r.data);S.im.set(r.data.id,r.data);
   $('#pks').value='';await toggleInt(r.data.id);
+}
+// Create a shared hobby interest, then add it to this user's profile.
+async function newInterest(){
+  const name=$('#pks').value.trim().replace(/\s+/g,' ');
+  if(name.length<2||name.length>40){toast('Interest names are 2 to 40 characters');return}
+  const find=()=>S.ints.find(i=>i.name.toLowerCase()==name.toLowerCase());
+  let interest=find();
+  if(interest){if(interest.kind!='artist')ask(interest.id);else toast('That name is already an artist');return}
+  const color=PAL[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
+  const{data,error}=await sb.from('interests').insert({name,emoji:'✦',color,category:'Hobby'}).select().single();
+  if(error){
+    if(error.code=='23505'){await loadInts();interest=find();if(interest&&interest.kind!='artist')ask(interest.id);else toast(error.message);return}
+    toast(error.message);return;
+  }
+  S.ints.push(data);S.im.set(data.id,data);$('#pks').value='';await toggleInt(data.id);
 }
 function draw(){home();findTab();meet();meTab();refreshPv();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
 
