@@ -80,7 +80,7 @@ function failDismiss(){S.fail=null;failSync()}
 const SL_PAGE=30;
 function slDraw(){
   const L=S.sl;if(!L)return;
-  $('#sll').innerHTML=(L.ids.slice(0,L.n).map(L.row).join('')||L.empty)+(L.n<L.ids.length?`<button class="btn off" style="width:100%;margin-top:8px" onclick="slMore()">Show more (${L.ids.length-L.n})</button>`:'');
+  $('#sll').innerHTML=(L.ids.slice(0,L.n).map(L.row).join('')||L.empty)+(L.n<L.ids.length?`<button class="btn off" style="width:100%;margin-top:8px" onclick="slMore()">Show more (${L.ids.length-L.n})</button>`:'')+(L.foot||'');
 }
 function slMore(){S.sl.n+=SL_PAGE;slDraw()}
 let toastT;
@@ -821,13 +821,19 @@ async function newArtist(){
   if(!isAdmin()){toast('Only admins can add new artists');return}
   const name=$('#pks').value.trim().replace(/\s+/g,' ');
   if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
-  const find=()=>S.ints.find(i=>i.name.toLowerCase()==name.toLowerCase());
+  const k=nameKey(name),find=()=>S.ints.find(i=>k?nameKey(i.name)==k:i.name.toLowerCase()==name.toLowerCase());
   const known=d=>{if(d.kind=='artist'){$('#pks').value='';drawPk();ask(d.id)}else toast('"'+d.name+'" is already an interest')};
-  let d=find();if(d){known(d);return}
+  const d=find();if(d){known(d);return}
+  const sim=similarTo(name,'artist');
+  if(sim.length){dupAsk(name,sim,id=>{$('#sl').classList.remove('on');$('#pks').value='';drawPk();ask(id)},()=>createArtistPk(name));return}
+  return createArtistPk(name);
+}
+async function createArtistPk(name){
+  const k=nameKey(name),find=()=>S.ints.find(i=>k?nameKey(i.name)==k:i.name.toLowerCase()==name.toLowerCase());
   const color=PAL[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
   const r=await sb.from('interests').insert({name,emoji:'🎤',color,category:'Artists',kind:'artist'}).select().single();
   if(r.error){
-    if(r.error.code=='23505'){await loadInts();d=find();if(d){known(d);return}}
+    if(r.error.code=='23505'){await loadInts();const d=find();if(d&&d.kind=='artist'){$('#pks').value='';drawPk();ask(d.id);return}toast('That artist is already listed');return}
     toast(r.error.message);return;
   }
   S.ints.push(r.data);S.im.set(r.data.id,r.data);
@@ -1539,6 +1545,7 @@ function showAch(code,d){
 
 // ---------- Events + "I'm in" ----------
 const EVEM=['📍','🎉','☕','🍜','🎮','🎬','🎵','🥾','⚽','📚','🎨','🏖️','🍕','🎤','🎲','🏃'];
+const EVCOLS='id,organizer_id,title,emoji,starts_at,place,venue,description,cancelled_at';
 const evd=d=>{const x=new Date(d);return x.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'})+' · '+x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
 const toLocalInput=d=>{const x=new Date(d),p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+'T'+p(x.getHours())+':'+p(x.getMinutes())};
 const ord=l=>l.includes(S.user.id)?[S.user.id,...l.filter(x=>x!=S.user.id)]:l;
@@ -1555,20 +1562,22 @@ const iminHTML=on=>`<span>${on?"You're in ✓":"I'm in"}</span>`;
 
 async function loadEvents(){
   const since=new Date(Date.now()-3*36e5).toISOString();
-  const r=await sb.from('events').select('id,organizer_id,title,emoji,starts_at,place,venue,description').gte('starts_at',since).order('starts_at').limit(60);
+  const r=await sb.from('events').select(EVCOLS).gte('starts_at',since).order('starts_at').limit(60);
   if(r.error){if(!S.evs)S.evs=[];meet();return}
   const ids=r.data.map(e=>e.id);
   const g=ids.length?await sb.from('event_goers').select('event_id,user_id').in('event_id',ids):{data:[]};
   await getProfiles([...r.data.map(e=>e.organizer_id),...(g.data||[]).map(x=>x.user_id)]);
   S.evs=r.data.map(e=>({...e,goers:(g.data||[]).filter(x=>x.event_id===e.id).map(x=>x.user_id)}));
   S.evm=new Map(S.evs.map(e=>[e.id,e]));
+  (S.pev||[]).forEach(e=>S.evm.set(e.id,e));
   meet();refreshPv();
 }
 function evCard(e){
   const me=S.user.id,on=e.goers.includes(me),host=e.organizer_id==me;
-  return `<div class="card tapc evc" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">📍 ${esc(e.place)}</div></div></div><div class="row" style="margin-top:12px"><div class="grow who2" data-evg="${e.id}">${goHtml(e)}</div>${host?'<span class="date">You are hosting</span>':`<button class="imin-btn ${on?'on':''}" data-evb="${e.id}" onclick="event.stopPropagation();imin('${e.id}',this)">${iminHTML(on)}</button>`}</div></div>`;
+  return `<div class="card tapc evc${e.cancelled_at?' evx':''}${e.past?' evpast':''}" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">📍 ${esc(e.place)}</div></div></div><div class="row" style="margin-top:12px"><div class="grow who2" data-evg="${e.id}">${goHtml(e)}</div>${e.cancelled_at?'<span class="evbadge">Cancelled</span>':e.past?'<span class="mute sm">Ended</span>':host?'<span class="date">You are hosting</span>':`<button class="imin-btn ${on?'on':''}" data-evb="${e.id}" onclick="event.stopPropagation();imin('${e.id}',this)">${iminHTML(on)}</button>`}</div></div>`;
 }
 function meet(){
+  pastDraw();
   const el=$('#evs');
   if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
   el.innerHTML=S.evs.length?S.evs.map(evCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No plans yet</b><div class="sm" style="margin:6px 0 16px">Hangouts and meetups with people who like what you like.</div><button class="btn" onclick="openEv()">Plan the first one</button></div>`;
@@ -1577,17 +1586,19 @@ function openEvent(id){showPv(()=>eventHTML(id))}
 function eventHTML(id){
   const e=S.evm.get(id);if(!e)return '';
   const me=S.user.id,host=e.organizer_id==me,on=e.goers.includes(me);
+  const gone=!!e.cancelled_at,past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
   const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
   return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
+${gone?'<div class="evcx">This event was cancelled.</div>':past?'<div class="evcx soft">This event has passed.</div>':''}
 <div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
 <div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
 <div class="ev-row">${usr}<span>Planned by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(host?'you':nm(e.organizer_id))}</b></span></div>
 ${e.description?`<p class="evdesc">${esc(e.description)}</p>`:''}
 <div class="evh">WHO'S GOING</div><div class="row evgo lk" data-evg="${e.id}" data-d="1" onclick="openGoers('${e.id}')">${goRow(e)}</div>
-${host?`<div class="evact"><button class="btn off" onclick="openEv('${e.id}')">Edit</button><button class="btn off danger" onclick="delEv('${e.id}')">Delete</button></div>`
-:`<button class="imin-btn imin-full ${on?'on':''}" data-evb="${e.id}" onclick="imin('${e.id}',this)">${iminHTML(on)}</button>`}</div>`;
+${host||isMod()?`<div class="evact">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete</button>`:''}</div>`
+:gone||past?'':`<button class="imin-btn imin-full ${on?'on':''}" data-evb="${e.id}" onclick="imin('${e.id}',this)">${iminHTML(on)}</button>`}</div>`;
 }
 function openGoers(id){const e=S.evm.get(id);if(e)peopleSheet('Going ('+e.goers.length+')',ord(e.goers))}
 // Update buttons and "who's going" in place so the wipe animation plays
@@ -1597,7 +1608,7 @@ function paintEv(e){
   document.querySelectorAll(`[data-evg="${e.id}"]`).forEach(x=>x.innerHTML=x.dataset.d?goRow(e):goHtml(e));
 }
 async function imin(id,btn){
-  const e=S.evm.get(id),u=S.user.id;if(!e||e.organizer_id==u)return;
+  const e=S.evm.get(id),u=S.user.id;if(!e||e.organizer_id==u||e.cancelled_at||e.past)return;
   const on=!e.goers.includes(u);
   const set=v=>{e.goers=v?[...e.goers,u]:e.goers.filter(x=>x!==u);paintEv(e)};
   set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
@@ -1641,6 +1652,29 @@ async function saveEv(){
   $('#ev').classList.remove('on');
   await loadEvents();draw();toast(wasNew?'Event planned':'Event updated');
   if(wasNew)checkAch();
+}
+function cancelEv(id){
+  confirmBox('Cancel this event? It stays listed as cancelled so people who joined can see it.','Yes, cancel it',async()=>{
+    const{error}=await sb.rpc('cancel_event',{ev:id});
+    if(error){toast(errMsg(error));return}
+    $('#pv').classList.remove('on');await loadEvents();draw();toast('Event cancelled');
+  });
+}
+// Past events: loaded only when someone opens the section
+async function loadPast(){
+  const since=new Date(Date.now()-3*36e5).toISOString();
+  const r=await sb.from('events').select(EVCOLS).lt('starts_at',since).order('starts_at',{ascending:false}).limit(20);
+  if(r.error){toast('Could not load past events');S.pev=[];return}
+  const ids=r.data.map(e=>e.id);
+  const g=ids.length?await sb.from('event_goers').select('event_id,user_id').in('event_id',ids):{data:[]};
+  await getProfiles([...r.data.map(e=>e.organizer_id),...(g.data||[]).map(x=>x.user_id)]);
+  S.pev=r.data.map(e=>({...e,past:true,goers:(g.data||[]).filter(x=>x.event_id===e.id).map(x=>x.user_id)}));
+  S.pev.forEach(e=>S.evm.set(e.id,e));
+}
+async function togglePast(){S.pevOpen=!S.pevOpen;if(S.pevOpen)S.pev=null;pastDraw();if(S.pevOpen){await loadPast();pastDraw()}}
+function pastDraw(){
+  const el=$('#pevs');if(!el)return;
+  el.innerHTML=`<button class="link pastbtn" onclick="togglePast()">${S.pevOpen?'Hide past events':'Show past events'}</button>`+(S.pevOpen?(S.pev==null?'<div class="mute sm" style="padding:8px 4px">Loading...</div>':S.pev.length?S.pev.map(evCard).join(''):'<div class="mute sm" style="padding:8px 4px">No past events yet.</div>'):'');
 }
 function delEv(id){
   confirmBox('Delete this event?','Delete',async()=>{
@@ -2127,14 +2161,43 @@ function uaBan(id,flag){
 }
 
 // ---------- Admin: artists list ----------
-const nameKey=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+// Same idea as norm_name() in batch7b.sql: ignore case, accents, spaces and punctuation. Other scripts (Sinhala, Tamil) are kept as they are.
+const nameKey=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đ]/g,'d').replace(/[øØ]/g,'o').replace(/[łŁ]/g,'l').replace(/ı/g,'i').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
+function lev(a,b){
+  const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+  let p=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]==b[j-1]?0:1));p=c}
+  return p[n];
+}
+// Names that look like "name" but are not the same entry: typos, extra words, a missing letter. Max 4.
+function similarTo(name,kind,skipId,withExact){
+  const k=nameKey(name);if(!k)return[];
+  return S.ints.filter(i=>i.id!=skipId&&(i.kind=='artist')==(kind=='artist')).filter(i=>{
+    const k2=nameKey(i.name);
+    if(!k2)return false;
+    if(k2==k)return !!withExact;
+    const s=k.length<=k2.length?k:k2,l=k.length<=k2.length?k2:k;
+    if(s.length>=4&&l.includes(s))return true;
+    const max=l.length>=8?2:l.length>=5?1:0;
+    return max>0&&l.length-s.length<=max&&lev(k,k2)<=max;
+  }).slice(0,4);
+}
+// "Did you mean...?" sheet. onUse(id) is optional (null in the admin list, where the rows are just information).
+function dupAsk(name,sim,onUse,onAnyway){
+  $('#slt').textContent='Did you mean...?';
+  S.dupUse=id=>onUse&&onUse(id);S.dupGo=()=>{$('#sl').classList.remove('on');onAnyway()};
+  S.sl={ids:sim.map(i=>i.id),n:SL_PAGE,empty:'',
+    row:id=>`<div class="prow${onUse?' lk':''}"${onUse?` onclick="S.dupUse(${id})"`:''}><span class="tile" style="width:36px;height:36px;font-size:18px">${em(id)}</span><b class="grow">${esc(iname(id))}</b>${onUse?'<span class="mute sm">Use this</span>':''}</div>`,
+    foot:`<button class="btn off" style="width:100%;margin-top:10px" onclick="S.dupGo()">No, add "${esc(name)}" as new</button>`};
+  slDraw();$('#sl').classList.add('on');
+}
 async function drawLists(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   await Promise.all([loadInts(),loadPeople()]);
   if(mtab!=2)return;
   const arts=S.ints.filter(i=>i.kind=='artist').sort((a,b)=>a.name.localeCompare(b.name));
   const n=S.ints.filter(i=>i.kind!='artist').length;
-  $('#mob').innerHTML=`<div class="card"><b>Artists</b> <span class="mute sm">(${arts.length})</span><div class="row" style="margin-top:10px"><input class="fi grow" id="mla" maxlength="40" placeholder="Add an artist" onkeydown="if(event.key==='Enter')admAddArtist()"><button class="btn" onclick="admAddArtist()">Add</button></div></div>`
+  $('#mob').innerHTML=`<div class="card"><b>Artists</b> <span class="mute sm">(${arts.length})</span><div class="row" style="margin-top:10px"><input class="fi grow" id="mla" maxlength="40" placeholder="Add an artist" onkeydown="if(event.key==='Enter')admAddArtist()"><button class="btn" onclick="admAddArtist()">Add</button></div><button class="link" style="margin-top:10px" onclick="admDupes()">Find duplicates</button></div>`
     +arts.map(a=>`<div class="card row"><div class="tile">${esc(a.emoji||'🎤')}</div><div class="grow"><b>${esc(a.name)}</b><div class="mute sm">${S.cnt[a.id]||0} ${S.cnt[a.id]==1?'member':'members'}</div></div><button class="btn off sbtn" style="margin:0" onclick="admArt(${a.id})">Manage</button></div>`).join('')
     +`<div class="card"><b>Interests</b><div class="mute sm" style="margin-top:6px">${n} interests are managed in the app code (INTEREST_CATALOG in app.js). They sync to the database whenever an admin opens the app.</div></div>`;
 }
@@ -2202,10 +2265,29 @@ async function admAddArtist(){
   if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
   const k=nameKey(name),dup=S.ints.find(i=>k?nameKey(i.name)==k:i.name.toLowerCase()==name.toLowerCase());
   if(dup){toast('Already listed as "'+dup.name+'"');return}
+  const sim=similarTo(name,'artist');
+  if(sim.length){dupAsk(name,sim,null,()=>admCreateArtist(name));return}
+  return admCreateArtist(name);
+}
+async function admCreateArtist(name){
   const color=PAL[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
   const r=await sb.from('interests').insert({name,emoji:'🎤',color,category:'Artists',kind:'artist'}).select().single();
-  if(r.error){toast(r.error.message);return}
+  if(r.error){toast(r.error.code=='23505'?'That artist is already listed':r.error.message);return}
   await loadInts();drawLists();toast('Added '+name);
+}
+// Scan the artist list for look-alikes; tap a pair to merge it (the one with fewer members is merged into the other)
+function admDupes(){
+  const arts=S.ints.filter(i=>i.kind=='artist'),pairs=[];
+  arts.forEach(x=>similarTo(x.name,'artist',x.id,true).forEach(y=>{if(y.id>x.id)pairs.push([x.id,y.id])}));
+  $('#slt').textContent=pairs.length?'Possible duplicates ('+pairs.length+')':'Possible duplicates';
+  S.sl={ids:pairs.map((p,i)=>i),n:SL_PAGE,empty:'<div class="empty">No look-alikes found. 🎉</div>',
+    row:i=>{const[x,y]=pairs[i];return `<div class="prow lk" onclick="admPair(${x},${y})"><b class="grow">${esc(iname(x))} <span class="mute">and</span> ${esc(iname(y))}</b><span class="mute sm">Merge</span></div>`}};
+  slDraw();$('#sl').classList.add('on');
+}
+function admPair(x,y){
+  $('#sl').classList.remove('on');
+  const[src,dst]=(S.cnt[x]||0)<=(S.cnt[y]||0)?[x,y]:[y,x];
+  S.mg=src;admDoMerge(dst);
 }
 function admArt(id){S.am=id;$('#amt').textContent=iname(id);$('#am').classList.add('on')}
 function admRename(){
