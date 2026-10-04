@@ -45,3 +45,7 @@ Users open **You** → **Interests** → **＋ Add** to search and select entrie
 ## Progressive Web App
 
 The web manifest and service worker are registered by the app when served over HTTP or HTTPS. The service worker caches the HTML, CSS, JavaScript, manifest, and icons for offline app-shell loading. Change the cache version in `sw.js` when changing files that should replace an installed copy's cached shell.
+
+## Invite codes and legal pages (Batch 4a)
+
+Signups require an invite code. The check runs inside the database (a trigger on `auth.users` created by `batch4a.sql`), so it cannot be bypassed from the browser. Admins create, copy and switch off codes in **Settings → Moderation tools → Invites**. A code's link (`…/#invite=CODE`) opens the signup form with the code filled in. Terms, privacy and contact text lives in `LEGAL` in `app.js`; the contact address is `CONTACT_EMAIL`.

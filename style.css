@@ -488,3 +488,12 @@ body.noapp nav,body.noapp .fab{display:none}
 .rpa{flex-wrap:wrap;gap:8px;margin-top:10px}
 .rpa .btn{margin:0}
 .rpc{display:block}
+
+/* Batch 4a: legal sheet + auth footer */
+.legalnote{text-align:center;margin:10px 4px 0}
+.inl{background:none;border:0;padding:0;color:var(--brand);font:inherit;text-decoration:underline;cursor:pointer}
+.legalfoot{display:flex;justify-content:center;gap:14px;margin-top:4px}
+.legalfoot .link{width:auto;font-size:13px}
+.legal h4{margin:16px 0 4px;font-size:15px}
+.legal p{margin:0 0 6px;line-height:1.5;font-size:14px}
+.legal a{color:var(--brand)}

@@ -2,6 +2,9 @@
 const SUPABASE_URL="https://rgrtwewhiylwkxgbcgyx.supabase.co";
 const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+// Shown on the Terms / Privacy / Contact sheet. Must be an inbox you check.
+const CONTACT_EMAIL='ilike.team789@gmail.com';
+const APP_URL=()=>location.origin+location.pathname;
 
 const $=s=>document.querySelector(s);
 const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
@@ -98,28 +101,61 @@ function closeLb(){$('#lb').classList.remove('on')}
 document.addEventListener('click',e=>{const i=e.target.closest('.pimgs img');if(i)openLb(i.src)});
 
 // ---------- Auth ----------
+const authMsg=e=>{const m=(e&&e.message)||'';
+  return /invalid login/i.test(m)?'Wrong email or password.'
+  :/not confirmed/i.test(m)?'Please confirm your email first. Check your inbox and spam folder.'
+  :/already registered/i.test(m)?'That email already has an account. Log in instead.'
+  :/rate limit|too many|security purposes/i.test(m)?'Too many tries. Wait a few minutes and try again.'
+  :/database error saving new user/i.test(m)?"That invite code isn't valid or has been used up."
+  :/password/i.test(m)&&/least|short|weak/i.test(m)?'That password is too short or too weak.'
+  :m||'Something went wrong. Try again.'};
+function keep(o){for(const k in o){const el=document.getElementById(k);if(el&&o[k])el.value=o[k]}}
 function renderAuth(){
   const su=S.mode=='signup';
-  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your name" autocomplete="name">':''}<input class="fi" id="ae" type="email" placeholder="Email" autocomplete="email"><input class="fi" id="ap" type="password" placeholder="Password (6+ characters)" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err ${S.good?'ok':''}">${esc(S.err)}</div><button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create account':'Log in'}</button>${su?'':'<button class="link" onclick="forgot()">Forgot password?</button>'}<button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button>`;
+  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your name" autocomplete="name" maxlength="40">':''}<input class="fi" id="ae" type="email" placeholder="Email" autocomplete="email">${su?'<input class="fi" id="ai" placeholder="Invite code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40">':''}<input class="fi" id="ap" type="password" placeholder="${su?'Password (8+ characters)':'Password'}" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err ${S.good?'ok':''}">${esc(S.err)}</div>${S.unconf?'<button class="link" onclick="resendConfirm()">Resend confirmation email</button>':''}<button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create account':'Log in'}</button>${su?'<p class="mute sm legalnote">By creating an account you agree to the <button class="inl" onclick="openLegal(\'terms\')">Terms</button> and <button class="inl" onclick="openLegal(\'privacy\')">Privacy Policy</button>.</p>':'<button class="link" onclick="forgot()">Forgot password?</button>'}<button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button><div class="legalfoot"><button class="link" onclick="openLegal('terms')">Terms</button><button class="link" onclick="openLegal('privacy')">Privacy</button><button class="link" onclick="openLegal('contact')">Contact</button></div>`;
+  if(su&&S.invite)keep({ai:S.invite});
 }
-function swap(){S.mode=S.mode=='login'?'signup':'login';S.err='';S.good=false;renderAuth()}
+function swap(){S.mode=S.mode=='login'?'signup':'login';S.err='';S.good=false;S.unconf='';renderAuth()}
 async function go(){
-  const email=$('#ae').value.trim(),password=$('#ap').value,name=$('#an')?.value.trim();
-  $('#ago').disabled=true;S.err='';S.good=false;
-  const r=S.mode=='signup'
-    ?await sb.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}})
+  const email=$('#ae').value.trim(),password=$('#ap').value,name=$('#an')?.value.trim(),invite=($('#ai')?.value||'').trim().toUpperCase();
+  const su=S.mode=='signup';
+  S.err='';S.good=false;S.unconf='';
+  const fail=m=>{S.err=m;if(su)S.invite=invite;renderAuth();keep({ae:email,an:name})};
+  if(!email)return fail('Enter your email.');
+  if(su){
+    if(!invite)return fail('Enter your invite code.');
+    if(password.length<8)return fail('Use 8 or more characters for your password.');
+  }
+  $('#ago').disabled=true;
+  if(su){
+    const ok=await sb.rpc('invite_ok',{c:invite});
+    if(ok.error)return fail(authMsg(ok.error));
+    if(!ok.data)return fail("That invite code isn't valid or has been used up.");
+  }
+  const r=su
+    ?await sb.auth.signUp({email,password,options:{emailRedirectTo:APP_URL(),data:{display_name:name||email.split('@')[0],invite_code:invite}}})
     :await sb.auth.signInWithPassword({email,password});
-  if(r.error)S.err=r.error.message;
-  else if(S.mode=='signup'&&!r.data.session){S.mode='login';S.err='Check your email to confirm your account, then log in.';S.good=true}
-  else return;
-  renderAuth();$('#ae').value=email;
+  if(r.error){if(/not confirmed/i.test(r.error.message))S.unconf=email;return fail(authMsg(r.error))}
+  if(su&&r.data.user&&r.data.user.identities&&!r.data.user.identities.length)return fail('That email already has an account. Log in instead.');
+  if(su&&!r.data.session){S.mode='login';S.invite='';S.unconf=email;S.err='Check your email to confirm your account, then log in.';S.good=true;renderAuth();keep({ae:email});return}
+  S.invite='';
+}
+async function resendConfirm(){
+  const email=S.unconf||$('#ae')?.value.trim();
+  if(!email)return;
+  if(Date.now()-(S.resendAt||0)<60000){toast('Wait a minute before asking again');return}
+  S.resendAt=Date.now();
+  const{error}=await sb.auth.resend({type:'signup',email,options:{emailRedirectTo:APP_URL()}});
+  S.err=error?authMsg(error):'Sent. Check your inbox and spam folder.';S.good=!error;
+  if(!error)S.unconf=email;
+  renderAuth();keep({ae:email});
 }
 async function forgot(){
   const email=$('#ae').value.trim();
   if(!email){S.err='Type your email first.';S.good=false;renderAuth();return}
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
-  S.err=error?error.message:'Check your email for a reset link.';S.good=!error;
-  renderAuth();$('#ae').value=email;
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:APP_URL()});
+  S.err=error?authMsg(error):'Check your email for a reset link.';S.good=!error;
+  renderAuth();keep({ae:email});
 }
 async function logout(){await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
@@ -141,6 +177,7 @@ async function saveOb(b){
 // ---------- Data ----------
 async function boot(){
   if(location.hash.includes('type=recovery'))S.rec=true;
+  const iv=location.hash.match(/^#invite=([A-Za-z0-9_-]{3,40})/i);if(iv){S.invite=iv[1].toUpperCase();S.mode='signup';history.replaceState(null,'',location.pathname)}
   const dl=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(dl)S.deep=dl[1];
   const{data:{session}}=await sb.auth.getSession();
   S.user=session?.user||null;
@@ -683,7 +720,7 @@ function openSet(){
 }
 async function changePw(){
   const v=$('#npw').value,e=$('#npe');e.textContent='';
-  if(v.length<6){e.textContent='Use 6 or more characters.';return}
+  if(v.length<8){e.textContent='Use 8 or more characters.';return}
   const{error}=await sb.auth.updateUser({password:v});
   if(error){e.textContent=error.message;return}
   $('#npw').value='';toast('Password changed');
@@ -1529,9 +1566,9 @@ function paintRepBadge(){
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
 function drawMod(){
-  const tabs=['Reports','Users'].concat(isAdmin()?['Lists']:[]);
+  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
-  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else drawLists();
+  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else drawInvites();
 }
 async function drawReports(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
@@ -1650,6 +1687,65 @@ async function drawLists(){
     +arts.map(a=>`<div class="card row"><div class="tile">${esc(a.emoji||'🎤')}</div><div class="grow"><b>${esc(a.name)}</b><div class="mute sm">${S.cnt[a.id]||0} ${S.cnt[a.id]==1?'member':'members'}</div></div><button class="btn off sbtn" style="margin:0" onclick="admArt(${a.id})">Manage</button></div>`).join('')
     +`<div class="card"><b>Interests</b><div class="mute sm" style="margin-top:6px">${n} interests are managed in the app code (INTEREST_CATALOG in app.js). They sync to the database whenever an admin opens the app.</div></div>`;
 }
+// ---------- Admin: invite codes ----------
+async function drawInvites(){
+  $('#mob').innerHTML='<div class="empty">Loading...</div>';
+  const r=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});
+  if(mtab!=3)return;
+  if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  $('#mob').innerHTML=`<div class="card"><b>New invite code</b><div class="mute sm" style="margin:4px 0 10px">Share the link or the code. Each signup uses one spot.</div><div class="row"><input class="fi grow" id="ivn" maxlength="40" placeholder="Note (e.g. cricket group)"><input class="fi" id="ivm" type="number" min="1" max="500" value="20" style="width:84px" aria-label="Max uses"></div><button class="btn wide" style="margin-top:10px" onclick="admNewInvite()">Create code</button></div>`
+    +(r.data.map(c=>`<div class="card row"><div class="grow"><b>${esc(c.code)}</b>${c.active?'':' <span class="mute sm">· Off</span>'}${c.uses>=c.max_uses?' <span class="mute sm">· Full</span>':''}<div class="mute sm">${c.uses} of ${c.max_uses} used${c.note?' · '+esc(c.note):''}</div></div><button class="btn off sbtn" style="margin:0" onclick="copyInvite('${esc(c.code)}')">Copy link</button><button class="btn off sbtn" style="margin:0" onclick="toggleInvite('${esc(c.code)}',${!c.active})">${c.active?'Turn off':'Turn on'}</button></div>`).join('')||'<div class="empty">No codes yet</div>');
+}
+async function admNewInvite(){
+  const note=$('#ivn').value.trim().slice(0,40),max=Math.max(1,Math.min(500,parseInt($('#ivm').value)||20));
+  const al='ABCDEFGHJKMNPQRSTUVWXYZ23456789',b=crypto.getRandomValues(new Uint8Array(8));
+  const code='ILIKE-'+[...b].map(x=>al[x%al.length]).join('');
+  const r=await sb.from('invite_codes').insert({code,max_uses:max,note:note||null});
+  if(r.error){toast(r.error.message);return}
+  toast('Code created');drawInvites();
+}
+async function toggleInvite(code,on){
+  const r=await sb.from('invite_codes').update({active:on}).eq('code',code);
+  if(r.error){toast(r.error.message);return}
+  drawInvites();
+}
+async function copyInvite(code){
+  const msg='Join me on iLike: '+APP_URL()+'#invite='+code+'\n(Invite code: '+code+')';
+  try{await navigator.clipboard.writeText(msg);toast('Invite link copied')}
+  catch(e){toast('Code: '+code)}
+}
+
+// ---------- Terms, privacy, contact ----------
+const LEGAL={
+  terms:['Terms',[
+    ['What iLike is','iLike is a small community app for finding people who share your interests. It is in early testing, so things may change, break, or be reset.'],
+    ['Your account','Use your real details, keep one account, and keep your password private. You must be at least 13 years old. You are responsible for what you post and send.'],
+    ['Be kind','No harassment, hate, threats, spam, or pretending to be someone else. No sexual or violent content, nothing illegal, and no sharing other people\'s private information.'],
+    ['Moderation','Moderators and admins can remove content and mute or ban accounts that break these rules. You can report posts, replies, messages and people, and you can block anyone.'],
+    ['Your content','You keep ownership of what you post. By posting, you allow iLike to show it to other members inside the app.'],
+    ['Meeting people','Events are organised by members. iLike does not check anyone\'s identity. Meet in public places and tell someone where you are going.'],
+    ['No guarantees','iLike is provided as is during testing. Data may be lost, and we may change or end the service.'],
+    ['Leaving','You can stop using iLike at any time. To have your account deleted, email us.'],
+    ['Changes','We may update these terms. If you keep using iLike after a change, you accept it.']]],
+  privacy:['Privacy',[
+    ['What we collect','Your email, your password (stored scrambled by our login provider, so we cannot read it), and what you add: name, username, bio, city, photos, interests, artists, posts, replies, reactions, follows, messages, events, and the reports and blocks you make.'],
+    ['Who can see it','Signed-in members can see your profile, posts, interests and follows. Direct messages are visible to the people in that chat. Reports are seen by moderators.'],
+    ['Where it is stored','Your data is stored with Supabase, which provides our database, login and file storage. Fonts load from Google Fonts. We do not show ads, sell your data, or run analytics in this version.'],
+    ['On your device','The app keeps your look settings and unsent drafts in your browser, and saves app files so it opens faster and works offline.'],
+    ['Our access','The people who run iLike can technically access stored data in order to run and protect the service. We only look at private messages when needed to handle a report or a safety or legal issue.'],
+    ['Deleting your data','Email us and we will delete your account and what you posted within 30 days.']]],
+  contact:['Contact',[
+    ['Get in touch','Email '+CONTACT_EMAIL+' if you are locked out, found a problem, have a question, or want your account deleted.'],
+    ['Problems with a person','Use Report or Block in the app (the ⋯ button on posts, messages and profiles). Moderators will look at it.'],
+    ['Emergencies','If someone is in danger, contact your local emergency services first.']]]
+};
+function openLegal(k){S.lg=LEGAL[k]?k:'terms';drawLegal();$('#lg').classList.add('on')}
+function drawLegal(){
+  $('#lgt').innerHTML=Object.keys(LEGAL).map(k=>`<button class="${k==S.lg?'on':''}" onclick="S.lg='${k}';drawLegal()">${LEGAL[k][0]}</button>`).join('');
+  $('#lgb').innerHTML=LEGAL[S.lg][1].map(([h,t])=>`<h4>${esc(h)}</h4><p>${esc(t).replace(esc(CONTACT_EMAIL),`<a href="mailto:${esc(CONTACT_EMAIL)}">${esc(CONTACT_EMAIL)}</a>`)}</p>`).join('')+`<p class="mute sm" style="margin-top:12px">Last updated October 2026</p>`;
+  $('#lgb').scrollTop=0;
+}
+
 async function admAddArtist(){
   const name=$('#mla').value.trim().replace(/\s+/g,' ');
   if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
