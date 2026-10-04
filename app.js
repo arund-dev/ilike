@@ -4,7 +4,7 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 // Shown on the Terms / Privacy / Contact sheet. Must be an inbox you check.
 // Push notifications: paste the PUBLIC key from PUSH-SETUP.md here. While this is empty, the notification settings stay hidden.
-const VAPID_PUBLIC='';
+const VAPID_PUBLIC='BC0pryw7UqZIAhNML0k41re86rCfX0PfqlWRLSTX_o-6GghUx3btDBxf3U5nfqWcNIiPvHsF9Tm5jwMc5tunqyM';
 const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
