@@ -4,7 +4,7 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
@@ -38,7 +38,7 @@ function setMyAv(el){
 const chip=n=>`<span class="chip" style="--c:${col(n)}">${em(n)} ${esc(iname(n))}</span>`;
 const tgb=n=>S.mine.has(n)?chip(n):`<button class="chip tg" style="--c:${col(n)}" onclick="ask(${n})">${em(n)} ${esc(iname(n))}</button>`;
 const say=l=>!l.length?'':l.length==1?l[0]+' said Same':l.length==2?l.join(' & ')+' said Same':l[0]+', '+l[1]+' & others said Same';
-const so=p=>{const a=p.sames.filter(x=>x!=S.user.id);return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
+const so=p=>{const a=p.sames.filter(x=>x!=S.user.id&&!bl(x));return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
 const findPost=id=>S.pm.get(String(id));
 let toastT;
@@ -153,25 +153,28 @@ async function boot(){
 async function load(){
   if(!S.user){
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
-    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
     S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
-  const catalogError=await syncInterestCatalog();
-  if(catalogError)toast('Interest catalog sync failed: '+catalogError.message);
-  const[pr,i,u]=await Promise.all([
-    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url,role').eq('id',S.user.id).single(),
+  const[pr,i,u,bk]=await Promise.all([
+    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url,role,muted_until,banned').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
-    sb.from('user_interests').select('interest_id').eq('user_id',S.user.id)]);
+    sb.from('user_interests').select('interest_id').eq('user_id',S.user.id),
+    sb.from('blocks').select('blocked_id').eq('blocker_id',S.user.id)]);
   S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null,banner_url:null};
+  if(S.prof.banned){S.err='This account has been suspended.';S.good=false;S.mode='login';await sb.auth.signOut();return}
   S.name=S.prof.display_name||S.name;
+  S.blocked=new Set((bk.data||[]).map(x=>x.blocked_id));
   S.role=S.prof.role||'user';S.roles[S.user.id]=S.role;
   if(S.prof.avatar_url)S.avs[S.user.id]=S.prof.avatar_url;
   applyPrefs(S.prof.theme_prefs);
   if(i.error)toast('Could not load interests');
   S.ints=i.data||[];S.im=new Map(S.ints.map(x=>[x.id,x]));
+  if(isAdmin()){const ce=await syncInterestCatalog();if(ce)toast('Interest catalog sync failed: '+ce.message);else await loadInts()}
+  if(isMod())loadRepCount();
   S.mine=new Set((u.data||[]).map(r=>r.interest_id));S.snap=new Set(S.mine);
   S.names[S.user.id]=S.name;
   if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
@@ -241,7 +244,7 @@ async function loadPosts(){
   const rows=[...f.data];
   m.data.forEach(r=>{if(!rows.some(x=>x.id===r.id))rows.push(r)});
   const by=new Map((await hydrate(rows)).map(p=>[p.id,p]));
-  S.posts=f.data.map(r=>by.get(r.id));
+  S.posts=f.data.map(r=>by.get(r.id)).filter(p=>!bl(p.author_id));
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
@@ -253,7 +256,7 @@ async function loadPeople(){
     if(r.profiles?.avatar_url)S.avs[r.user_id]=r.profiles.avatar_url;
     S.roles[r.user_id]=r.profiles?.role||'user';
   });
-  S.people=Object.values(m);S.cnt=c;S.people.forEach(p=>S.names[p.id]=p.name);
+  S.people=Object.values(m).filter(p=>!bl(p.id));S.cnt=c;S.people.forEach(p=>S.names[p.id]=p.name);
 }
 // Open a post by id (used by share links and notifications)
 async function ensurePost(id){
@@ -271,7 +274,7 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${(mine||isMod())&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${!o.t?`<button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
@@ -326,12 +329,13 @@ async function pickPhotos(inp){
 }
 function rmPhoto(i){URL.revokeObjectURL(S.photos[i].prev);S.photos.splice(i,1);renderPhotos()}
 async function publish(){
+  if(muted())return;
   const v=$('#txt').value.trim(),a=+$('#sel').value,b=+$('#sel2').value;
   if(!v){$('#txt').focus();return}
   if(!a){toast('Add something you like first');return}
   const btn=$('#shr');btn.disabled=true;btn.textContent=S.photos.length?'Posting...':'Share';
   const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
-  if(error){btn.disabled=false;btn.textContent='Share';toast(error.message);return}
+  if(error){btn.disabled=false;btn.textContent='Share';toast(errMsg(error));return}
   const t=await sb.from('post_interests').insert([...new Set([a,b].filter(Boolean))].map(n=>({post_id:data.id,interest_id:n})));
   let imgFail=false;
   if(S.photos.length){
@@ -405,7 +409,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id||isMod()?`<button class="ghost" onclick="delReply('${r.id}')">${r.author_id==S.user.id?'Delete':'Remove'}</button>`:''}</div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:`<button class="ghost" onclick="openAx('reply','${r.id}')" aria-label="More options">⋯</button>`}</div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -418,7 +422,7 @@ async function loadReplies(id){
   if(r.error){toast('Could not load replies');S.reps=[]}
   else{
     await getProfiles(r.data.map(x=>x.author_id));
-    S.reps=r.data;const p=findPost(id);if(p)p.rc=r.data.length;
+    S.reps=r.data.filter(x=>!bl(x.author_id));const p=findPost(id);if(p)p.rc=r.data.length;
   }
   renderThread();
 }
@@ -426,10 +430,11 @@ function openThread(id){S.th=String(id);$('#rin').value=rdGet()[S.th]||'';$('#th
 function closeThread(){S.th=null;$('#th').classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
+  if(muted())return;
   const b=$('#rsend');b.disabled=true;
   const{error}=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});
   b.disabled=false;
-  if(error){toast(error.message);return}
+  if(error){toast(errMsg(error));return}
   $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;checkAch();
 }
 function delReply(id){
@@ -488,8 +493,8 @@ function drawPk(){
   let l=S.ints.filter(i=>art?i.kind=='artist':i.kind!='artist');
   l=l.filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>(S.mine.has(b.id)-S.mine.has(a.id))||a.name.localeCompare(b.name)).slice(0,60);
   let h=l.map(i=>{const on=S.mine.has(i.id);return `<button class="fc ${on?'on':''}" style="--c:${col(i.id)}" onclick="ask(${i.id})">${em(i.id)} ${esc(i.name)}${on?' ✓':''}</button>`}).join('');
-  if(raw.length>=2&&raw.length<=40&&!S.ints.some(i=>i.name.toLowerCase()==q))h+=`<button class="fc addb" onclick="${art?'newArtist()':'newInterest()'}">＋ Add “${esc(raw)}”${art?' as an artist':' as an interest'}</button>`;
-  if(!h)h=`<div class="mute sm">Type a ${art?'artist':'interest'} name to add it.</div>`;
+  if(raw.length>=2&&raw.length<=40&&!S.ints.some(i=>i.name.toLowerCase()==q))h+=isAdmin()?`<button class="fc addb" onclick="${art?'newArtist()':'newInterest()'}">＋ Add “${esc(raw)}”${art?' as an artist':' as an interest'}</button>`:`<div class="mute sm" style="margin:6px 4px">Not listed? Ask an admin to add “${esc(raw)}”.</div>`;
+  if(!h)h=isAdmin()?`<div class="mute sm">Type a ${art?'artist':'interest'} name to add it.</div>`:`<div class="mute sm">Nothing listed yet.</div>`;
   if(!art){
     const categories=[...new Set(l.map(i=>i.category||'Other'))];
     h=categories.map(category=>{
@@ -517,6 +522,7 @@ async function toggleInt(n){
   draw();if($('#pk').classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
 }
 async function newArtist(){
+  if(!isAdmin()){toast('Only admins can add new artists');return}
   const name=$('#pks').value.trim().replace(/\s+/g,' ');
   if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
   const find=()=>S.ints.find(i=>i.name.toLowerCase()==name.toLowerCase());
@@ -533,6 +539,7 @@ async function newArtist(){
 }
 // Create a shared hobby interest, then add it to this user's profile.
 async function newInterest(){
+  if(!isAdmin()){toast('Only admins can add new interests');return}
   const name=$('#pks').value.trim().replace(/\s+/g,' ');
   if(name.length<2||name.length>40){toast('Interest names are 2 to 40 characters');return}
   const find=()=>S.ints.find(i=>i.name.toLowerCase()==name.toLowerCase());
@@ -672,7 +679,7 @@ function applyPrefs(p){
 }
 function openSet(){
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
-  paintCustomize();refreshInstall();$('#set').classList.add('on');
+  paintCustomize();refreshInstall();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
 }
 async function changePw(){
   const v=$('#npw').value,e=$('#npe');e.textContent='';
@@ -708,14 +715,14 @@ function updateBadges(){
   set('#chb',m);set('#nb',n);
 }
 // Catch up when the app comes back to the foreground (in case a live update was missed)
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch();syncStatus()}});
 
 // ---------- Messages (1-to-1) ----------
 let conv=false,ctab=0;
 async function loadMsgs(){
   const r=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(1000);
   if(r.error)return;
-  S.msgs=r.data.reverse();updateBadges();
+  S.msgs=r.data.reverse().filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));updateBadges();
   if($('#ov').classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
 }
 const convoOf=id=>S.msgs.filter(m=>(m.sender_id==id&&m.to_user==S.user.id)||(m.sender_id==S.user.id&&m.to_user==id));
@@ -855,7 +862,7 @@ async function loadCircle(k){
   const r=await sb.from('circle_messages').select('id,sender_id,body,created_at,edited_at').eq('interest_id',k).order('created_at',{ascending:false}).limit(100);
   if(S.room!==k)return;
   if(r.error){toast('Could not load the chat');S.cm=[];drawCircle(1);return}
-  const rows=r.data.reverse();
+  const rows=r.data.reverse().filter(m=>!bl(m.sender_id));
   await getProfiles(rows.map(m=>m.sender_id));
   if(S.room!==k)return;
   const have=new Set(rows.map(m=>m.id));
@@ -869,13 +876,13 @@ function drawCircle(snap){
     const ed=m.edited_at?' · edited':'';
     return m.sender_id==me
       ?`<div class="b me">${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
-      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t ${isMod()?'f':''}"><span>${tm(m.created_at)}${ed}</span>${isMod()?moreBtn('cm',m.id):''}</small></div></div>`}).join('')
+      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span><button class="mmore" onclick="event.stopPropagation();openAx('cm','${m.id}')" aria-label="Message options">⋯</button></small></div></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
   const last=S.cm[S.cm.length-1];
   settle(el,near,snap,S.cm.length,!last||last.sender_id==me);
 }
 async function onCircleMsg(m){
-  if(S.room!==m.interest_id||S.cm===null||S.cm.some(x=>x.id===m.id))return;
+  if(S.room!==m.interest_id||S.cm===null||S.cm.some(x=>x.id===m.id)||bl(m.sender_id))return;
   if(!S.names[m.sender_id])await getProfiles([m.sender_id]);
   if(S.room!==m.interest_id||S.cm.some(x=>x.id===m.id))return;
   S.cm.push(m);drawCircle(m.sender_id==S.user.id);
@@ -907,25 +914,26 @@ function markRead(id){
 }
 async function send(){
   const v=$('#mi').value.trim();if(!v)return;
+  if(muted())return;
   if(S.edit)return saveMsgEdit(v);
   if(S.room!=null){
     const k=S.room;
     if(!S.mine.has(k)){toast('Join this circle to chat');return}
     $('#mi').value='';syncSend();
     const{data,error}=await sb.from('circle_messages').insert({interest_id:k,sender_id:S.user.id,body:v}).select().single();
-    if(error){if(S.room===k){$('#mi').value=v;syncSend()}toast(error.message);return}
+    if(error){if(S.room===k){$('#mi').value=v;syncSend()}toast(errMsg(error));return}
     if(S.room===k&&S.cm&&!S.cm.some(x=>x.id===data.id)){S.cm.push(data);drawCircle(1)}
     checkAch();return;
   }
   if(!S.dm)return;
   $('#mi').value='';syncSend();
   const{data,error}=await sb.from('messages').insert({sender_id:S.user.id,to_user:S.dm,body:v}).select().single();
-  if(error){$('#mi').value=v;syncSend();toast(error.message);return}
+  if(error){$('#mi').value=v;syncSend();toast(errMsg(error));return}
   S.msgs.push(data);if(conv&&S.dm==data.to_user)drawDm(1);
   checkAch();
 }
 async function onMsg(m){
-  if(S.msgs.some(x=>x.id===m.id))return;
+  if(S.msgs.some(x=>x.id===m.id)||bl(m.sender_id))return;
   S.msgs.push(m);
   if(!S.names[m.sender_id])await getProfiles([m.sender_id]);
   const open=$('#ov').classList.contains('on');
@@ -1071,7 +1079,7 @@ function drawPf(){
 <div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
 ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 <div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
-<div class="row pfa"><button class="btn ${fo?'off':''}" onclick="toggleFollow('${id}')">${fo?'Following ✓':'Follow'}</button><button class="btn off" onclick="sayHi('${id}')"><span class="wave-btn">👋</span> Say hi</button></div></div>
+<div class="row pfa"><button class="btn ${fo?'off':''}" onclick="toggleFollow('${id}')">${fo?'Following ✓':'Follow'}</button><button class="btn off" onclick="sayHi('${id}')"><span class="wave-btn">👋</span> Say hi</button>${id!=S.user.id?`<button class="btn off" onclick="openAx('user','${id}')" aria-label="More">⋯</button>`:''}</div></div>
 ${likes.length?`<div class="pfs">Likes</div><div class="pfc">${likes.map(chip).join('')}</div>`:''}
 ${arts.length?`<div class="pfs">Artists</div><div class="pfc">${arts.map(chip).join('')}</div>`:''}
 ${earned.length?`<div class="pfs">Achievements</div><div class="pfc">${earned.map(x=>`<button class="chip tg" style="--c:#64748B" onclick="showAch('${x.code}','${x.earned_at}')">${esc(x.a.emoji)} ${esc(x.a.title)}</button>`).join('')}</div>`:''}
@@ -1197,6 +1205,7 @@ function openEv(id){
 async function saveEv(){
   const title=$('#evTitle').value.trim(),w=$('#evWhen').value,place=$('#evPlace').value.trim(),venue=$('#evVenue').value.trim(),desc=$('#evDesc').value.trim(),err=$('#evErr');
   err.textContent='';
+  if(muted())return;
   if(!title){err.textContent='Give your plan a name.';return}
   if(!w){err.textContent='Pick a date and time.';return}
   const when=new Date(w);
@@ -1383,6 +1392,315 @@ function updateThemeColor(){
   document.body.appendChild(p);const c=getComputedStyle(p).color;p.remove();
   const m=document.querySelector('meta[name="theme-color"]');
   if(m&&c)m.setAttribute('content',c);
+}
+
+// ================= Batch 3: reporting, blocking, moderation, admin lists =================
+const bl=id=>S.blocked.has(id);
+const errMsg=e=>(e&&(e.code=='42501'||/row-level security/i.test(e.message||'')))?"You can't do that right now. You may be muted.":(e&&e.message)||'Something went wrong';
+const mutedNow=u=>!!(u&&u.muted_until&&new Date(u.muted_until)>new Date());
+function muted(){
+  if(mutedNow(S.prof)){toast('You are muted until '+tm(S.prof.muted_until));return true}
+  return false;
+}
+// Hide everything from people I blocked
+function applyBlocks(){
+  if(!S.user)return;
+  S.posts=S.posts.filter(p=>!bl(p.author_id));
+  S.people=S.people.filter(p=>!bl(p.id));
+  if(S.reps)S.reps=S.reps.filter(r=>!bl(r.author_id));
+  if(S.cm)S.cm=S.cm.filter(m=>!bl(m.sender_id));
+  S.msgs=S.msgs.filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));
+  updateBadges();
+  if($('#ov').classList.contains('on')){
+    if(conv&&S.dm&&bl(S.dm))openChats();
+    else if(conv&&S.room!=null)drawCircle();
+    else if(!conv)openChats();
+  }
+}
+// Pick up role / mute / ban changes made while the app was open
+async function syncStatus(){
+  if(!S.user||!S.loaded)return;
+  const r=await sb.from('profiles').select('role,muted_until,banned').eq('id',S.user.id).single();
+  if(r.error||!r.data)return;
+  if(r.data.banned){S.err='This account has been suspended.';S.good=false;await sb.auth.signOut();return}
+  Object.assign(S.prof,r.data);S.role=r.data.role||'user';S.roles[S.user.id]=S.role;
+  if(isMod())loadRepCount();else{S.nrep=0;paintRepBadge()}
+}
+
+// ---------- Blocking ----------
+function blockUser(id){
+  id=String(id);
+  confirmBox('Block '+nm(id)+'?','Block',async()=>{
+    const{error}=await sb.rpc('block_user',{target:id});
+    if(error){toast(errMsg(error));return}
+    S.blocked.add(id);S.fol.delete(id);S.folrs.delete(id);
+    ['#pv','#pf','#sl'].forEach(x=>$(x).classList.remove('on'));S.pf=null;
+    applyBlocks();draw();if(S.th)renderThread();
+    toast('Blocked '+nm(id));
+  });
+}
+async function openBlocked(){
+  $('#set').classList.remove('on');
+  const ids=[...S.blocked];await getProfiles(ids);
+  $('#slt').textContent='Blocked people';
+  $('#sll').innerHTML=ids.map(u=>`<div class="prow">${av(u)}<b class="grow">${esc(nm(u))}</b><button class="btn off sbtn" style="margin:0" onclick="unblock('${u}')">Unblock</button></div>`).join('')||'<div class="empty">You have not blocked anyone.</div>';
+  $('#sl').classList.add('on');
+}
+async function unblock(id){
+  const{error}=await sb.from('blocks').delete().match({blocker_id:S.user.id,blocked_id:id});
+  if(error){toast("Couldn't unblock");return}
+  S.blocked.delete(id);
+  await Promise.all([loadPosts(),loadPeople(),loadMsgs()]);
+  draw();openBlocked();toast('Unblocked');
+}
+
+// ---------- ⋯ menu on other people's content ----------
+const axLabel={post:'post',reply:'reply',cm:'message',user:'user'};
+function axGet(t,id){
+  if(t=='user')return{};
+  if(t=='post')return findPost(id);
+  const l=t=='reply'?S.reps:S.cm;
+  return(l||[]).find(x=>String(x.id)===String(id));
+}
+function openAx(t,id){
+  const m=axGet(t,id);if(!m)return;
+  const uid=t=='user'?String(id):(t=='cm'?m.sender_id:m.author_id);
+  S.ax={t,id:String(id),uid};
+  let h=`<b style="font-size:18px">${esc(nm(uid))}${rb(uid)}</b>`;
+  h+=`<button class="btn off wide" onclick="axReport()">🚩 Report ${axLabel[t]}</button>`;
+  h+=bl(uid)?`<button class="btn off wide" onclick="closeAx();unblock('${uid}')">Unblock</button>`:`<button class="btn off wide" onclick="axBlock()">🚫 Block ${esc(nm(uid))}</button>`;
+  if(isMod()){
+    if(t!='user')h+=`<button class="btn off wide danger" onclick="axDelete()">Delete ${axLabel[t]}</button>`;
+    h+=`<button class="btn off wide" onclick="axModerate()">🛡 Moderate user</button>`;
+  }
+  h+='<button class="btn off wide" onclick="closeAx()">Cancel</button>';
+  $('#axb').innerHTML=h;$('#ax').classList.add('on');
+}
+function closeAx(){$('#ax').classList.remove('on')}
+function axBlock(){const a=S.ax;closeAx();if(a)blockUser(a.uid)}
+function axModerate(){const a=S.ax;closeAx();if(a)openUa(a.uid)}
+function axDelete(){
+  const a=S.ax;closeAx();if(!a)return;
+  if(a.t=='post')return delPost(a.id);
+  if(a.t=='reply')return delReply(a.id);
+  confirmBox('Delete this message?','Delete',async()=>{
+    const{data,error}=await sb.from('circle_messages').delete().eq('id',a.id).select('id');
+    if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the message");return}
+    S.cm=(S.cm||[]).filter(x=>String(x.id)!==a.id);if(S.room!=null)drawCircle();
+  });
+}
+
+// ---------- Reporting ----------
+const REASONS=['Spam','Harassment','Hate or unsafe','Inappropriate','Other'];
+function axReport(){
+  const a=S.ax;closeAx();if(!a)return;
+  S.rp={type:a.t=='cm'?'circle_message':a.t,id:a.id,uid:a.uid,reason:''};
+  $('#rpd').value='';drawRp();$('#rp').classList.add('on');
+}
+function drawRp(){
+  if(!S.rp)return;
+  $('#rpr').innerHTML=REASONS.map(r=>`<button class="fc ${S.rp.reason==r?'on':''}" onclick="S.rp.reason='${r}';drawRp()">${r}</button>`).join('');
+  $('#rps').disabled=!S.rp.reason;
+}
+function closeRp(){$('#rp').classList.remove('on');S.rp=null}
+async function sendReport(){
+  const r=S.rp;if(!r||!r.reason)return;
+  $('#rps').disabled=true;
+  const{error}=await sb.from('reports').insert({target_type:r.type,target_id:r.id,target_user:r.uid||null,reason:r.reason,details:$('#rpd').value.trim()||null});
+  $('#rps').disabled=false;
+  if(error){
+    if(error.code=='23505'){closeRp();toast('You already reported this');return}
+    toast(errMsg(error));return;
+  }
+  closeRp();toast('Report sent. Thank you.');
+}
+
+// ---------- Moderation screen (mods and admins) ----------
+let mtab=0,musrT;
+async function loadRepCount(){
+  const r=await sb.from('reports').select('id',{count:'exact',head:true}).eq('status','open');
+  if(r.error)return;
+  S.nrep=r.count||0;paintRepBadge();
+}
+function paintRepBadge(){
+  const b=$('#rpb');b.hidden=!(isMod()&&S.nrep);b.textContent=S.nrep>9?'9+':S.nrep;
+  $('#modlab').hidden=!isMod();
+  const m=$('#modb');m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'');
+}
+function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
+function drawMod(){
+  const tabs=['Reports','Users'].concat(isAdmin()?['Lists']:[]);
+  $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
+  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else drawLists();
+}
+async function drawReports(){
+  $('#mob').innerHTML='<div class="empty">Loading...</div>';
+  const r=await sb.from('reports').select('*').eq('status','open').order('created_at',{ascending:false}).limit(50);
+  if(mtab!=0)return;
+  if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  const rows=r.data,by=t=>rows.filter(x=>x.target_type==t).map(x=>x.target_id);
+  const[po,re,cm]=await Promise.all([
+    by('post').length?sb.from('posts').select('id,body,author_id').in('id',by('post')):{data:[]},
+    by('reply').length?sb.from('replies').select('id,body,author_id').in('id',by('reply')):{data:[]},
+    by('circle_message').length?sb.from('circle_messages').select('id,body,sender_id').in('id',by('circle_message')):{data:[]}]);
+  const tgt=new Map();
+  (po.data||[]).forEach(x=>tgt.set('post:'+x.id,{body:x.body,uid:x.author_id}));
+  (re.data||[]).forEach(x=>tgt.set('reply:'+x.id,{body:x.body,uid:x.author_id}));
+  (cm.data||[]).forEach(x=>tgt.set('circle_message:'+x.id,{body:x.body,uid:x.sender_id}));
+  await getProfiles([...rows.map(x=>x.reporter_id),...rows.map(x=>x.target_user).filter(Boolean)]);
+  S.reports=rows.map(x=>({...x,t:tgt.get(x.target_type+':'+x.target_id)}));
+  S.nrep=rows.length;paintRepBadge();
+  if(mtab!=0)return;
+  $('#mob').innerHTML=S.reports.map(x=>{
+    const uid=x.target_user,isUser=x.target_type=='user';
+    return `<div class="card rpc"><div class="mute sm">${esc(nm(x.reporter_id))} reported ${isUser?'a user':'a '+esc(x.target_type.replace('_',' '))} · ${ago(x.created_at)}</div><div style="margin-top:4px"><b>${esc(x.reason)}</b>${x.details?' · '+esc(x.details):''}</div>${isUser?'':`<div class="rquote">${x.t?esc(x.t.body):'<i>Already removed</i>'}</div>`}<div class="mute sm">${uid?'By '+esc(nm(uid))+rb(uid):'Unknown author'}</div><div class="row rpa">${!isUser&&x.t?`<button class="btn off sbtn danger" onclick="repDelete('${x.id}')">Delete</button>`:''}${uid?`<button class="btn off sbtn" onclick="openUa('${uid}')">Moderate user</button>`:''}<button class="btn off sbtn" onclick="repClose('${x.id}','dismissed')">Dismiss</button><button class="btn sbtn" onclick="repClose('${x.id}','resolved')">Resolved</button></div></div>`;
+  }).join('')||'<div class="empty">No open reports 🎉</div>';
+}
+async function repClose(rid,status){
+  const{data,error}=await sb.from('reports').update({status,handled_by:S.user.id,handled_at:new Date().toISOString()}).eq('id',rid).select('id');
+  if(error||!data||!data.length){toast(error?error.message:"Couldn't update the report");return false}
+  S.reports=(S.reports||[]).filter(x=>x.id!==rid);S.nrep=Math.max(0,S.nrep-1);paintRepBadge();
+  if($('#mo').classList.contains('on')&&mtab==0)drawMod();
+  return true;
+}
+function repDelete(rid){
+  const x=(S.reports||[]).find(q=>q.id===rid);if(!x)return;
+  const tbl={post:'posts',reply:'replies',circle_message:'circle_messages'}[x.target_type];
+  confirmBox('Delete this '+x.target_type.replace('_',' ')+'?','Delete',async()=>{
+    const{data,error}=await sb.from(tbl).delete().eq('id',x.target_id).select('id');
+    if(error||!data||!data.length){toast(error?error.message:"Couldn't delete it");return}
+    if(x.target_type=='post'){S.pm.delete(String(x.target_id));S.posts=S.posts.filter(p=>String(p.id)!==String(x.target_id));S.myPosts=S.myPosts.filter(p=>String(p.id)!==String(x.target_id));draw()}
+    await repClose(rid,'resolved');toast('Deleted and resolved');
+  });
+}
+// People search
+function drawUsers(){
+  $('#mob').innerHTML='<input class="fi" id="musr" placeholder="Search people by name or @username" maxlength="40" autocomplete="off" oninput="clearTimeout(musrT);musrT=setTimeout(searchUsers,250)" style="margin:6px 16px;width:calc(100% - 32px)"><div id="musl"></div>';
+  searchUsers();
+}
+async function searchUsers(){
+  const el=$('#musr');if(!el)return;
+  const q=el.value.trim().replace(/[%,()*\\]/g,'');
+  let qb=sb.from('profiles').select('id,display_name,username,role,muted_until,banned,avatar_url').order('display_name').limit(30);
+  if(q)qb=qb.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
+  const r=await qb;
+  if(!$('#musl')||mtab!=1)return;
+  if(r.error){$('#musl').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  r.data.forEach(u=>{S.names[u.id]=u.display_name;S.roles[u.id]=u.role||'user';if(u.avatar_url)S.avs[u.id]=u.avatar_url});
+  $('#musl').innerHTML=r.data.map(u=>`<div class="card row" onclick="openUa('${u.id}')">${av(u.id)}<div class="grow"><b>${esc(u.display_name)}${rb(u.id)}</b><div class="mute sm">@${esc(u.username||'')}${u.banned?' · Banned':''}${mutedNow(u)?' · Muted':''}</div></div></div>`).join('')||'<div class="empty">No one found</div>';
+}
+// One person: mute (mods), role and ban (admins)
+async function openUa(id){
+  id=String(id);S.ua=id;
+  $('#uab').innerHTML='<div class="empty">Loading...</div>';$('#ua').classList.add('on');
+  const r=await sb.from('profiles').select('id,display_name,username,role,muted_until,banned,avatar_url').eq('id',id).maybeSingle();
+  if(S.ua!==id)return;
+  if(!r.data){$('#uab').innerHTML='<div class="empty">User not found</div>';return}
+  const u=r.data;S.names[id]=u.display_name;S.roles[id]=u.role||'user';if(u.avatar_url)S.avs[id]=u.avatar_url;
+  drawUa(u);
+}
+function drawUa(u){
+  const me=u.id==S.user.id,m=mutedNow(u);
+  let h=`<div class="row" style="margin:6px 0 4px">${av(u.id,'big')}<div><b style="font-size:18px">${esc(u.display_name)}${rb(u.id)}</b><div class="mute sm">@${esc(u.username||'')}</div><div class="sm">${u.banned?'🚫 Banned':m?'🔇 Muted until '+esc(tm(u.muted_until)):'Active'}</div></div></div>`;
+  if(me)h+='<div class="mute sm" style="margin:10px 4px">This is you.</div>';
+  else{
+    const canMute=u.role=='user'||(isAdmin()&&u.role=='mod');
+    if(canMute)h+='<p class="lab">Mute</p><div class="row" style="flex-wrap:wrap">'+[['1 hour',60],['1 day',1440],['7 days',10080]].map(([l,n])=>`<button class="btn off sbtn" onclick="uaMute('${u.id}',${n})">${l}</button>`).join('')+(m?`<button class="btn sbtn" onclick="uaMute('${u.id}',0)">Unmute</button>`:'')+'</div>';
+    if(isAdmin()&&u.role!='admin'){
+      h+='<p class="lab">Admin</p>';
+      h+=u.role=='mod'?`<button class="btn off wide" onclick="uaRole('${u.id}','user')">Remove moderator</button>`:`<button class="btn off wide" onclick="uaRole('${u.id}','mod')">Make moderator</button>`;
+      h+=u.banned?`<button class="btn off wide" onclick="uaBan('${u.id}',false)">Unban</button>`:`<button class="btn off wide danger" onclick="uaBan('${u.id}',true)">Ban from iLike</button>`;
+    }
+    h+=`<button class="btn off wide" onclick="closeUa();openProfile('${u.id}')">View profile</button>`;
+  }
+  h+='<button class="btn off wide" onclick="closeUa()">Close</button>';
+  $('#uab').innerHTML=h;
+}
+function closeUa(){S.ua=null;$('#ua').classList.remove('on')}
+async function uaDone(id,msg){toast(msg);await openUa(id);if($('#mo').classList.contains('on')&&mtab==1)searchUsers();draw()}
+async function uaMute(id,min){
+  const{error}=await sb.rpc('mute_user',{target:id,minutes:min});
+  if(error){toast(error.message);return}
+  uaDone(id,min?'Muted':'Unmuted');
+}
+function uaRole(id,role){
+  confirmBox(role=='mod'?'Make '+nm(id)+' a moderator?':'Remove '+nm(id)+' as moderator?',role=='mod'?'Promote':'Remove',async()=>{
+    const{error}=await sb.rpc('set_role',{target:id,new_role:role});
+    if(error){toast(error.message);return}
+    uaDone(id,role=='mod'?'Now a moderator':'No longer a moderator');
+  });
+}
+function uaBan(id,flag){
+  confirmBox(flag?'Ban '+nm(id)+'? They will be signed out and cannot post.':'Unban '+nm(id)+'?',flag?'Ban':'Unban',async()=>{
+    const{error}=await sb.rpc('set_ban',{target:id,flag});
+    if(error){toast(error.message);return}
+    uaDone(id,flag?'Banned':'Unbanned');
+  });
+}
+
+// ---------- Admin: artists list ----------
+const nameKey=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+async function drawLists(){
+  $('#mob').innerHTML='<div class="empty">Loading...</div>';
+  await Promise.all([loadInts(),loadPeople()]);
+  if(mtab!=2)return;
+  const arts=S.ints.filter(i=>i.kind=='artist').sort((a,b)=>a.name.localeCompare(b.name));
+  const n=S.ints.filter(i=>i.kind!='artist').length;
+  $('#mob').innerHTML=`<div class="card"><b>Artists</b> <span class="mute sm">(${arts.length})</span><div class="row" style="margin-top:10px"><input class="fi grow" id="mla" maxlength="40" placeholder="Add an artist" onkeydown="if(event.key==='Enter')admAddArtist()"><button class="btn" onclick="admAddArtist()">Add</button></div></div>`
+    +arts.map(a=>`<div class="card row"><div class="tile">${esc(a.emoji||'🎤')}</div><div class="grow"><b>${esc(a.name)}</b><div class="mute sm">${S.cnt[a.id]||0} ${S.cnt[a.id]==1?'member':'members'}</div></div><button class="btn off sbtn" style="margin:0" onclick="admArt(${a.id})">Manage</button></div>`).join('')
+    +`<div class="card"><b>Interests</b><div class="mute sm" style="margin-top:6px">${n} interests are managed in the app code (INTEREST_CATALOG in app.js). They sync to the database whenever an admin opens the app.</div></div>`;
+}
+async function admAddArtist(){
+  const name=$('#mla').value.trim().replace(/\s+/g,' ');
+  if(name.length<2||name.length>40){toast('Artist names are 2 to 40 characters');return}
+  const k=nameKey(name),dup=S.ints.find(i=>k?nameKey(i.name)==k:i.name.toLowerCase()==name.toLowerCase());
+  if(dup){toast('Already listed as "'+dup.name+'"');return}
+  const color=PAL[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
+  const r=await sb.from('interests').insert({name,emoji:'🎤',color,category:'Artists',kind:'artist'}).select().single();
+  if(r.error){toast(r.error.message);return}
+  await loadInts();drawLists();toast('Added '+name);
+}
+function admArt(id){S.am=id;$('#amt').textContent=iname(id);$('#am').classList.add('on')}
+function admRename(){
+  $('#am').classList.remove('on');$('#rni').value=iname(S.am);$('#rne').textContent='';$('#rn').classList.add('on');
+}
+async function admSaveRename(){
+  const name=$('#rni').value.trim().replace(/\s+/g,' '),id=S.am;
+  if(name.length<2||name.length>40){$('#rne').textContent='Artist names are 2 to 40 characters';return}
+  const k=nameKey(name),dup=S.ints.find(i=>i.id!=id&&(k?nameKey(i.name)==k:i.name.toLowerCase()==name.toLowerCase()));
+  if(dup){$('#rne').textContent='"'+dup.name+'" already exists. Use Merge instead.';return}
+  const r=await sb.from('interests').update({name}).eq('id',id).select('id');
+  if(r.error||!r.data||!r.data.length){$('#rne').textContent=r.error?r.error.message:"Couldn't rename it";return}
+  $('#rn').classList.remove('on');await loadInts();draw();drawLists();toast('Renamed');
+}
+function admMerge(){
+  $('#am').classList.remove('on');S.mg=S.am;$('#mgs').value='';$('#mgt').textContent='Merge "'+iname(S.mg)+'" into...';drawMg();$('#mg').classList.add('on');
+}
+function drawMg(){
+  const q=$('#mgs').value.toLowerCase();
+  $('#mgl').innerHTML=S.ints.filter(i=>i.kind=='artist'&&i.id!=S.mg&&i.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,40).map(i=>`<div class="prow lk" onclick="admDoMerge(${i.id})"><b class="grow">${em(i.id)} ${esc(i.name)}</b></div>`).join('')||'<div class="empty">No other artists</div>';
+}
+function admDoMerge(t){
+  const s=S.mg;
+  confirmBox('Merge "'+iname(s)+'" into "'+iname(t)+'"? Members and posts move over.','Merge',async()=>{
+    const{error}=await sb.rpc('merge_interests',{source:s,target:t});
+    if(error){toast(error.message);return}
+    $('#mg').classList.remove('on');await refreshInterests();drawLists();toast('Merged');
+  });
+}
+function admDelete(){
+  const id=S.am;$('#am').classList.remove('on');
+  confirmBox('Delete "'+iname(id)+'"? It is removed from everyone\'s profile.','Delete',async()=>{
+    const{error}=await sb.rpc('remove_interest',{target:id});
+    if(error){toast(error.message);return}
+    await refreshInterests();drawLists();toast('Deleted');
+  });
+}
+async function refreshInterests(){
+  await loadInts();
+  const u=await sb.from('user_interests').select('interest_id').eq('user_id',S.user.id);
+  if(u.data)S.mine=new Set(u.data.map(r=>r.interest_id));
+  draw();
 }
 
 // Apply saved look on this device before login, then boot

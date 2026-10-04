@@ -480,3 +480,11 @@ body.noapp nav,body.noapp .fab{display:none}
 .rbadge.ad{color:#fff;background:var(--grad);border-color:transparent}
 :root[data-palette="mono"] .rbadge.ad{color:var(--on-grad)}
 .b:not(.me) small.t.f{justify-content:space-between}
+
+/* ---- Safety: batch 3 ---- */
+#mo{overflow:hidden}
+#mob{flex:1;min-height:0;overflow-y:auto;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
+.rquote{margin:8px 0;padding:10px 12px;border-left:3px solid var(--brand);background:var(--bg);border-radius:10px;overflow-wrap:anywhere}
+.rpa{flex-wrap:wrap;gap:8px;margin-top:10px}
+.rpa .btn{margin:0}
+.rpc{display:block}
