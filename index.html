@@ -85,12 +85,12 @@
 <div class="ov" id="ov">
 <div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
 <div id="cl" style="overflow-y:auto"></div>
-<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div class="cstrip" id="cstrip" hidden></div><div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div><div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div><div class="mcnt" id="mcnt" hidden></div><div class="inp" id="inp"><input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()"><button class="btn" id="sbtn" onclick="send()" disabled>Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
+<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div class="cstrip" id="cstrip" hidden></div><div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div><div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div><div class="rtbar" id="rtbar" hidden><span>Couldn't send. Your message is still in the box.</span><button class="link" onclick="send()">Retry</button><button class="link" onclick="failDismiss()">Dismiss</button></div><div class="mcnt" id="mcnt" hidden></div><div class="inp" id="inp"><input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()"><button class="btn" id="sbtn" onclick="send()" disabled>Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
 </div>
 <div class="mod" id="mod" onclick="if(event.target===this)closePost()"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b style="font-size:18px">New post</b><textarea id="txt" maxlength="1000" placeholder="What are you into today?" aria-label="Post text"></textarea><div class="photos" id="pph"></div><button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos</button><input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)"><select id="sel" aria-label="Interest"></select><select id="sel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button><button class="btn off" onclick="closePost()">Cancel</button><button class="btn" id="shr" onclick="publish()">Share</button></div></div></div>
 <div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search interests" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px"><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="pv" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pvb"></div><div style="padding:0 16px"><button class="btn off" style="width:100%" onclick="$('#pv').classList.remove('on')">Close</button></div></div></div>
-<div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
+<div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rtbar" id="rrt" hidden><span>Couldn't send. Your reply is still in the box.</span><button class="link" onclick="sendReply()">Retry</button><button class="link" onclick="S.rfail=null;$('#rrt').hidden=true">Dismiss</button></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
 <div class="mod" id="pf" style="z-index:44" onclick="if(event.target===this)closePf()"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pfb"></div><div style="padding:0 16px;margin-top:8px"><button class="btn off" style="width:100%" onclick="closePf()">Close</button></div></div></div>
 <div class="mod" id="ev" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b id="evHead" style="font-size:18px">Plan an event</b><label class="lab" for="evTitle">What is the plan?</label><input class="fi" id="evTitle" maxlength="80" placeholder="Sunset walk at the fort"><p class="lab">Pick an emoji</p><div class="evem" id="evEm"></div><label class="lab" for="evWhen">When</label><input class="fi" id="evWhen" type="datetime-local"><label class="lab" for="evPlace">Place</label><input class="fi" id="evPlace" maxlength="80" placeholder="Galle Fort ramparts"><label class="lab" for="evVenue">Meeting spot (optional)</label><input class="fi" id="evVenue" maxlength="120" placeholder="Near the clock tower"><label class="lab" for="evDesc">Details (optional)</label><textarea id="evDesc" maxlength="500" placeholder="What should people know or bring?"></textarea><div class="err" id="evErr"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#ev').classList.remove('on')">Cancel</button><button class="btn" id="evSave" onclick="saveEv()">Save</button></div></div></div>
 <div class="mod" id="info" style="z-index:56" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="inf"></div><button class="btn wide" onclick="$('#info').classList.remove('on')">Done</button></div></div>
@@ -116,6 +116,32 @@
 <div class="mod lb" id="lb" style="z-index:70"><div class="lbst" id="lbst"><img id="lbi" alt="Photo" draggable="false"></div><button class="lbx" onclick="closeLb()" aria-label="Close photo">✕</button><div class="lbc" id="lbc"></div><button class="lbn lbp" id="lbp" onclick="lbGo(-1)" aria-label="Previous photo">‹</button><button class="lbn lbnx" id="lbnx" onclick="lbGo(1)" aria-label="Next photo">›</button></div>
 <div id="toast"></div>
 
+<div id="crash" hidden role="alert"><span>Something went wrong.</span><button onclick="location.reload()">Tap to reload</button><button class="x" onclick="this.parentNode.hidden=true" aria-label="Dismiss">✕</button></div>
+<script>
+// Global error fallback: a crash shows a reload bar instead of a blank screen.
+(function(){
+  var shown=false;
+  function crash(why){
+    try{console.error('iLike error:',why)}catch(e){}
+    if(shown)return;shown=true;
+    var b=document.getElementById('crash');if(b)b.hidden=false;
+  }
+  window.addEventListener('error',function(e){
+    if(e.target&&e.target!==window&&e.target.tagName){
+      // a script that failed to load (for example the Supabase library) breaks the whole app
+      if(e.target.tagName==='SCRIPT')crash('script failed: '+(e.target.src||''));
+      return;
+    }
+    if(/ResizeObserver/i.test(e.message||''))return;
+    crash(e.error||e.message);
+  },true);
+  window.addEventListener('unhandledrejection',function(e){
+    var m=String((e.reason&&e.reason.message)||e.reason||'');
+    if(!navigator.onLine||/Failed to fetch|NetworkError|Load failed|AbortError|aborted/i.test(m))return;
+    crash(e.reason);
+  });
+})();
+</script>
 <script src="app.js"></script>
 </body>
 </html>

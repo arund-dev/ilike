@@ -1,6 +1,6 @@
 // iLike service worker: lets the app install and open instantly.
 // Bump VERSION when you want every device to drop its old cache.
-const VERSION='ilike-v14';
+const VERSION='ilike-v15';
 const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
 const LIBS=['cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'];
 
@@ -13,12 +13,21 @@ self.addEventListener('activate',e=>{
 self.addEventListener('fetch',e=>{
   const r=e.request,u=new URL(r.url);
   if(r.method!=='GET')return;
-  // Our own files: network first (so updates land), cache when offline
+  // Our own files: network first (so updates land). If the network is slow (3 s) or down, use the cached copy.
   if(u.origin===location.origin){
-    e.respondWith(fetch(r).then(res=>{
-      if(res.ok){const c=res.clone();caches.open(VERSION).then(x=>x.put(r,c))}
-      return res;
-    }).catch(()=>caches.match(r).then(m=>m||(r.mode==='navigate'?caches.match('index.html'):Response.error()))));
+    e.respondWith(new Promise(resolve=>{
+      let done=false;
+      const fallback=()=>caches.match(r).then(m=>m||(r.mode==='navigate'?caches.match('index.html'):null));
+      const timer=setTimeout(()=>fallback().then(m=>{if(m&&!done){done=true;resolve(m)}}),3000);
+      fetch(r).then(res=>{
+        clearTimeout(timer);
+        if(res.ok){const c=res.clone();caches.open(VERSION).then(x=>x.put(r,c))}
+        if(!done){done=true;resolve(res)}
+      }).catch(()=>{
+        clearTimeout(timer);
+        if(!done)fallback().then(m=>{done=true;resolve(m||Response.error())});
+      });
+    }));
     return;
   }
   // Supabase library + fonts: cached copy first, refreshed in the background

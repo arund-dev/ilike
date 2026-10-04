@@ -48,6 +48,41 @@ const findPost=id=>S.pm.get(String(id));
 const tmx=d=>new Date(d).toLocaleString([],{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
 const tmk=d=>`<span class="tm" data-t="${d}" onclick="tmTap(this)">${ago(d)}</span>`;
 function tmTap(el){const x=el.dataset.x=='1';el.dataset.x=x?'':'1';el.textContent=x?ago(el.dataset.t):tmx(el.dataset.t)}
+// ---- 7a helpers ----
+// Supabase returns at most 1000 rows per request. This keeps asking until the list is complete.
+async function fetchAll(build,cap=5000){
+  let out=[],from=0;
+  while(from<cap){
+    const r=await build().range(from,from+999);
+    if(r.error)return r;
+    out=out.concat(r.data);
+    if(r.data.length<1000)break;
+    from+=1000;
+  }
+  return{data:out,error:null};
+}
+// Retry safety: if a send looked like it failed but reached the server, find that row instead of posting twice
+async function alreadySent(table,col,extra,body){
+  const since=new Date(Date.now()-120000).toISOString();
+  let q=sb.from(table).select('*').eq(col,S.user.id).eq('body',body).gte('created_at',since).order('created_at',{ascending:false}).limit(1);
+  for(const k in extra)q=q.eq(k,extra[k]);
+  const r=await q;
+  return r.data&&r.data[0]||null;
+}
+// Chat "Couldn't send" bar (shown only in the conversation where the send failed)
+function failSync(){
+  const el=$('#rtbar');if(!el)return;
+  const k=S.room!=null?'r'+S.room:'d'+S.dm;
+  el.hidden=!(S.fail&&S.fail.k==k);
+}
+function failDismiss(){S.fail=null;failSync()}
+// Paged people list (Same lists, members, followers, going)
+const SL_PAGE=30;
+function slDraw(){
+  const L=S.sl;if(!L)return;
+  $('#sll').innerHTML=(L.ids.slice(0,L.n).map(L.row).join('')||L.empty)+(L.n<L.ids.length?`<button class="btn off" style="width:100%;margin-top:8px" onclick="slMore()">Show more (${L.ids.length-L.n})</button>`:'');
+}
+function slMore(){S.sl.n+=SL_PAGE;slDraw()}
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
 
@@ -424,8 +459,8 @@ async function hydrate(rows){
   const ids=rows.map(x=>x.id);
   const[t,s,r,im]=await Promise.all([
     sb.from('post_interests').select('post_id,interest_id').in('post_id',ids),
-    sb.from('sames').select('post_id,user_id').in('post_id',ids),
-    sb.from('replies').select('post_id').in('post_id',ids),
+    fetchAll(()=>sb.from('sames').select('post_id,user_id').in('post_id',ids).order('post_id').order('user_id')),
+    fetchAll(()=>sb.from('replies').select('post_id').in('post_id',ids).order('post_id').order('id')),
     sb.from('post_images').select('post_id,url,position').in('post_id',ids).order('position')]);
   await getProfiles([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)]);
   await ensureInts((t.data||[]).map(q=>q.interest_id));
@@ -449,7 +484,7 @@ async function loadPosts(){
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
-  const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url,role)');
+  const{data}=await fetchAll(()=>sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url,role)').order('user_id').order('interest_id'));
   const m={},c={};
   (data||[]).forEach(r=>{
     c[r.interest_id]=(c[r.interest_id]||0)+1;if(r.user_id===S.user.id)return;
@@ -490,7 +525,8 @@ function openSames(id){
   const p=findPost(id);if(!p||!p.sames.length)return;
   const l=so(p);
   $('#slt').textContent=l.length+(l.length==1?' person said Same':' people said Same');
-  $('#sll').innerHTML=l.map(u=>`<div class="prow"><span class="lk" onclick="openProfile('${u}')">${av(u)}</span><b class="grow lk" onclick="openProfile('${u}')">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`).join('');
+  S.sl={ids:l,n:SL_PAGE,empty:'',row:u=>`<div class="prow"><span class="lk" onclick="openProfile('${u}')">${av(u)}</span><b class="grow lk" onclick="openProfile('${u}')">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`};
+  slDraw();
   $('#sl').classList.add('on');
 }
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
@@ -509,6 +545,7 @@ function tapFab(){
   $('#sel').innerHTML=o;
   $('#sel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
   setSel($('#sel'),pa);setSel($('#sel2'),pb);restoreDraft();
+  $('#shr').textContent=S.pfail?'Retry':'Share';
   $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');
 }
 function closePost(){
@@ -527,6 +564,8 @@ async function pickPhotos(inp){
   if(!files.length)return;
   toast('Preparing photos...');
   for(const f of files){
+    if(f.type&&!/^image\//.test(f.type)){toast('That file is not a photo');continue}
+    if(f.size>25*1024*1024){toast('That photo is too big (25 MB max)');continue}
     try{const blob=await prep(f,1600,false);S.photos.push({blob,prev:URL.createObjectURL(blob),st:'ready'})}
     catch(e){toast(e.message)}
   }
@@ -540,7 +579,7 @@ async function publish(){
   if(!v){$('#txt').focus();return}
   if(!a){toast('Add something you like first');return}
   const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
-  const done=()=>{S.posting=false;btn.disabled=false;btn.textContent='Share';renderPhotos()};
+  const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos()};
   // 1. Photos first, one by one, each showing its own state. A failed photo stops the post so nothing is half-made.
   let bad=0;
   for(const ph of S.photos){
@@ -552,8 +591,10 @@ async function publish(){
   if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
   // 2. The post itself
   btn.textContent='Posting...';
-  const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
-  if(error){done();toast(errMsg(error));return}
+  let data=S.pfail?await alreadySent('posts','author_id',{},v):null,error=null;
+  if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();data=r.data;error=r.error}
+  if(error){S.pfail=true;done();toast(errMsg(error)+' Tap Retry.');return}
+  S.pfail=false;
   const t=await sb.from('post_interests').insert([...new Set([a,b].filter(Boolean))].map(n=>({post_id:data.id,interest_id:n})));
   let imgFail=false;
   if(S.photos.length){
@@ -628,35 +669,49 @@ const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
-  $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join(''):'<div class="empty">No replies yet.<br>Say something.</div>';
+  $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join('')+(S.repMore?'<button class="btn off" style="width:100%;margin:8px 0" onclick="moreReplies()">Show more replies</button>':''):'<div class="empty">No replies yet.<br>Say something.</div>';
 }
-async function loadReplies(id){
-  S.reps=null;renderThread();
-  const r=await sb.from('replies').select('id,body,created_at,author_id').eq('post_id',id).order('created_at');
+const REP_PAGE=30;
+// First page, or the next page when more=true. n = how many to load on a refresh.
+async function loadReplies(id,more,n){
+  if(more&&S.repBusy)return;
+  if(!more){S.reps=null;S.repOff=0;S.repMore=false;renderThread()}
+  S.repBusy=true;
+  const size=more?REP_PAGE:(n||REP_PAGE),off=more?S.repOff:0;
+  const r=await sb.from('replies').select('id,body,created_at,author_id').eq('post_id',id).order('created_at').range(off,off+size-1);
+  S.repBusy=false;
   if(S.th!==id)return;
-  if(r.error){toast('Could not load replies');S.reps=[]}
+  if(r.error){toast('Could not load replies');if(!more)S.reps=[]}
   else{
     await getProfiles(r.data.map(x=>x.author_id));
-    S.reps=r.data.filter(x=>!bl(x.author_id));const p=findPost(id);if(p)p.rc=r.data.length;
+    const add=r.data.filter(x=>!bl(x.author_id));
+    S.reps=more?[...(S.reps||[]),...add]:add;
+    S.repOff=off+r.data.length;S.repMore=r.data.length==size;
+    const p=findPost(id);if(p&&!S.repMore)p.rc=S.repOff;
   }
   renderThread();
 }
-function openThread(id){S.th=String(id);$('#rin').value=rdGet()[S.th]||'';$('#th').classList.add('on');loadReplies(S.th)}
-function closeThread(){S.th=null;$('#th').classList.remove('on')}
+function moreReplies(){if(S.th)loadReplies(S.th,true)}
+function openThread(id){S.th=String(id);S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');loadReplies(S.th)}
+function closeThread(){S.th=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
   if(muted())return;
   const b=$('#rsend');b.disabled=true;
-  const{error}=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});
+  const retry=!!(S.rfail&&S.rfail.th==S.th&&S.rfail.v==v);
+  let error=null;
+  const dup=retry?await alreadySent('replies','author_id',{post_id:S.th},v):null;
+  if(!dup){const r=await sb.from('replies').insert({post_id:S.th,author_id:S.user.id,body:v});error=r.error}
   b.disabled=false;
-  if(error){toast(errMsg(error));return}
-  $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th);draw();$('#thbody').scrollTop=1e5;checkAch();
+  if(error){S.rfail={th:S.th,v};$('#rrt').hidden=false;toast(errMsg(error));return}
+  S.rfail=null;$('#rrt').hidden=true;
+  $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th,false,S.repMore?200:S.repOff+1);draw();$('#thbody').scrollTop=1e5;checkAch();
 }
 function delReply(id){
   confirmBox('Delete this reply?','Delete',async()=>{
     const{data,error}=await sb.from('replies').delete().eq('id',id).select('id');
     if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the reply");return}
-    await loadReplies(S.th);draw();
+    await loadReplies(S.th,false,Math.max(S.repOff,REP_PAGE));draw();
   });
 }
 
@@ -1045,7 +1100,7 @@ function setBar(){
   $('#inp').style.display=can?'':'none';$('#jbar').style.display=can?'none':'flex';
   $('#mi').placeholder=room?'Message the circle...':'Say something nice...';
   if(room&&!can)$('#jtx').textContent='Join '+iname(S.room)+' to chat here.';
-  drawStrip();syncSend();
+  drawStrip();syncSend();failSync();
 }
 function drawStrip(){
   const el=$('#cstrip');if(!el)return;
@@ -1251,17 +1306,22 @@ async function send(){
   if(S.room!=null){
     const k=S.room;
     if(!S.mine.has(k)){toast('Join this circle to chat');return}
-    $('#mi').value='';syncSend();
-    const{data,error}=await sb.from('circle_messages').insert({interest_id:k,sender_id:S.user.id,body:v}).select().single();
-    if(error){if(S.room===k){$('#mi').value=v;syncSend()}toast(errMsg(error));return}
+    const fk='r'+k,retry=!!(S.fail&&S.fail.k==fk&&S.fail.v==v);
+    $('#mi').value='';syncSend();S.fail=null;failSync();
+    let data=retry?await alreadySent('circle_messages','sender_id',{interest_id:k},v):null,error=null;
+    if(!data){const r=await sb.from('circle_messages').insert({interest_id:k,sender_id:S.user.id,body:v}).select().single();data=r.data;error=r.error}
+    if(error){S.fail={k:fk,v};if(S.room===k){$('#mi').value=v;syncSend()}failSync();toast(errMsg(error));return}
     if(S.room===k&&S.cm&&!S.cm.some(x=>x.id===data.id)){S.cm.push(data);drawCircle(1)}
     checkAch();return;
   }
   if(!S.dm)return;
-  $('#mi').value='';syncSend();
-  const{data,error}=await sb.from('messages').insert({sender_id:S.user.id,to_user:S.dm,body:v}).select().single();
-  if(error){$('#mi').value=v;syncSend();toast(errMsg(error));return}
-  S.msgs.push(data);if(conv&&S.dm==data.to_user)drawDm(1);
+  const to=S.dm,fk='d'+to,retry=!!(S.fail&&S.fail.k==fk&&S.fail.v==v);
+  $('#mi').value='';syncSend();S.fail=null;failSync();
+  let data=retry?await alreadySent('messages','sender_id',{to_user:to},v):null,error=null;
+  if(!data){const r=await sb.from('messages').insert({sender_id:S.user.id,to_user:to,body:v}).select().single();data=r.data;error=r.error}
+  if(error){S.fail={k:fk,v};if(S.dm===to&&!$('#mi').value){$('#mi').value=v;syncSend()}failSync();toast(errMsg(error));return}
+  if(!S.msgs.some(x=>x.id===data.id))S.msgs.push(data);
+  if(conv&&S.dm==data.to_user)drawDm(1);
   checkAch();
 }
 async function onMsg(m){
@@ -1383,7 +1443,8 @@ async function toggleFollow(id){
 }
 function peopleSheet(title,ids){
   $('#slt').textContent=title;
-  $('#sll').innerHTML=ids.map(u=>`<div class="prow lk" onclick="openProfile('${u}')">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b></div>`).join('')||'<div class="empty">Nobody yet</div>';
+  S.sl={ids,n:SL_PAGE,empty:'<div class="empty">Nobody yet</div>',row:u=>`<div class="prow lk" onclick="openProfile('${u}')">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b></div>`};
+  slDraw();
   $('#sl').classList.add('on');
 }
 async function openFollows(id,k){

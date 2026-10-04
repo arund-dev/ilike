@@ -57,3 +57,7 @@ New accounts go through four skippable steps: interests (3 or more), photo and b
 ## Profile and circle polish (Batch 5)
 
 On **You**, Edit profile and Settings sit together in the top bar. Choosing a profile photo or banner (in Edit profile, and during onboarding) opens a crop editor: drag to move, pinch or use the slider to zoom, and the avatar shows the circle that will appear on the profile. Profile tabs: **My posts**, **Liked** (posts you said Same to; private to you) and **Photos**. In a circle chat, the strip under the header shows the member count (tap for the list) and a Join or Leave button. A circle is an interest, so leaving a circle also removes that interest from the profile.
+
+## Reliability (Batch 7a)
+
+A failed post, reply or chat message stays in its input and shows a **Retry** button; retrying first checks whether the message already reached the server, so it is never posted twice. A global error handler (inline script in `index.html`) shows a "Something went wrong, tap to reload" bar instead of a blank screen, including when the Supabase library fails to load. Replies load 30 at a time with **Show more replies**; people lists (Same, members, followers, going) show 30 at a time; the feed, Same and people queries page past Supabase's 1000-row limit through `fetchAll`. `batch7a.sql` adds a database rate limit (posts 10/min, replies 20/min, messages 30/min, mods and admins exempt) and limits the `post-images` and `avatars` buckets to 5 MB JPEG. `sw.js` now falls back to the cached copy if the network takes more than 3 seconds.
