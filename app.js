@@ -4,7 +4,7 @@ const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false};
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
@@ -12,6 +12,9 @@ const iname=n=>S.im.get(n)?.name||'';
 const col=n=>esc(S.im.get(n)?.color||'var(--brand)');
 const em=n=>esc(S.im.get(n)?.emoji||(S.im.get(n)?.kind=='artist'?'🎤':'✦'));
 const cat=n=>S.im.get(n)?.category;
+// Role badge shown next to names (roles come from profiles.role)
+const rb=id=>{const r=S.roles[id];return r=='admin'?' <span class="rbadge ad">Admin</span>':r=='mod'?' <span class="rbadge">Mod</span>':''};
+const isMod=()=>S.role=='mod'||S.role=='admin',isAdmin=()=>S.role=='admin';
 const nm=id=>S.names[id]||(id==S.user?.id?S.name:'Member');
 const PAL=['#8B5CF6','#EC4899','#22C55E','#F59E0B','#14B8A6','#3B82F6','#EF4444'];
 // Developer-managed menu. Add categories and choices here; the app syncs them to Supabase on login.
@@ -150,7 +153,7 @@ async function boot(){
 async function load(){
   if(!S.user){
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
-    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
     S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
@@ -159,11 +162,12 @@ async function load(){
   const catalogError=await syncInterestCatalog();
   if(catalogError)toast('Interest catalog sync failed: '+catalogError.message);
   const[pr,i,u]=await Promise.all([
-    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url').eq('id',S.user.id).single(),
+    sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url,role').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
     sb.from('user_interests').select('interest_id').eq('user_id',S.user.id)]);
   S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null,banner_url:null};
   S.name=S.prof.display_name||S.name;
+  S.role=S.prof.role||'user';S.roles[S.user.id]=S.role;
   if(S.prof.avatar_url)S.avs[S.user.id]=S.prof.avatar_url;
   applyPrefs(S.prof.theme_prefs);
   if(i.error)toast('Could not load interests');
@@ -205,8 +209,8 @@ async function syncInterestCatalog(){
 // Names + profile photos for a list of people
 async function getProfiles(ids){
   ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
-  const a=await sb.from('profiles').select('id,display_name,avatar_url').in('id',ids);
-  (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
+  const a=await sb.from('profiles').select('id,display_name,avatar_url,role').in('id',ids);
+  (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;S.roles[x.id]=x.role||'user';if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
 }
 
 // One query for the feed, one for my own posts, then fill in tags / photos / sames / reply counts / names
@@ -241,12 +245,13 @@ async function loadPosts(){
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
-  const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url)');
+  const{data}=await sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url,role)');
   const m={},c={};
   (data||[]).forEach(r=>{
     c[r.interest_id]=(c[r.interest_id]||0)+1;if(r.user_id===S.user.id)return;
     (m[r.user_id]||(m[r.user_id]={id:r.user_id,name:r.profiles?.display_name||'Member',ids:[]})).ids.push(r.interest_id);
     if(r.profiles?.avatar_url)S.avs[r.user_id]=r.profiles.avatar_url;
+    S.roles[r.user_id]=r.profiles?.role||'user';
   });
   S.people=Object.values(m);S.cnt=c;S.people.forEach(p=>S.names[p.id]=p.name);
 }
@@ -266,7 +271,7 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${mine&&!o.t?`<button class="ghost more" onclick="openPm('${p.id}')" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
@@ -396,7 +401,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:''}</div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -441,7 +446,7 @@ function mix(q){
 }
 function findTab(){
   const q=$('#q').value.toLowerCase();
-  $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
+  $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}${rb(o.p.id)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
   $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
   $('#fx').innerHTML=S.skel&&!S.posts.length?'<div class="gridx">'+'<div class="gt sk-b"></div>'.repeat(6)+'</div>':m.length?'<div class="gridx">'+m.map(p=>{
@@ -462,7 +467,7 @@ function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 // ---------- You + interests ----------
 function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
-  setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mn').textContent=S.name;
+  setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
   $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
@@ -737,7 +742,7 @@ function openChats(){
     const known=new Set(S.fol);S.msgs.forEach(m=>known.add(m.sender_id==me?m.to_user:m.sender_id));
     const rows=S.people.filter(p=>known.has(p.id)).map(p=>{const l=convoOf(p.id);return{p,last:l[l.length-1],un:l.filter(m=>m.to_user==me&&!m.read_at).length}})
       .sort((a,b)=>(b.last?+new Date(b.last.created_at):0)-(a.last?+new Date(a.last.created_at):0)||(S.fol.has(b.p.id)-S.fol.has(a.p.id)));
-    body=rows.map(o=>`<div class="card row" onclick="openDm('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}</b>${o.last?`<div class="mute sm clip">${o.last.sender_id==me?'You: ':''}${esc(o.last.body)}</div>`:`<div class="mute sm">${S.fol.has(o.p.id)?'Following · ':''}Say hi 👋</div>`}</div>${o.un?`<span class="dot">${o.un}</span>`:''}</div>`).join('')
+    body=rows.map(o=>`<div class="card row" onclick="openDm('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}${rb(o.p.id)}</b>${o.last?`<div class="mute sm clip">${o.last.sender_id==me?'You: ':''}${esc(o.last.body)}</div>`:`<div class="mute sm">${S.fol.has(o.p.id)?'Following · ':''}Say hi 👋</div>`}</div>${o.un?`<span class="dot">${o.un}</span>`:''}</div>`).join('')
       ||'<div class="empty mid"><div class="eico">👋</div><b>No friends yet</b><div class="sm">Follow people to start chatting with them here.</div><button class="btn" onclick="goDiscover(0)">Add friends</button></div>';
   }
   $('#cl').innerHTML=tabs+body;
@@ -854,7 +859,7 @@ function drawCircle(snap){
     const ed=m.edited_at?' · edited':'';
     return m.sender_id==me
       ?`<div class="b me">${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
-      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}</span>${esc(m.body)}<small class="t">${tm(m.created_at)}${ed}</small></div></div>`}).join('')
+      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t">${tm(m.created_at)}${ed}</small></div></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
   const last=S.cm[S.cm.length-1];
   settle(el,near,snap,S.cm.length,!last||last.sender_id==me);
@@ -1027,7 +1032,7 @@ async function openProfile(id){
   closeThread();$('#sl').classList.remove('on');
   S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
   const[p,ui,ua,po,c1,c2]=await Promise.all([
-    sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url').eq('id',id).maybeSingle(),
+    sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url,role').eq('id',id).maybeSingle(),
     sb.from('user_interests').select('interest_id').eq('user_id',id),
     sb.from('user_achievements').select('code,earned_at').eq('user_id',id),
     sb.from('posts').select(COLS).eq('author_id',id).order('created_at',{ascending:false}).limit(20),
@@ -1041,6 +1046,7 @@ async function openProfile(id){
   await ensureInts(ints);
   const posts=await hydrate(po.data||[]);
   if(!S.pf||S.pf.id!==id)return;
+  if(p.data)S.roles[id]=p.data.role||'user';
   Object.assign(S.pf,{prof:p.data,ints,ach:ua.data||[],posts,nf:c1.count||0,ng:c2.count||0});
   drawPf();
 }
@@ -1051,7 +1057,7 @@ function drawPf(){
   const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
   const fo=S.fol.has(id);
   const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
-  $('#pfb').innerHTML=`${p.banner_url?`<div class="pfbn" style="background-image:url('${esc(p.banner_url)}')"></div>`:''}<div class="pfh">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}</h3>
+  $('#pfb').innerHTML=`${p.banner_url?`<div class="pfbn" style="background-image:url('${esc(p.banner_url)}')"></div>`:''}<div class="pfh">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}${rb(id)}</h3>
 <div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
 ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 <div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
