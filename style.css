@@ -497,3 +497,7 @@ body.noapp nav,body.noapp .fab{display:none}
 .legal h4{margin:16px 0 4px;font-size:15px}
 .legal p{margin:0 0 6px;line-height:1.5;font-size:14px}
 .legal a{color:var(--brand)}
+
+/* Batch 4b: onboarding */
+.obp{font-size:12px;font-weight:800;color:var(--mute);margin:16px 4px 0;letter-spacing:.06em;text-transform:uppercase}
+.obav{display:flex;align-items:center;gap:14px;margin:14px 0 4px}

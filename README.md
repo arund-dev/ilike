@@ -49,3 +49,7 @@ The web manifest and service worker are registered by the app when served over H
 ## Invite codes and legal pages (Batch 4a)
 
 Signups require an invite code. The check runs inside the database (a trigger on `auth.users` created by `batch4a.sql`), so it cannot be bypassed from the browser. Admins create, copy and switch off codes in **Settings → Moderation tools → Invites**. A code's link (`…/#invite=CODE`) opens the signup form with the code filled in. Terms, privacy and contact text lives in `LEGAL` in `app.js`; the contact address is `CONTACT_EMAIL`.
+
+## First-run onboarding (Batch 4b)
+
+New accounts go through four skippable steps: interests (3 or more), photo and bio, follow a few people (the iLike team and people with shared interests are listed first), and a first post. Completion is stored in `profiles.onboarded_at` (set by the `finish_onboarding()` function from `batch4b.sql`); accounts that existed before that column was added count as onboarded. `seed.sql` adds friendly starter posts from the admin account.

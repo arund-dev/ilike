@@ -159,19 +159,106 @@ async function forgot(){
 }
 async function logout(){await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
-// ---------- Onboarding (first login) ----------
+// ---------- Onboarding (first login): interests, profile, follow, first post ----------
+const obHead=n=>`<div class="obp">Step ${n} of 4</div>`;
 function renderOb(){
-  const L=S.ints.filter(i=>i.kind!='artist'),cats=[...new Set(L.map(i=>i.category))];
-  $('#ob').innerHTML=`<h2 style="margin:18px 0 6px">What do you like?</h2><p class="mute">Pick at least 3. Your feed is built from these.</p>${
-    cats.map(c=>`<div class="cath" style="color:${col(L.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${L.filter(i=>i.category===c).map(i=>`<button class="fc" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found. Add rows to the interests table in Supabase.</div>'
-  }<div class="err" id="oe"></div><button class="btn" id="obs" style="width:100%" onclick="saveOb(this)" disabled>Save and continue (0)</button>`;
+  const st=S.obStep||0,el=$('#ob');
+  if(st==0)obInterests(el);else if(st==1)obProfileUi(el);else if(st==2)obPeopleUi(el);else obPostUi(el);
 }
-function obPick(b,id){S.pick.has(id)?S.pick.delete(id):S.pick.add(id);b.classList.toggle('on');const s=$('#obs');s.disabled=S.pick.size<3;s.textContent='Save and continue ('+S.pick.size+')'}
+function obInterests(el){
+  const L=S.ints.filter(i=>i.kind!='artist'),cats=[...new Set(L.map(i=>i.category))];
+  el.innerHTML=`${obHead(1)}<h2 style="margin:6px 0 6px">What do you like?</h2><p class="mute">Pick at least 3. Your feed is built from these.</p>${
+    cats.map(c=>`<div class="cath" style="color:${col(L.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${L.filter(i=>i.category===c).map(i=>`<button class="fc" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found. Open the app once as admin to load them.</div>'
+  }<div class="err" id="oe"></div><button class="btn" id="obs" style="width:100%" onclick="saveOb(this)" disabled>Continue (0)</button>`;
+}
+function obPick(b,id){S.pick.has(id)?S.pick.delete(id):S.pick.add(id);b.classList.toggle('on');const s=$('#obs');s.disabled=S.pick.size<3;s.textContent='Continue ('+S.pick.size+')'}
 async function saveOb(b){
   b.disabled=true;
   const{error}=await sb.from('user_interests').insert([...S.pick].map(n=>({user_id:S.user.id,interest_id:n})));
   if(error){$('#oe').textContent=error.message;b.disabled=false;return}
-  load();
+  S.mine=new Set(S.pick);S.snap=new Set(S.mine);
+  if(S.obLegacy){load();return}
+  obGo(1);
+}
+async function obGo(n){
+  S.obStep=n;
+  if(n==2){
+    $('#ob').innerHTML=obHead(3)+skPerson().repeat(3);
+    await Promise.all([loadPeople(),loadFollows()]);
+    if(S.obStep!=2)return;
+  }
+  renderOb();
+  const sc=$('#ob').closest('.pscroll');if(sc)sc.scrollTop=0;
+}
+function obProfileUi(el){
+  const has=!!S.avs[S.user.id];
+  el.innerHTML=`${obHead(2)}<h2 style="margin:6px 0 6px">Put a face to your name</h2><p class="mute">A photo and a line about you help people say hi. You can skip this and do it later.</p><div class="obav"><span class="av big" id="obav" style="--c:var(--brand)"></span><button class="btn off sbtn" id="obab" onclick="$('#obf').click()">${has?'Change photo':'Add photo'}</button><input type="file" id="obf" accept="image/*" hidden onchange="obAvatar(this)"></div><label class="lab" for="obb">Bio</label><textarea id="obb" class="bioin" maxlength="160" placeholder="Tell people what you are into">${esc(S.prof.bio||'')}</textarea><label class="lab" for="obc">City</label><input class="fi" id="obc" maxlength="40" autocomplete="address-level2" value="${esc(S.prof.city||'')}"><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obProf(this)">Continue</button><button class="link" onclick="obGo(2)">Skip for now</button>`;
+  setMyAv($('#obav'));
+}
+async function obAvatar(inp){
+  const f=inp.files[0];inp.value='';if(!f)return;
+  toast('Uploading photo...');
+  try{
+    const blob=await prep(f,512,true),url=await upload('avatars',blob),old=S.avs[S.user.id];
+    const{error}=await sb.from('profiles').update({avatar_url:url}).eq('id',S.user.id);
+    if(error)throw error;
+    if(old)rmFiles('avatars',[old]);
+    S.avs[S.user.id]=url;S.prof.avatar_url=url;
+    setMyAv($('#obav'));$('#obab').textContent='Change photo';toast('Photo added');
+  }catch(e){toast(e.message||"Couldn't upload that photo")}
+}
+async function obProf(b){
+  const bio=$('#obb').value.trim(),city=$('#obc').value.trim();
+  if((bio||null)!==(S.prof.bio||null)||(city||null)!==(S.prof.city||null)){
+    b.disabled=true;
+    const{error}=await sb.from('profiles').update({bio:bio||null,city:city||null}).eq('id',S.user.id);
+    b.disabled=false;
+    if(error){$('#oe').textContent=error.message;return}
+    S.prof.bio=bio||null;S.prof.city=city||null;
+  }
+  obGo(2);
+}
+function obCands(){
+  return S.people.map(p=>({p,sh:p.ids.filter(n=>S.mine.has(n)),team:['admin','mod'].includes(S.roles[p.id])}))
+    .sort((a,b)=>b.team-a.team||b.sh.length-a.sh.length||a.p.name.localeCompare(b.p.name)).slice(0,8);
+}
+const obFolLabel=()=>S.fol.size>=3?'Continue':S.fol.size?'Continue ('+S.fol.size+' followed)':'Skip for now';
+function obPeopleUi(el){
+  const rows=obCands().map(({p,sh,team})=>{
+    const fo=S.fol.has(p.id);
+    return `<div class="card row">${av(p.id)}<div class="grow"><b>${esc(p.name)}${rb(p.id)}</b><div class="mute sm">${sh.length?sh.slice(0,4).map(em).join(' ')+' '+sh.length+' in common':team?'The iLike team':'New to you'}</div></div><button class="btn sbtn ${fo?'off':''}" style="margin:0" onclick="obTog('${p.id}',this)">${fo?'Following ✓':'Follow'}</button></div>`}).join('');
+  el.innerHTML=`${obHead(3)}<h2 style="margin:6px 0 6px">Follow a few people</h2><p class="mute">Posts from people you follow show up in your Following tab. Pick 3 to start.</p>${rows||'<div class="empty">You are one of the first here.<br>People will appear in Discover as they join.</div>'}<div class="err" id="oe"></div><button class="btn" style="width:100%;margin-top:8px" id="obn" onclick="obGo(3)">${obFolLabel()}</button>`;
+}
+async function obTog(id,btn){
+  if(btn.dataset.busy)return;btn.dataset.busy=1;
+  const on=!S.fol.has(id),paint=v=>{btn.textContent=v?'Following ✓':'Follow';btn.classList.toggle('off',v);const n=$('#obn');if(n)n.textContent=obFolLabel()};
+  on?S.fol.add(id):S.fol.delete(id);paint(on);
+  const r=on?await sb.from('follows').insert({follower_id:S.user.id,following_id:id}):await sb.from('follows').delete().match({follower_id:S.user.id,following_id:id});
+  delete btn.dataset.busy;
+  if(r.error){on?S.fol.delete(id):S.fol.add(id);paint(!on);toast("Couldn't update that")}
+}
+function obPostUi(el){
+  const L=[...S.mine].filter(n=>!isArt(n)),first=(S.name||'').split(' ')[0]||'there';
+  const hi=`Hi, I'm ${first}! I'm into ${L.slice(0,2).map(iname).join(' and ')}. Who else?`;
+  el.innerHTML=`${obHead(4)}<h2 style="margin:6px 0 6px">Say hi</h2><p class="mute">Write your first post so people know you are here. You can edit the words.</p><textarea id="obt" maxlength="1000" aria-label="First post">${esc(hi)}</textarea><select id="obi" aria-label="Interest">${L.map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('')}</select><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obSendPost(this)">Post and finish</button><button class="link" onclick="finishOb()">Skip and finish</button>`;
+}
+async function obSendPost(b){
+  const v=$('#obt').value.trim(),a=+$('#obi').value;
+  if(!v||!a){finishOb();return}
+  b.disabled=true;
+  const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
+  if(error){b.disabled=false;$('#oe').textContent=errMsg(error);return}
+  await sb.from('post_interests').insert({post_id:data.id,interest_id:a});
+  finishOb();
+}
+async function finishOb(){
+  if(S.obBusy)return;S.obBusy=true;
+  const r=await sb.rpc('finish_onboarding');
+  S.obBusy=false;
+  if(r.error){toast("Couldn't finish setup. Try again.");return}
+  if(S.prof)S.prof.onboarded_at=new Date().toISOString();
+  S.obStep=0;S.F='All';
+  await load();toast('Welcome to iLike ✦');
 }
 
 // ---------- Data ----------
@@ -196,11 +283,12 @@ async function load(){
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
-  const[pr,i,u,bk]=await Promise.all([
+  const[pr,i,u,bk,oa]=await Promise.all([
     sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url,role,muted_until,banned').eq('id',S.user.id).single(),
     sb.from('interests').select('*').order('category').order('name'),
     sb.from('user_interests').select('interest_id').eq('user_id',S.user.id),
-    sb.from('blocks').select('blocked_id').eq('blocker_id',S.user.id)]);
+    sb.from('blocks').select('blocked_id').eq('blocker_id',S.user.id),
+    sb.from('profiles').select('onboarded_at').eq('id',S.user.id).maybeSingle()]);
   S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null,banner_url:null};
   if(S.prof.banned){S.err='This account has been suspended.';S.good=false;S.mode='login';await sb.auth.signOut();return}
   S.name=S.prof.display_name||S.name;
@@ -214,7 +302,9 @@ async function load(){
   if(isMod())loadRepCount();
   S.mine=new Set((u.data||[]).map(r=>r.interest_id));S.snap=new Set(S.mine);
   S.names[S.user.id]=S.name;
-  if(!S.mine.size){S.pick=new Set();renderOb();show('onb');return}
+  S.obLegacy=!!oa.error; // column missing (SQL not run): fall back to the old interests-only check
+  const needOb=oa.error?!S.mine.size:!oa.data?.onboarded_at;
+  if(needOb){S.pick=new Set();S.obStep=S.mine.size?1:0;renderOb();show('onb');return}
   subscribe();
   S.skel=true;draw();show(S.tab);
   try{await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()])}
