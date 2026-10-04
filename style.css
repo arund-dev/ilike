@@ -122,7 +122,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:18px 18px 8px}
 .room span{display:block;font-size:34px;margin-bottom:6px}
 .date{background:color-mix(in srgb,var(--brand) 16%,var(--card));color:var(--brand);padding:4px 12px;border-radius:50px;font-weight:800;font-size:12px;display:inline-block}
 .tile{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 20%,var(--card)),color-mix(in srgb,var(--brand-dark) 18%,var(--card)));flex:none}
-.banner{height:140px;background:radial-gradient(circle at 85% 15%,rgba(255,255,255,.4),transparent 38%),radial-gradient(circle at 8% 110%,hsl(var(--h3) 95% 60% / .7),transparent 48%),var(--grad);border-radius:0 0 28px 28px}
+.banner{aspect-ratio:3/1;height:auto;background:radial-gradient(circle at 85% 15%,rgba(255,255,255,.4),transparent 38%),radial-gradient(circle at 8% 110%,hsl(var(--h3) 95% 60% / .7),transparent 48%),var(--grad);border-radius:0 0 28px 28px}
 #me{--accent:var(--brand)}
 .sw.on{box-shadow:0 0 0 2px var(--text),0 6px 14px -4px rgba(0,0,0,.25)}
 .fc.on{border-color:transparent;background:var(--grad);color:#fff}
@@ -248,7 +248,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #evs .card{transition:transform .2s}
 
   /* You: profile left, posts right */
-  .banner{height:180px}
+  .banner{width:min(calc(100% - 24px),760px);margin:0 12px;border-radius:24px}
   .me-body{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:24px;align-items:start;padding:0 12px 24px}
   .col-l,.col-r{display:block;min-width:0}
   .mehead{padding:0 18px}
@@ -395,6 +395,8 @@ body.noapp nav,body.noapp .fab{display:none}
 /* person profile sheet */
 .pfh{padding:22px 20px 4px}
 .pfh .av.big{width:84px;height:84px;font-size:34px}
+.pfh.ov{padding-top:0}
+.pfh.ov .av.big{width:100px;height:100px;font-size:42px;margin-top:-50px;border:4px solid var(--card);box-shadow:0 0 0 3px var(--brand-dark),0 12px 28px -6px var(--glow)}
 .pfn{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-top:10px}
 .pfa{margin:12px 0 0}
 .pfa .btn{flex:1;margin:0}
@@ -453,8 +455,8 @@ body.noapp nav,body.noapp .fab{display:none}
 #s-meet.on,#s-me.on{overscroll-behavior-y:contain}
 
 /* Banner image (edit profile preview + other people's profiles) */
-.pebn{height:84px;border-radius:16px;background:var(--grad);margin-bottom:8px}
-.pfbn{height:110px;margin:0 12px;border-radius:18px;background-size:cover;background-position:center}
+.pebn{aspect-ratio:3/1;border-radius:16px;background:var(--grad);margin-bottom:8px}
+.banner.pfbn{margin:-8px 0 0;width:auto;border-radius:0}
 
 /* Draft link in the new post sheet */
 .pdis{width:auto;margin-right:auto;padding:0 4px;font-size:13px}
