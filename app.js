@@ -44,6 +44,10 @@ const say=l=>!l.length?'':l.length==1?l[0]+' said Same':l.length==2?l.join(' & '
 const so=p=>{const a=p.sames.filter(x=>x!=S.user.id&&!bl(x));return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
 const findPost=id=>S.pm.get(String(id));
+// Time: shows "2h ago"; tap it to see the exact date and time, tap again to go back
+const tmx=d=>new Date(d).toLocaleString([],{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
+const tmk=d=>`<span class="tm" data-t="${d}" onclick="tmTap(this)">${ago(d)}</span>`;
+function tmTap(el){const x=el.dataset.x=='1';el.dataset.x=x?'':'1';el.textContent=x?ago(el.dataset.t):tmx(el.dataset.t)}
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
 
@@ -96,9 +100,83 @@ async function rmFiles(bucket,urls){
   const p=urls.map(u=>pathOf(u,bucket)).filter(Boolean);
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
-function openLb(u){$('#lbi').src=u;$('#lb').classList.add('on')}
-function closeLb(){$('#lb').classList.remove('on')}
-document.addEventListener('click',e=>{const i=e.target.closest('.pimgs img');if(i)openLb(i.src)});
+// ---------- Photo viewer: swipe between photos, pinch or double-tap to zoom, swipe down to close ----------
+const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,ptrs:new Map()};
+function openLb(u,list,i){
+  LB.list=list&&list.length?list:[u];LB.i=Math.max(0,i||0);
+  $('#lb').classList.add('on');lbShow();
+}
+function closeLb(){$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[]}
+function lbShow(){
+  LB.z=1;LB.x=LB.y=LB.dx=LB.dy=0;$('#lbi').src=LB.list[LB.i];lbPaint();
+  const n=LB.list.length;
+  $('#lbc').textContent=n>1?(LB.i+1)+' / '+n:'';
+  $('#lbp').hidden=LB.i<=0;$('#lbnx').hidden=LB.i>=n-1;
+  [LB.i-1,LB.i+1].forEach(k=>{if(LB.list[k])new Image().src=LB.list[k]});
+}
+function lbGo(d){const k=LB.i+d;if(k<0||k>=LB.list.length)return;LB.i=k;lbShow()}
+function lbPaint(){$('#lbi').style.transform=`translate(${LB.x+LB.dx}px,${LB.y+LB.dy}px) scale(${LB.z})`}
+function lbClamp(){
+  const im=$('#lbi'),mx=im.clientWidth*(LB.z-1)/2,my=im.clientHeight*(LB.z-1)/2;
+  LB.x=Math.max(-mx,Math.min(mx,LB.x));LB.y=Math.max(-my,Math.min(my,LB.y));
+}
+// fx, fy: the point being zoomed around, measured from the centre of the screen
+function lbZoom(z,fx,fy){
+  z=Math.min(4,Math.max(1,z));const k=z/LB.z;
+  LB.x=fx-(fx-LB.x)*k;LB.y=fy-(fy-LB.y)*k;LB.z=z;
+  if(z<=1.02){LB.z=1;LB.x=LB.y=0}else lbClamp();
+  lbPaint();
+}
+(()=>{
+  const st=$('#lbst'),ctr=()=>{const r=st.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}};
+  st.addEventListener('pointerdown',e=>{
+    st.setPointerCapture(e.pointerId);LB.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(LB.ptrs.size==1){LB.sx=e.clientX;LB.sy=e.clientY;LB.moved=false}
+    LB.d0=0;
+  });
+  st.addEventListener('pointermove',e=>{
+    const p=LB.ptrs.get(e.pointerId);if(!p)return;
+    if(LB.ptrs.size>=2){
+      p.x=e.clientX;p.y=e.clientY;LB.moved=true;
+      const[a,b]=[...LB.ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y),c=ctr();
+      if(LB.d0)lbZoom(LB.z*d/LB.d0,(a.x+b.x)/2-c.x,(a.y+b.y)/2-c.y);
+      LB.d0=d;return;
+    }
+    const mx=e.clientX-p.x,my=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+    if(Math.abs(e.clientX-LB.sx)+Math.abs(e.clientY-LB.sy)>8)LB.moved=true;
+    if(LB.z>1){LB.x+=mx;LB.y+=my;lbClamp();lbPaint()}
+    else{LB.dx=e.clientX-LB.sx;LB.dy=e.clientY-LB.sy;lbPaint()}
+  });
+  const up=e=>{
+    if(!LB.ptrs.has(e.pointerId))return;
+    LB.ptrs.delete(e.pointerId);LB.d0=0;
+    if(LB.ptrs.size){const r=[...LB.ptrs.values()][0];LB.sx=r.x;LB.sy=r.y;LB.dx=LB.dy=0;LB.moved=true;return}
+    const dx=LB.dx,dy=LB.dy,real=e.type=='pointerup';LB.dx=LB.dy=0;
+    if(real&&LB.z==1){
+      if(Math.abs(dy)>110&&Math.abs(dy)>Math.abs(dx)){closeLb();return}
+      if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){const k=LB.i;lbGo(dx<0?1:-1);if(LB.i!==k)return}
+    }
+    lbPaint();
+    if(real&&!LB.moved){
+      const r=$('#lbi').getBoundingClientRect(),inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+      if(!inside&&LB.z==1){closeLb();return}
+      const now=Date.now();
+      if(now-LB.lastTap<300){const c=ctr();LB.z>1?lbZoom(1,0,0):lbZoom(2.5,e.clientX-c.x,e.clientY-c.y);LB.lastTap=0}
+      else LB.lastTap=now;
+    }
+  };
+  st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
+  st.addEventListener('wheel',e=>{e.preventDefault();const c=ctr();lbZoom(LB.z*(e.deltaY<0?1.12:.9),e.clientX-c.x,e.clientY-c.y)},{passive:false});
+  document.addEventListener('keydown',e=>{
+    if(!$('#lb').classList.contains('on'))return;
+    if(e.key=='Escape')closeLb();else if(e.key=='ArrowRight')lbGo(1);else if(e.key=='ArrowLeft')lbGo(-1);
+  });
+})();
+document.addEventListener('click',e=>{
+  const i=e.target.closest('.pimgs img,.phgrid img');
+  if(i){const g=[...i.parentElement.querySelectorAll('img')];openLb(i.src,g.map(x=>x.src),g.indexOf(i));return}
+  const z=e.target.closest('[data-zoom]');if(z&&z.dataset.zoom)openLb(z.dataset.zoom);
+});
 
 // ---------- Auth ----------
 const authMsg=e=>{const m=(e&&e.message)||'';
@@ -392,12 +470,13 @@ async function openPostId(id){if(await ensurePost(id))openPost(id)}
 addEventListener('hashchange',()=>{const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1])});
 
 // ---------- Home ----------
+const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
-  const dots='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
+  const dots=DOTS;
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${ago(p.created_at)}${p.edited_at?' · edited':''}</div></div>${!o.t?`<button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button>`:''}</div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="same ${on?'on':''}" onclick="same('${p.id}',this)"><span>Same</span></button>${o.t?'':`<button class="ghost" onclick="openThread('${p.id}')">Reply${p.rc?' · '+p.rc:''}</button>`}<button class="ghost" onclick="share('${p.id}')">Share</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
@@ -437,39 +516,52 @@ function closePost(){
   $('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on')
 }
 function renderPhotos(){
-  $('#pph').innerHTML=S.photos.map((ph,i)=>`<div class="ph"><img src="${ph.prev}" alt="Photo ${i+1}"><button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button></div>`).join('');
-  $('#padd').hidden=S.photos.length>=4;
+  $('#pph').innerHTML=S.photos.map((ph,i)=>{
+    const s=ph.st||'ready';
+    return `<div class="ph ${s}"><img src="${ph.prev}" alt="Photo ${i+1}">${s=='up'?'<span class="phs"><i class="spn"></i></span>':s=='ok'?'<span class="phs ok">✓</span>':s=='fail'?'<button class="phs bad" onclick="publish()">↻ Retry</button>':''}${S.posting?'':`<button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button>`}</div>`;
+  }).join('');
+  $('#padd').hidden=S.photos.length>=4||!!S.posting;
 }
 async function pickPhotos(inp){
   const files=[...inp.files].slice(0,4-S.photos.length);inp.value='';
   if(!files.length)return;
   toast('Preparing photos...');
   for(const f of files){
-    try{const blob=await prep(f,1600,false);S.photos.push({blob,prev:URL.createObjectURL(blob)})}
+    try{const blob=await prep(f,1600,false);S.photos.push({blob,prev:URL.createObjectURL(blob),st:'ready'})}
     catch(e){toast(e.message)}
   }
   renderPhotos();
 }
-function rmPhoto(i){URL.revokeObjectURL(S.photos[i].prev);S.photos.splice(i,1);renderPhotos()}
+function rmPhoto(i){if(S.posting)return;const ph=S.photos[i];URL.revokeObjectURL(ph.prev);if(ph.url)rmFiles('post-images',[ph.url]);S.photos.splice(i,1);renderPhotos()}
 async function publish(){
+  if(S.posting)return;
   if(muted())return;
   const v=$('#txt').value.trim(),a=+$('#sel').value,b=+$('#sel2').value;
   if(!v){$('#txt').focus();return}
   if(!a){toast('Add something you like first');return}
-  const btn=$('#shr');btn.disabled=true;btn.textContent=S.photos.length?'Posting...':'Share';
+  const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
+  const done=()=>{S.posting=false;btn.disabled=false;btn.textContent='Share';renderPhotos()};
+  // 1. Photos first, one by one, each showing its own state. A failed photo stops the post so nothing is half-made.
+  let bad=0;
+  for(const ph of S.photos){
+    if(ph.url)continue;
+    ph.st='up';renderPhotos();
+    try{ph.url=await upload('post-images',ph.blob);ph.st='ok'}catch(e){ph.st='fail';bad++}
+    renderPhotos();
+  }
+  if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
+  // 2. The post itself
+  btn.textContent='Posting...';
   const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
-  if(error){btn.disabled=false;btn.textContent='Share';toast(errMsg(error));return}
+  if(error){done();toast(errMsg(error));return}
   const t=await sb.from('post_interests').insert([...new Set([a,b].filter(Boolean))].map(n=>({post_id:data.id,interest_id:n})));
   let imgFail=false;
   if(S.photos.length){
-    try{
-      const urls=[];
-      for(const ph of S.photos)urls.push(await upload('post-images',ph.blob));
-      const r=await sb.from('post_images').insert(urls.map((url,i)=>({post_id:data.id,url,position:i})));
-      if(r.error)throw r.error;
-    }catch(e){imgFail=true}
+    const urls=S.photos.map(p=>p.url);
+    const r=await sb.from('post_images').insert(urls.map((url,i)=>({post_id:data.id,url,position:i})));
+    if(r.error){imgFail=true;rmFiles('post-images',urls)}
   }
-  btn.disabled=false;btn.textContent='Share';
+  S.posting=false;btn.disabled=false;btn.textContent='Share';
   S.photos.forEach(p=>URL.revokeObjectURL(p.prev));S.photos=[];renderPhotos();
   $('#txt').value='';clearDraft();closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
@@ -525,14 +617,14 @@ function delPost(id){
     const{data,error}=await sb.from('posts').delete().eq('id',id).select('id');
     if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the post");return}
     if(imgs.length)rmFiles('post-images',imgs);
-    S.pm.delete(String(id));
+    S.pm.delete(String(id));if(S.th==String(id))closeThread();
     S.posts=S.posts.filter(p=>p.id!==id);S.myPosts=S.myPosts.filter(p=>p.id!==id);
     $('#pv').classList.remove('on');draw();toast('Deleted');
   });
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${ago(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div>${r.author_id==S.user.id?`<button class="ghost" onclick="delReply('${r.id}')">Delete</button>`:`<button class="ghost" onclick="openAx('reply','${r.id}')" aria-label="More options">⋯</button>`}</div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -599,7 +691,7 @@ function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 // ---------- You + interests ----------
 function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
-  setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
+  setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mav').dataset.zoom=S.avs[S.user.id]||'';$('#mbn').dataset.zoom=pr.banner_url||'';$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
   $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
@@ -617,7 +709,7 @@ function mineBody(){
   }
   if(S.mt==2){
     const ph=S.myPosts.flatMap(p=>p.imgs||[]);
-    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo" onclick="openLb(this.src)">`).join('')+'</div>':'<div class="empty">No photos yet.<br>Add photos to a post and they will collect here.</div>';
+    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')+'</div>':'<div class="empty">No photos yet.<br>Add photos to a post and they will collect here.</div>';
   }
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
@@ -702,7 +794,7 @@ async function newInterest(){
   }
   S.ints.push(data);S.im.set(data.id,data);$('#pks').value='';await toggleInt(data.id);
 }
-function draw(){home();findTab();meet();meTab();refreshPv();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
+function draw(){home();findTab();meet();meTab();refreshPv();if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
 
 // ---------- Edit profile ----------
 function openPe(){
@@ -1315,7 +1407,7 @@ function drawPf(){
   const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
   const fo=S.fol.has(id);
   const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
-  $('#pfb').innerHTML=`<div class="banner pfbn"${p.banner_url?` style="background-image:url('${esc(p.banner_url)}');background-size:cover;background-position:center"`:''}></div><div class="pfh pfov">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}${rb(id)}</h3>
+  $('#pfb').innerHTML=`<div class="banner pfbn"${p.banner_url?` data-zoom="${esc(p.banner_url)}" style="background-image:url('${esc(p.banner_url)}');background-size:cover;background-position:center"`:''}></div><div class="pfh pfov">${av(id,'big')}<h3 class="pfn">${esc(p.display_name)}${rb(id)}</h3>
 <div class="mute sm">@${esc(p.username)}${p.city?' · '+esc(p.city):''}${S.folrs.has(id)?' · Follows you':''}</div>
 ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 <div class="cnts"><button onclick="openFollows('${id}','ers')"><b>${f.nf}</b> ${f.nf==1?'follower':'followers'}</button><button onclick="openFollows('${id}','ing')"><b>${f.ng}</b> following</button></div>
@@ -1324,6 +1416,7 @@ ${likes.length?`<div class="pfs">Likes</div><div class="pfc">${likes.map(chip).j
 ${arts.length?`<div class="pfs">Artists</div><div class="pfc">${arts.map(chip).join('')}</div>`:''}
 ${earned.length?`<div class="pfs">Achievements</div><div class="pfc">${earned.map(x=>`<button class="chip tg" style="--c:#64748B" onclick="showAch('${x.code}','${x.earned_at}')">${esc(x.a.emoji)} ${esc(x.a.title)}</button>`).join('')}</div>`:''}
 <div class="pfs">Posts</div>${f.posts.map(q=>post(q)).join('')||'<div class="empty">No posts yet.</div>'}`;
+  const pa=$('#pfb .pfh .av.big');if(pa&&S.avs[id])pa.dataset.zoom=S.avs[id];
 }
 
 // ---------- Achievements ----------
@@ -1529,7 +1622,7 @@ function restoreDraft(){
   $('#pdis').hidden=!$('#txt').value.trim();
 }
 function clearDraft(){try{localStorage.removeItem(dKey())}catch(e){}$('#pdis').hidden=true}
-function discardDraft(){$('#txt').value='';clearDraft();toast('Draft discarded')}
+function discardDraft(){confirmBox('Discard this draft?','Discard',()=>{$('#txt').value='';clearDraft();toast('Draft discarded')})}
 $('#txt').addEventListener('input',saveDraft);
 $('#sel').addEventListener('change',saveDraft);
 $('#sel2').addEventListener('change',saveDraft);
@@ -1706,6 +1799,10 @@ function openAx(t,id){
   const m=axGet(t,id);if(!m)return;
   const uid=t=='user'?String(id):(t=='cm'?m.sender_id:m.author_id);
   S.ax={t,id:String(id),uid};
+  if(t=='reply'&&uid==S.user.id){
+    $('#axb').innerHTML=`<b style="font-size:18px">Your reply</b><button class="btn off wide danger" onclick="closeAx();delReply('${String(id)}')">Delete reply</button><button class="btn off wide" onclick="closeAx()">Cancel</button>`;
+    $('#ax').classList.add('on');return;
+  }
   let h=`<b style="font-size:18px">${esc(nm(uid))}${rb(uid)}</b>`;
   h+=`<button class="btn off wide" onclick="axReport()">🚩 Report ${axLabel[t]}</button>`;
   h+=bl(uid)?`<button class="btn off wide" onclick="closeAx();unblock('${uid}')">Unblock</button>`:`<button class="btn off wide" onclick="axBlock()">🚫 Block ${esc(nm(uid))}</button>`;
