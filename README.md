@@ -30,6 +30,12 @@ Serve this folder from a local or hosted web server. The service worker requires
 
 The app connects to Supabase through the URL and publishable key configured near the top of `app.js`. The Supabase project must provide the tables used by the app, including `profiles`, `interests`, `user_interests`, `posts`, `post_interests`, `post_images`, `sames`, `replies`, `follows`, `messages`, `notifications`, `events`, `event_goers`, `circle_messages`, `achievements`, and `user_achievements`. Authentication, row-level security policies, and storage buckets must also be configured for the operations used by the app.
 
+## Event tab
+
+The **Events** tab lists upcoming community events as cards. Opening a card shows its full description and a comment section for member opinions. Only admins, moderators, and members in `event_authorizations` may publish events; anyone signed in may read and comment.
+
+Before deploying this version, run [`event-tab.sql`](event-tab.sql) in the Supabase SQL Editor. Admins and moderators can then approve or remove event publishers in **Settings → Moderation tools → Event publishers**. The permission is enforced by a database trigger as well as the interface.
+
 For local development, any static web server can serve the folder. For example, with Node.js installed:
 
 ```sh

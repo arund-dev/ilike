@@ -10,6 +10,8 @@ const APP_URL=()=>location.origin+location.pathname;
 
 const $=s=>document.querySelector(s);
 const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
+S.eventAuthorized=false;
+S.eventComments=new Map();
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
@@ -103,6 +105,28 @@ function show(id){
   document.body.classList.toggle('noapp',id=='auth'||id=='onb');
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x.dataset.s==id));
 }
+
+// Keep one in-app history entry ahead of the page. A mobile Back gesture first
+// returns a signed-in person to Home; a second Back from Home leaves the app.
+let backGuardReady=false;
+function setupBackGuard(){
+  if(backGuardReady||!S.user||!S.loaded)return;
+  history.replaceState({ilikeApp:'home'},'',location.href);
+  history.pushState({ilikeApp:'guard'},'',location.href);
+  backGuardReady=true;
+}
+addEventListener('popstate',()=>{
+  if(!backGuardReady||!S.user||!S.loaded)return;
+  if(S.tab==='home'){
+    backGuardReady=false;
+    history.back();
+    return;
+  }
+  closeAll();
+  show('home');
+  loadPosts().then(draw);
+  history.pushState({ilikeApp:'guard'},'',location.href);
+});
 
 // confirm dialog used everywhere (remove interest, delete post, delete reply)
 function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
@@ -388,9 +412,10 @@ async function boot(){
 }
 async function load(){
   if(!S.user){
+    backGuardReady=false;
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
-    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
+    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.eventAuthorized=false;S.eventComments=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
@@ -406,6 +431,8 @@ async function load(){
   S.name=S.prof.display_name||S.name;
   S.blocked=new Set((bk.data||[]).map(x=>x.blocked_id));
   S.role=S.prof.role||'user';S.roles[S.user.id]=S.role;
+  const eventAuth=await sb.from('event_authorizations').select('user_id').eq('user_id',S.user.id).maybeSingle();
+  S.eventAuthorized=!!eventAuth.data;
   if(S.prof.avatar_url)S.avs[S.user.id]=S.prof.avatar_url;
   applyPrefs(S.prof.theme_prefs);
   if(i.error)toast('Could not load interests');
@@ -421,7 +448,7 @@ async function load(){
   S.skel=true;draw();show(S.tab);
   try{await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()])}
   finally{S.skel=false}
-  draw();show(S.tab);S.loaded=true;
+  draw();show(S.tab);S.loaded=true;setupBackGuard();
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
   if(S.deepDm){const d=S.deepDm;S.deepDm=null;openDm(d)}
@@ -537,7 +564,7 @@ function openSames(id){
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
 function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
-  $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
+  $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New to you'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
   const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
   $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
 }
@@ -860,7 +887,7 @@ async function newInterest(){
   }
   S.ints.push(data);S.im.set(data.id,data);$('#pks').value='';await toggleInt(data.id);
 }
-function draw(){home();findTab();meet();meTab();refreshPv();if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
+function draw(){home();findTab();eventsTab();meTab();refreshPv();if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
 
 // ---------- Edit profile ----------
 function openPe(){
@@ -1631,14 +1658,11 @@ const iminHTML=on=>`<span>${on?"You're in ✓":"I'm in"}</span>`;
 async function loadEvents(){
   const since=new Date(Date.now()-3*36e5).toISOString();
   const r=await sb.from('events').select(EVCOLS).gte('starts_at',since).order('starts_at').limit(60);
-  if(r.error){if(!S.evs)S.evs=[];meet();return}
-  const ids=r.data.map(e=>e.id);
-  const g=ids.length?await sb.from('event_goers').select('event_id,user_id').in('event_id',ids):{data:[]};
-  await getProfiles([...r.data.map(e=>e.organizer_id),...(g.data||[]).map(x=>x.user_id)]);
-  S.evs=r.data.map(e=>({...e,goers:(g.data||[]).filter(x=>x.event_id===e.id).map(x=>x.user_id)}));
+  if(r.error){if(!S.evs)S.evs=[];eventsTab();return}
+  await getProfiles(r.data.map(e=>e.organizer_id));
+  S.evs=r.data;
   S.evm=new Map(S.evs.map(e=>[e.id,e]));
-  (S.pev||[]).forEach(e=>S.evm.set(e.id,e));
-  meet();refreshPv();
+  eventsTab();refreshPv();
 }
 function evCard(e){
   const me=S.user.id,on=e.goers.includes(me),host=e.organizer_id==me;
@@ -1650,7 +1674,63 @@ function meet(){
   if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
   el.innerHTML=S.evs.length?S.evs.map(evCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No plans yet</b><div class="sm" style="margin:6px 0 16px">Hangouts and meetups with people who like what you like.</div><button class="btn" onclick="openEv()">Plan the first one</button></div>`;
 }
-function openEvent(id){showPv(()=>eventHTML(id))}
+const canManageEvents=()=>isMod()||S.eventAuthorized;
+
+function eventsTab(){
+  const el=$('#evs'),newBtn=$('#newEventBtn');
+  if(!el||!newBtn)return;
+  newBtn.hidden=!canManageEvents();
+  if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
+  el.innerHTML=S.evs.length?S.evs.map(eventCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">Events</div><b>No upcoming events</b><div class="sm" style="margin:6px 0 16px">Check back soon for new things to do.</div>${canManageEvents()?'<button class="btn" onclick="openEv()">Create the first event</button>':''}</div>`;
+  $('#pevs').innerHTML='';
+}
+function eventCard(e){
+  const cancelled=e.cancelled_at?'<span class="evbadge">Cancelled</span>':'';
+  return `<button class="card tapc evc event-card" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">${esc(e.place)}</div></div></div><div class="event-card-foot"><span class="mute sm">View details and comments</span>${cancelled}</div></button>`;
+}
+function openEvent(id){
+  showPv(()=>eventDetail(id));
+  loadEventComments(id);
+}
+function eventDetail(id){
+  const e=S.evm.get(id);if(!e)return '';
+  const mine=e.organizer_id==S.user.id;
+  const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
+  const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
+  return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
+${e.cancelled_at?'<div class="evcx">This event was cancelled.</div>':''}
+<div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
+<div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
+<div class="ev-row">${usr}<span>Posted by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(mine?'you':nm(e.organizer_id))}</b></span></div>
+${e.description?`<p class="evdesc">${esc(e.description)}</p>`:'<p class="evdesc mute">No description was added.</p>'}
+${mine?`<div class="evact"><button class="btn off" onclick="openEv('${e.id}')">Edit event</button><button class="btn off danger" onclick="delEv('${e.id}')">Delete</button></div>`:''}
+${eventCommentsHTML(e.id)}</div>`;
+}
+function eventCommentsHTML(id){
+  const comments=S.eventComments.get(id);
+  const rows=comments===undefined?'<div class="mute sm">Loading comments...</div>':comments.length?comments.map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span><div>${esc(c.body)}</div></div></div>`).join(''):'<div class="mute sm">Be the first to comment.</div>';
+  return `<div class="event-comments"><div class="evh">COMMENTS</div><div class="event-comment-list">${rows}</div><div class="event-comment-form"><input id="ecin" maxlength="500" placeholder="Share your thoughts" aria-label="Comment on this event" onkeydown="if(event.key==='Enter')sendEventComment('${id}')"><button class="btn" onclick="sendEventComment('${id}')">Comment</button></div></div>`;
+}
+const eventCommentsError=e=>e&&(e.code==='PGRST205'||/event_comments|relation .*does not exist/i.test(e.message||''))
+  ?'Comments need database setup. Run event-tab.sql in Supabase first.'
+  :(e?.message||"Couldn't load comments");
+async function loadEventComments(id){
+  S.eventComments.delete(id);refreshPv();
+  const r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at').limit(100);
+  if(r.error){S.eventComments.set(id,[]);toast(eventCommentsError(r.error));refreshPv();return}
+  await getProfiles((r.data||[]).map(c=>c.user_id));
+  S.eventComments.set(id,r.data||[]);refreshPv();
+}
+async function sendEventComment(id){
+  const input=$('#ecin'),body=input?.value.trim();
+  if(!body)return;
+  input.disabled=true;
+  const r=await sb.from('event_comments').insert({event_id:id,user_id:S.user.id,body}).select().single();
+  input.disabled=false;
+  if(r.error){toast(eventCommentsError(r.error));return}
+  const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);refreshPv();
+}
 function eventHTML(id){
   const e=S.evm.get(id);if(!e)return '';
   const me=S.user.id,host=e.organizer_id==me,on=e.goers.includes(me);
@@ -1688,10 +1768,11 @@ function drawEvEm(){
   $('#evEm').innerHTML=[...new Set([S.evEm,...EVEM])].map(x=>`<button type="button" class="${x==S.evEm?'on':''}" onclick="S.evEm='${x}';drawEvEm()">${x}</button>`).join('');
 }
 function openEv(id){
+  if(!canManageEvents()){toast('Only admins, moderators, and approved event publishers can create events');return}
   const e=id?S.evm.get(id):null;
   if(id&&!e)return;
   S.evId=e?e.id:null;S.evEm=e?e.emoji:'📍';drawEvEm();
-  $('#evHead').textContent=e?'Edit event':'Plan an event';
+  $('#evHead').textContent=e?'Edit event':'Create event';
   $('#evTitle').value=e?e.title:'';
   let d=new Date();d.setDate(d.getDate()+1);d.setHours(18,0,0,0);
   $('#evWhen').value=toLocalInput(e?e.starts_at:d);
@@ -1703,6 +1784,7 @@ async function saveEv(){
   const title=$('#evTitle').value.trim(),w=$('#evWhen').value,place=$('#evPlace').value.trim(),venue=$('#evVenue').value.trim(),desc=$('#evDesc').value.trim(),err=$('#evErr');
   err.textContent='';
   if(muted())return;
+  if(!canManageEvents()){err.textContent='You are not allowed to publish events.';return}
   if(!title){err.textContent='Give your plan a name.';return}
   if(!w){err.textContent='Pick a date and time.';return}
   const when=new Date(w);
@@ -1718,7 +1800,7 @@ async function saveEv(){
   if(r.error){err.textContent=r.error.message;return}
   const wasNew=!S.evId;
   $('#ev').classList.remove('on');
-  await loadEvents();draw();toast(wasNew?'Event planned':'Event updated');
+  await loadEvents();draw();toast(wasNew?'Event published':'Event updated');
   if(wasNew)checkAch();
 }
 function cancelEv(id){
@@ -1755,7 +1837,7 @@ function delEv(id){
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
   const s=b.dataset.s;show(s);
-  if(s=='find')await loadPeople();else if(s=='meet')await loadEvents();else await loadPosts();
+  if(s=='find')await loadPeople();else if(s=='events')await loadEvents();else await loadPosts();
   if(s=='me')checkAch();
   draw();
 });
@@ -1829,7 +1911,7 @@ function saveRD(){if(S.th)rdSet(S.th,$('#rin').value)}
 async function refreshAll(){
   const t=S.tab;
   if(t=='find')await loadPeople();
-  else if(t=='meet')await loadEvents();
+  else if(t=='events')await loadEvents();
   else if(t=='me')await Promise.all([loadPosts(),loadFollows(),loadAch()]);
   else await Promise.all([loadPosts(),loadNotifs(),loadFollows()]);
   draw();
@@ -1845,7 +1927,7 @@ function ptrBox(){
   switch(S.tab){
     case 'home':return $('#feed');
     case 'find':return ['#fp','#fg','#fx'].map($).find(e=>e.style.display!=='none');
-    case 'meet':return $('#s-meet');
+    case 'events':return $('#s-events');
     case 'me':return $('#s-me');
   }
 }
@@ -2149,9 +2231,9 @@ function paintRepBadge(){
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
 function drawMod(){
-  const tabs=['Reports','Users'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
+  const tabs=['Reports','Users','Event publishers'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
-  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawLists();else if(mtab==3)drawInvites();else if(mtab==4)drawFeedback();else drawStats();
+  if(mtab==0)drawReports();else if(mtab==1)drawUsers();else if(mtab==2)drawEventPublishers();else if(mtab==3)drawLists();else if(mtab==4)drawInvites();else if(mtab==5)drawFeedback();else drawStats();
 }
 async function drawReports(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
@@ -2208,6 +2290,33 @@ async function searchUsers(){
   if(r.error){$('#musl').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
   r.data.forEach(u=>{S.names[u.id]=u.display_name;S.roles[u.id]=u.role||'user';if(u.avatar_url)S.avs[u.id]=u.avatar_url});
   $('#musl').innerHTML=r.data.map(u=>`<div class="card row" onclick="openUa('${u.id}')">${av(u.id)}<div class="grow"><b>${esc(u.display_name)}${rb(u.id)}</b><div class="mute sm">@${esc(u.username||'')}${u.banned?' · Banned':''}${mutedNow(u)?' · Muted':''}</div></div></div>`).join('')||'<div class="empty">No one found</div>';
+}
+async function drawEventPublishers(){
+  $('#mob').innerHTML='<div class="empty">Loading...</div>';
+  const r=await sb.from('event_authorizations').select('user_id,granted_at').order('granted_at',{ascending:false});
+  if(mtab!=2)return;
+  if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
+  await getProfiles((r.data||[]).map(x=>x.user_id));
+  if(mtab!=2)return;
+  const rows=(r.data||[]).map(x=>`<div class="card row">${av(x.user_id)}<div class="grow"><b>${esc(nm(x.user_id))}</b><div class="mute sm">Approved ${ago(x.granted_at)}</div></div><button class="btn off sbtn" onclick="setEventPublisher('${x.user_id}',false)">Remove</button></div>`).join('')||'<div class="empty">No members have been approved yet.</div>';
+  $('#mob').innerHTML='<div class="card"><b>Approve an event publisher</b><div class="mute sm" style="margin:4px 0 10px">Admins and moderators can publish automatically. Search for a member to let them publish too.</div><input class="fi" id="epq" placeholder="Search members" maxlength="40" oninput="clearTimeout(musrT);musrT=setTimeout(searchEventPublishers,250)"><div id="eps"></div></div>'+rows;
+}
+async function searchEventPublishers(){
+  const input=$('#epq');if(!input)return;
+  const q=input.value.trim().replace(/[%,()*\\]/g,'');
+  if(!q){$('#eps').innerHTML='';return}
+  let query=sb.from('profiles').select('id,display_name,username,role,avatar_url').order('display_name').limit(12);
+  query=query.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
+  const r=await query;
+  if(!$('#eps')||mtab!=2)return;
+  if(r.error){$('#eps').innerHTML=`<div class="err">${esc(r.error.message)}</div>`;return}
+  r.data.forEach(u=>{S.names[u.id]=u.display_name;S.roles[u.id]=u.role||'user';if(u.avatar_url)S.avs[u.id]=u.avatar_url});
+  $('#eps').innerHTML=r.data.map(u=>`<div class="prow"><span>${av(u.id,'sm')}</span><div class="grow"><b>${esc(u.display_name)}${rb(u.id)}</b><div class="mute sm">@${esc(u.username||'')}</div></div>${u.role=='admin'||u.role=='mod'?'<span class="mute sm">Already allowed</span>':`<button class="btn sbtn" onclick="setEventPublisher('${u.id}',true)">Approve</button>`}</div>`).join('')||'<div class="mute sm">No members found.</div>';
+}
+async function setEventPublisher(id,on){
+  const r=on?await sb.from('event_authorizations').upsert({user_id:id,granted_by:S.user.id}):await sb.from('event_authorizations').delete().eq('user_id',id);
+  if(r.error){toast(r.error.message);return}
+  toast(on?'Member approved to publish events':'Publishing access removed');drawEventPublishers();
 }
 // One person: mute (mods), role and ban (admins)
 async function openUa(id){
