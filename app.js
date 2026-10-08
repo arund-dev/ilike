@@ -1078,7 +1078,7 @@ function applyPrefs(p){
   if(p.acc!=null)accent(+p.acc,1);
   if(p.font!=null)fnt(+p.font,1);
 }
-// ---------- Push notifications (Batch 7c) ----------
+// ---------- Push notifications ----------
 const pushOK=()=>!!VAPID_PUBLIC&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
 const NP_KEYS=[['messages','Messages'],['same','Same'],['replies','Replies'],['follows','New followers']];
 const b64u=s=>{const p='='.repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
@@ -1500,11 +1500,6 @@ async function onNotif(n){
   updateBadges();
 }
 
-// =====================================================================
-// P2: artists, follow + profiles, events, achievements
-// (circle chat lives with the chats code above)
-// =====================================================================
-
 // ---------- Interests / artists ----------
 const isArt=n=>S.im.get(n)?.kind=='artist';
 // Artists can be added by anyone, so fetch any interest we have not seen yet
@@ -1859,10 +1854,6 @@ function updateThemeIcon(){
 function toggleTheme(){setTheme(isDark()?'light':'dark')}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
-// =====================================================================
-// P3: loading skeletons, pull to refresh, install as app, drafts
-// =====================================================================
-
 // ---------- Loading skeletons ----------
 const skL=w=>`<i class="sk-l" style="width:${w}%"></i>`;
 const skPost=()=>`<div class="card sk" aria-hidden="true"><div class="who"><span class="av sk-b"></span><div class="grow">${skL(40)}${skL(22)}</div></div>${skL(94)}${skL(68)}<div class="sk-pills"><i class="sk-b"></i><i class="sk-b"></i></div></div>`;
@@ -1996,7 +1987,7 @@ function updateThemeColor(){
   if(m&&c)m.setAttribute('content',c);
 }
 
-// ================= Batch 3: reporting, blocking, moderation, admin lists =================
+// ---------- Reporting, blocking, moderation, admin lists ----------
 const bl=id=>S.blocked.has(id);
 const errMsg=e=>(e&&(e.code=='42501'||/row-level security/i.test(e.message||'')))?"You can't do that right now. You may be muted.":(e&&e.message)||'Something went wrong';
 const mutedNow=u=>!!(u&&u.muted_until&&new Date(u.muted_until)>new Date());

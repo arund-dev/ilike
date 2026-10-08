@@ -223,11 +223,10 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   nav button.on{background:color-mix(in srgb,var(--brand) 14%,var(--card))}
   nav button.on::before{top:12px;bottom:12px;left:-14px;width:4px;height:auto;border-radius:0 6px 6px 0;animation:none}
 
-  /* Home: two-column feed */
+  /* Home: single centred feed, scrolls downward like the rest of the app */
   .fl{flex-wrap:nowrap;overflow-x:auto;padding:16px 28px 16px}
-  #feed{padding:10px 12px var(--nav-h);columns:2;column-gap:0}
-  #feed .card{break-inside:avoid;display:block;margin:0 16px 10px}
-  #feed .empty{column-span:all}
+  #feed{padding:10px 12px var(--nav-h);max-width:640px;margin:0 auto}
+  #feed .card{margin:0 0 10px}
   .fab{bottom:32px;right:max(32px,calc(50% - 648px))}
   #toast{bottom:40px;left:calc(50% + 120px)}
 
