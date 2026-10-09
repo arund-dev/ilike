@@ -2054,13 +2054,13 @@ async function sendFb(){
 async function drawStats(){
   if(!S.st)$('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.rpc('admin_stats',{days:S.stN||14});
-  if(mtab!=5)return;
+  if(mtab!=6)return;
   if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
   S.st=r.data;paintStats();
 }
 function setStN(n){S.stN=n;S.st=null;drawStats()}
 function paintStats(){
-  const d=S.st;if(!d||mtab!=5)return;
+  const d=S.st;if(!d||mtab!=6)return;
   const N=S.stN||14,M=S.stM||'posts',days=d.days||[];
   const lab={signups:'Signups',posts:'Posts',replies:'Replies',messages:'Messages'};
   const sum=k=>days.reduce((t,x)=>t+(x[k]||0),0),max=Math.max(1,...days.map(x=>x[M]||0));
@@ -2083,10 +2083,10 @@ function paintStats(){
 async function drawFeedback(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.from('feedback').select('*').eq('handled',false).order('created_at',{ascending:false}).limit(50);
-  if(mtab!=4)return;
+  if(mtab!=5)return;
   if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
   await getProfiles(r.data.map(x=>x.user_id));
-  if(mtab!=4)return;
+  if(mtab!=5)return;
   const ic={bug:'🐞 Bug',idea:'💡 Idea',other:'Message'};
   $('#mob').innerHTML=r.data.map(x=>`<div class="card rpc"><div class="mute sm">${esc(nm(x.user_id))} · ${ic[x.kind]||'Message'} · ${ago(x.created_at)}</div><div class="rquote">${esc(x.body)}</div><div class="mute sm clip">${esc((x.app_ver?'v'+x.app_ver+' · ':'')+(x.ua||''))}</div><div class="row rpa"><button class="btn off sbtn" onclick="openProfile('${x.user_id}')">View profile</button><button class="btn sbtn" onclick="fbDone('${x.id}')">Done</button></div></div>`).join('')||'<div class="empty">No open feedback 🎉</div>';
 }
@@ -2221,6 +2221,8 @@ function paintRepBadge(){
   const m=$('#modb');m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'');
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
+// Tab numbers: 0 Reports, 1 Users, 2 Event publishers, 3 Lists, 4 Invites, 5 Feedback, 6 Stats.
+// Every draw function's "mtab!=N" guard must use its own tab's number. Insert a tab here and shift the later guards.
 function drawMod(){
   const tabs=['Reports','Users','Event publishers'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
@@ -2392,7 +2394,7 @@ function dupAsk(name,sim,onUse,onAnyway){
 async function drawLists(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   await Promise.all([loadInts(),loadPeople()]);
-  if(mtab!=2)return;
+  if(mtab!=3)return;
   const arts=S.ints.filter(i=>i.kind=='artist').sort((a,b)=>a.name.localeCompare(b.name));
   const n=S.ints.filter(i=>i.kind!='artist').length;
   $('#mob').innerHTML=`<div class="card"><b>Artists</b> <span class="mute sm">(${arts.length})</span><div class="row" style="margin-top:10px"><input class="fi grow" id="mla" maxlength="40" placeholder="Add an artist" onkeydown="if(event.key==='Enter')admAddArtist()"><button class="btn" onclick="admAddArtist()">Add</button></div><button class="link" style="margin-top:10px" onclick="admDupes()">Find duplicates</button></div>`
@@ -2403,7 +2405,7 @@ async function drawLists(){
 async function drawInvites(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});
-  if(mtab!=3)return;
+  if(mtab!=4)return;
   if(r.error){$('#mob').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
   $('#mob').innerHTML=`<div class="card"><b>New invite code</b><div class="mute sm" style="margin:4px 0 10px">Share the link or the code. Each signup uses one spot.</div><div class="row"><input class="fi grow" id="ivn" maxlength="40" placeholder="Note (e.g. cricket group)"><input class="fi" id="ivm" type="number" min="1" max="500" value="20" style="width:84px" aria-label="Max uses"></div><button class="btn wide" style="margin-top:10px" onclick="admNewInvite()">Create code</button></div>`
     +(r.data.map(c=>`<div class="card row"><div class="grow"><b>${esc(c.code)}</b>${c.active?'':' <span class="mute sm">· Off</span>'}${c.uses>=c.max_uses?' <span class="mute sm">· Full</span>':''}<div class="mute sm">${c.uses} of ${c.max_uses} used${c.note?' · '+esc(c.note):''}</div></div><button class="btn off sbtn" style="margin:0" onclick="copyInvite('${esc(c.code)}')">Copy link</button><button class="btn off sbtn" style="margin:0" onclick="toggleInvite('${esc(c.code)}',${!c.active})">${c.active?'Turn off':'Turn on'}</button></div>`).join('')||'<div class="empty">No codes yet</div>');
