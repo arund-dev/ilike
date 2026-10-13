@@ -217,9 +217,9 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 
   /* Bottom nav -> left sidebar */
   nav{top:0;bottom:0;left:max(0px,calc(50% - 680px));transform:none;width:72px;max-width:none;overflow:hidden;white-space:nowrap;flex-direction:column;justify-content:flex-start;gap:6px;padding:24px 14px;border-top:0;border-right:1px solid var(--line);box-shadow:none;background:color-mix(in srgb,var(--card) 70%,transparent);transition:width .25s var(--ease),box-shadow .25s,background .25s}
-  nav:hover,nav:focus-within{width:240px;background:var(--card);box-shadow:20px 0 50px -20px var(--glow)}
+  nav:hover,nav:has(:focus-visible){width:240px;background:var(--card);box-shadow:20px 0 50px -20px var(--glow)}
   nav::before{content:"✦";display:block;padding:4px 11px 26px;font-size:32px;font-weight:800;letter-spacing:-1.2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
-  nav:hover::before,nav:focus-within::before{content:"iLike ✦"}
+  nav:hover::before,nav:has(:focus-visible)::before{content:"iLike ✦"}
   nav button{flex:none;width:100%;overflow:hidden;flex-direction:row;justify-content:flex-start;gap:14px;padding:13px 11px;border-radius:16px;font-size:15px;transition:background .2s,color .2s}
   nav button svg{flex:none}
   nav button:hover{background:color-mix(in srgb,var(--brand) 10%,transparent);color:var(--text)}
