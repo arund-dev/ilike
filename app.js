@@ -44,7 +44,7 @@ function setMyAv(el){
 }
 const chip=n=>`<span class="chip" style="--c:${col(n)}">${em(n)} ${esc(iname(n))}</span>`;
 const tgb=n=>S.mine.has(n)?chip(n):`<button class="chip tg" style="--c:${col(n)}" onclick="ask(${n})">${em(n)} ${esc(iname(n))}</button>`;
-const say=l=>!l.length?'':l.length==1?l[0]+' said Same':l.length==2?l.join(' & ')+' said Same':l[0]+', '+l[1]+' & others said Same';
+const say=l=>!l.length?'':l.length==1?l[0]+' liked this':l.length==2?l.join(' & ')+' liked this':l[0]+', '+l[1]+' & others liked this';
 const so=p=>{const a=p.sames.filter(x=>x!=S.user.id&&!bl(x));return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
 const findPost=id=>S.pm.get(String(id));
@@ -543,12 +543,13 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="${HEART}"/></svg></button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 // Post action icons (like heart, reply bubble, share arrow)
-const HEART='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
-const ICO_REPLY='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
-const ICO_SHARE='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>';
+const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
+const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
+const ICO_REPLY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle class="dot" cx="8.5" cy="12" r="1.15"/><circle class="dot" cx="12" cy="12" r="1.15"/><circle class="dot" cx="15.5" cy="12" r="1.15"/></svg>';
+const ICO_SHARE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>';
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
   const set=v=>{p.sames=v?[...p.sames,u]:p.sames.filter(x=>x!==u);document.querySelectorAll(`.card[data-pi="${id}"]`).forEach(c=>{c.querySelector('.like-btn').className='like-btn'+(v?' on pop':'');c.querySelector('.who2').innerHTML=sm(p)})};
@@ -556,11 +557,11 @@ async function same(id,btn){
   const r=on?await sb.from('sames').insert({post_id:p.id,user_id:u}):await sb.from('sames').delete().match({post_id:p.id,user_id:u});
   if(r.error){set(!on);toast("Couldn't save that")}else if(on)checkAch()
 }
-// Who said Same
+// Who liked a post
 function openSames(id){
   const p=findPost(id);if(!p||!p.sames.length)return;
   const l=so(p);
-  $('#slt').textContent=l.length+(l.length==1?' person said Same':' people said Same');
+  $('#slt').textContent=l.length+(l.length==1?' person liked this':' people liked this');
   S.sl={ids:l,n:SL_PAGE,empty:'',row:u=>`<div class="prow"><span class="lk" onclick="openProfile('${u}')">${av(u)}</span><b class="grow lk" onclick="openProfile('${u}')">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`};
   slDraw();
   $('#sl').classList.add('on');
@@ -796,7 +797,7 @@ function meTab(){
 function mineBody(){
   if(S.mt==1){
     if(S.liked===null)return skPost().repeat(2);
-    return S.liked.map(findPost).filter(p=>p&&!bl(p.author_id)).map(p=>post(p)).join('')||'<div class="empty">Nothing liked yet.<br>Tap Same on a post and it will show up here.</div>';
+    return S.liked.map(findPost).filter(p=>p&&!bl(p.author_id)).map(p=>post(p)).join('')||'<div class="empty">Nothing liked yet.<br>Tap the heart on a post and it will show up here.</div>';
   }
   if(S.mt==2){
     const ph=S.myPosts.flatMap(p=>p.imgs||[]);
@@ -805,7 +806,7 @@ function mineBody(){
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
 function setMt(i){S.mt=i;if(i==1)loadLiked();meTab()}
-// Posts you said Same to (newest posts first; we do not store when you liked them)
+// Posts you liked (newest posts first; we do not store when you liked them)
 async function loadLiked(){
   const r=await sb.from('sames').select('post_id').eq('user_id',S.user.id).limit(100);
   if(r.error){if(S.liked===null)S.liked=[];toast('Could not load your liked posts');meTab();return}
@@ -1084,7 +1085,7 @@ function applyPrefs(p){
 }
 // ---------- Push notifications ----------
 const pushOK=()=>!!VAPID_PUBLIC&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
-const NP_KEYS=[['messages','Messages'],['same','Same'],['replies','Replies'],['follows','New followers']];
+const NP_KEYS=[['messages','Messages'],['same','Likes'],['replies','Replies'],['follows','New followers']];
 const b64u=s=>{const p='='.repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
 async function pushSub(create){
   const reg=await navigator.serviceWorker.ready;
@@ -1136,7 +1137,7 @@ async function paintPush(){
   if(!S.np){const r=await sb.from('notification_prefs').select('messages,same,replies,follows').eq('user_id',S.user.id).maybeSingle();S.np=Object.assign({messages:true,same:true,replies:true,follows:true},r.data||{})}
   bx.innerHTML=(perm=='denied'?'<p class="mute sm" style="margin:0 4px 10px">Notifications are blocked. Turn them on for iLike in your phone settings, then come back.</p>':on
     ?`<button class="btn off wide" onclick="disablePush()">Turn off on this phone</button><p class="lab">Tell me about</p><div class="row" style="flex-wrap:wrap;gap:6px">${NP_KEYS.map(([k,t])=>`<button class="fc ${S.np[k]?'on':''}" onclick="togglePref('${k}')">${t}</button>`).join('')}</div>`
-    :`<button class="btn off wide" onclick="enablePush()">🔔 Turn on notifications</button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, Same, replies and new followers. This applies to this phone only.</p>`);
+    :`<button class="btn off wide" onclick="enablePush()">🔔 Turn on notifications</button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, likes, replies and new followers. This applies to this phone only.</p>`);
 }
 // A tapped notification asks the open app to go to the right place
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
@@ -1448,14 +1449,14 @@ async function notifMeta(list){
   if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);(r.data||[]).forEach(x=>S.nposts[x.id]=x.body)}
 }
 const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id),b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
-const ntext=n=>n.type=='same'?'said Same to your post':n.type=='reply'?'replied to your post':'started following you';
+const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':'started following you';
 async function loadNotifs(){
   const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(40);
   if(r.error)return;
   await notifMeta(r.data);S.notifs=r.data;updateBadges();
   if($('#nv').classList.contains('on'))drawNotifs();
 }
-// Notifications are grouped: "Sam, Priya and 3 others said Same to your post" is one row.
+// Notifications are grouped: "Sam, Priya and 3 others liked your post" is one row.
 // Same / reply rows group per post; follow rows group per day.
 function ngroups(){
   const g=[],idx=new Map();
@@ -1474,7 +1475,7 @@ function drawNotifs(){
   $('#nl').innerHTML=S.ng.map((g,i)=>{
     const un=g.items.some(n=>!n.read_at),newest=g.items[0];
     return `<div class="card row nitem ${un?'new':''}" onclick="openNg(${i})"><span class="ngav">${av(g.actors[0])}${g.actors.length>1?`<i class="ngn">+${g.actors.length-1}</i>`:''}</span><div class="grow"><div>${gnames(g.actors)} ${ntext(newest)}</div><div class="mute sm clip">${g.type=='follow'?(g.actors.length>1?'Tap to see your followers':'Tap to see their profile'):esc(nsnip(newest))}</div></div><span class="mute sm ntm">${ago(newest.created_at)}</span>${un?`<button class="ghost nck" onclick="event.stopPropagation();readNg(${i})" aria-label="Mark as read">✓</button>`:''}</div>`;
-  }).join('')||'<div class="empty">Nothing yet.<br>When someone says Same, replies or follows you, you will see it here.</div>';
+  }).join('')||'<div class="empty">Nothing yet.<br>When someone likes a post, replies or follows you, you will see it here.</div>';
   $('#nmr').hidden=!S.notifs.some(n=>!n.read_at);
 }
 function markIds(ids){
@@ -1626,7 +1627,7 @@ function checkAch(){clearTimeout(achT);achT=setTimeout(()=>{if(S.user)loadAch()}
 function drawBadges(){
   const c=S.achCat;
   $('#badges').innerHTML=c.length
-    ?`<div class="mute sm cnt-line">${S.achMine.size} of ${c.length} earned${S.achMine.size?'':' · post, follow and say Same to unlock them'}</div>`+c.map(a=>{
+    ?`<div class="mute sm cnt-line">${S.achMine.size} of ${c.length} earned${S.achMine.size?'':' · post, follow and like to unlock them'}</div>`+c.map(a=>{
         const d=S.achMine.get(a.code);
         return `<button class="chip tg ${d?'':'lock'}" style="--c:#64748B" onclick="showAch('${a.code}','${d||''}')">${d?esc(a.emoji):'🔒'} ${esc(a.title)}</button>`}).join('')
     :'<span class="mute sm emp">Badges unlock as you post, follow people and join in. They will show up here.</span>';
