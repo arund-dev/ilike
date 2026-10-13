@@ -592,3 +592,18 @@ body.noapp nav,body.noapp .fab{display:none}
 .sbar i{display:block;width:100%;max-width:26px;border-radius:6px 6px 2px 2px;background:var(--grad)}
 .sbv{font-size:10px;font-weight:800;color:var(--mute);height:14px}
 .sbl{font-size:10px;color:var(--mute);height:14px;white-space:nowrap;overflow:visible}
+
+/* ── Post actions: heart like, reply, share ── */
+.acts{display:flex;align-items:center;gap:4px}
+.like-btn{position:relative;background:none;border:0;padding:8px 10px;cursor:pointer;color:var(--mute);display:inline-flex;align-items:center;-webkit-tap-highlight-color:transparent}
+.like-btn svg{display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;transition:fill .2s,stroke .2s,color .2s}
+.like-btn.on{color:#f43f5e}
+.like-btn.on svg{fill:#f43f5e;stroke:#f43f5e}
+.like-btn:active svg{transform:scale(.85)}
+.like-btn.pop svg{animation:heartPop .5s cubic-bezier(.2,.9,.3,1.4)}
+.like-btn.pop::after{content:'';position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:2px solid #f43f5e;opacity:0;animation:heartRing .5s ease-out}
+@keyframes heartPop{0%{transform:scale(.6)}40%{transform:scale(1.35)}70%{transform:scale(.92)}100%{transform:scale(1)}}
+@keyframes heartRing{0%{transform:scale(.5);opacity:.8}100%{transform:scale(1.9);opacity:0}}
+.ghost.ic{display:inline-flex;align-items:center;gap:5px;padding:8px 10px}
+.ghost.ic svg{display:block}
+.ghost.ic span{font-size:14px}
