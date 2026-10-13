@@ -1162,7 +1162,12 @@ function recoverUi(){
   openSet();toast('Choose a new password');
   setTimeout(()=>$('#npw').focus(),400);
 }
-$('#thm').innerHTML=THEMES.map(t=>`<button class="fc" onclick="setTheme('${t[0]}')">${t[1]}</button>`).join('');
+const THEME_ICO={
+  auto:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/>',
+  light:'<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
+  dark:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+};
+$('#thm').innerHTML=THEMES.map(t=>`<button class="fc th" onclick="setTheme('${t[0]}')"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true">${THEME_ICO[t[0]]}</svg>${t[1]}</button>`).join('');
 $('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
 $('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
 
@@ -1835,7 +1840,7 @@ function delEv(id){
   });
 }
 
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=async()=>{
+document.querySelectorAll('#nav button[data-s]').forEach(b=>b.onclick=async()=>{
   const s=b.dataset.s;show(s);
   if(s=='find')await loadPeople();else if(s=='events')await loadEvents();else await loadPosts();
   if(s=='me')checkAch();
@@ -1849,14 +1854,7 @@ function isDark(){
   const t=document.documentElement.dataset.theme;
   return t?t==='dark':!matchMedia('(prefers-color-scheme:light)').matches;
 }
-function updateThemeIcon(){
-  const dark=isDark();
-  $('#themeIcon').innerHTML=dark
-    ?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
-    :'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-  updateThemeColor();
-}
-function toggleTheme(){setTheme(isDark()?'light':'dark')}
+function updateThemeIcon(){updateThemeColor()}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
 // ---------- Loading skeletons ----------
