@@ -188,8 +188,8 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 *{scrollbar-width:none}*::-webkit-scrollbar{display:none}
-.gridx{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 16px 10px}
-.gt{aspect-ratio:1;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 24%,var(--card)),var(--card) 75%);display:flex;flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:8px;padding:12px;cursor:pointer;color:var(--text);font-family:inherit;text-align:left;border-radius:22px;border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:var(--shadow);transition:.2s}
+.gridx{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px 10px}
+.gt{min-width:0;overflow:hidden;aspect-ratio:1;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 24%,var(--card)),var(--card) 75%);display:flex;flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:8px;padding:12px;cursor:pointer;color:var(--text);font-family:inherit;text-align:left;border-radius:22px;border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:var(--shadow);transition:.2s}
 .gt:active{transform:scale(.96)}
 .ge{font-size:20px;line-height:1;flex:none}.gtx{font-size:12px;line-height:1.3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;font-weight:600;min-width:0;flex:1}
 .ev-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;color:var(--mute)}
@@ -240,7 +240,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #ppl .card{break-inside:avoid;margin:0 16px 10px}
   #ppl .empty{column-span:all}
   .rooms{grid-template-columns:repeat(4,1fr);padding:0 28px;gap:14px}
-  .gridx{grid-template-columns:repeat(5,1fr);padding:0 28px 10px;gap:14px}
+  .gridx{grid-template-columns:repeat(5,minmax(0,1fr));padding:0 28px 10px;gap:14px}
   .gt:hover,.room:hover{transform:translateY(-3px)}
   .gt,.room{transition:transform .2s}
 
