@@ -191,7 +191,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 .gridx{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 16px 10px}
 .gt{aspect-ratio:1;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 24%,var(--card)),var(--card) 75%);display:flex;flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:8px;padding:12px;cursor:pointer;color:var(--text);font-family:inherit;text-align:left;border-radius:22px;border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:var(--shadow);transition:.2s}
 .gt:active{transform:scale(.96)}
-.ge{font-size:20px;line-height:1;flex:none}.gtx{font-size:12px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-align:left;font-weight:600;min-width:0}
+.ge{font-size:20px;line-height:1;flex:none}.gtx{font-size:12px;line-height:1.3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;font-weight:600;min-width:0;flex:1}
 .ev-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;color:var(--mute)}
 .ev-row svg{width:18px;height:18px;flex-shrink:0;color:var(--brand)}
 
