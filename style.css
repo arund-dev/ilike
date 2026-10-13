@@ -636,3 +636,6 @@ nav .navadd::before{display:none!important}
 /* ── Theme choices with icons ── */
 .fc.th{display:inline-flex;align-items:center;gap:7px}
 .ti{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Chat button sits a little lower on phones */
+@media(max-width:1023px){.fab.chat{bottom:calc(74px + env(safe-area-inset-bottom,0px))}}
