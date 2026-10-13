@@ -630,8 +630,14 @@ nav .navadd.spin svg{transform:rotate(135deg)}
 nav .navadd::before{display:none!important}
 :root[data-palette="mono"] nav .navadd svg,:root[data-palette="mono"] .fab.chat svg{stroke:var(--on-grad)}
 @media(min-width:1024px){
-  nav .navadd{align-self:stretch;width:100%;height:48px;margin:6px 0;border-radius:16px;border:0}
+  /* Sidebar order: Home, Discover, Events, + Add, then You pinned to the bottom */
+  nav .navadd{order:1;align-self:stretch;flex-direction:row;justify-content:flex-start;gap:14px;width:100%;height:auto;margin:0;padding:13px 16px;border-radius:16px;border:0;background:var(--grad);color:#fff;font-size:15px;font-weight:800;box-shadow:0 8px 18px -8px var(--glow);display:flex;align-items:center}
+  nav .navadd:hover{background:var(--grad);color:#fff;filter:brightness(1.08)}
+  nav .navadd svg{width:22px;height:22px;stroke-width:2.2}
+  nav .navadd::after{content:"Add"}
+  nav button[data-s="me"]{order:2;margin-top:auto}
 }
+:root[data-palette="mono"] nav .navadd{color:var(--on-grad)}
 
 /* ── Theme choices with icons ── */
 .fc.th{display:inline-flex;align-items:center;gap:7px}
