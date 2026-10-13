@@ -209,26 +209,29 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 /* ════════════════ DESKTOP / LANDSCAPE ════════════════ */
 @media(min-width:1024px){
   :root{--nav-h:36px}
-  #app{max-width:1360px;padding-left:240px;background:transparent;box-shadow:none}
+  #app{max-width:1360px;padding-left:72px;background:transparent;box-shadow:none}
   .top{padding:calc(16px + env(safe-area-inset-top,0px)) 28px 16px}
   .logo{font-size:32px}
   #s-home .logo-wrap{display:none}
   #s-home .top::before{content:"Home";font-family:'Bricolage Grotesque','Manrope',system-ui,sans-serif;font-size:32px;font-weight:800;letter-spacing:-1.2px;padding-right:2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 
   /* Bottom nav -> left sidebar */
-  nav{top:0;bottom:0;left:max(0px,calc(50% - 680px));transform:none;width:240px;max-width:none;flex-direction:column;justify-content:flex-start;gap:6px;padding:24px 14px;border-top:0;border-right:1px solid var(--line);box-shadow:none;background:color-mix(in srgb,var(--card) 70%,transparent)}
-  nav::before{content:"iLike ✦";display:block;padding:4px 16px 26px;font-size:32px;font-weight:800;letter-spacing:-1.2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
-  nav button{flex:none;flex-direction:row;justify-content:flex-start;gap:14px;padding:13px 16px;border-radius:16px;font-size:15px;transition:background .2s,color .2s}
+  nav{top:0;bottom:0;left:max(0px,calc(50% - 680px));transform:none;width:72px;max-width:none;overflow:hidden;white-space:nowrap;flex-direction:column;justify-content:flex-start;gap:6px;padding:24px 14px;border-top:0;border-right:1px solid var(--line);box-shadow:none;background:color-mix(in srgb,var(--card) 70%,transparent);transition:width .25s var(--ease),box-shadow .25s,background .25s}
+  nav:hover,nav:focus-within{width:240px;background:var(--card);box-shadow:20px 0 50px -20px var(--glow)}
+  nav::before{content:"✦";display:block;padding:4px 11px 26px;font-size:32px;font-weight:800;letter-spacing:-1.2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+  nav:hover::before,nav:focus-within::before{content:"iLike ✦"}
+  nav button{flex:none;width:100%;overflow:hidden;flex-direction:row;justify-content:flex-start;gap:14px;padding:13px 11px;border-radius:16px;font-size:15px;transition:background .2s,color .2s}
+  nav button svg{flex:none}
   nav button:hover{background:color-mix(in srgb,var(--brand) 10%,transparent);color:var(--text)}
   nav button.on{background:color-mix(in srgb,var(--brand) 14%,var(--card))}
-  nav button.on::before{top:12px;bottom:12px;left:-14px;width:4px;height:auto;border-radius:0 6px 6px 0;animation:none}
+  nav button.on::before{top:12px;bottom:12px;left:0;width:4px;height:auto;border-radius:0 6px 6px 0;animation:none}
 
   /* Home: single centred feed, scrolls downward like the rest of the app */
   .fl{flex-wrap:nowrap;overflow-x:auto;padding:16px 28px 16px}
   #feed{padding:10px 12px var(--nav-h);max-width:640px;margin:0 auto}
   #feed .card{margin:0 0 10px}
   .fab{bottom:32px;right:max(32px,calc(50% - 648px))}
-  #toast{bottom:40px;left:calc(50% + 120px)}
+  #toast{bottom:40px;left:calc(50% + 36px)}
 
   /* Discover */
   .tabs{max-width:none;margin:6px 28px 8px}
@@ -476,7 +479,7 @@ body.noapp nav,body.noapp .fab{display:none}
 #ptr svg{width:20px}
 #ptr.busy svg{animation:ptrspin .8s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
-@media(min-width:1024px){#ptr{left:calc(50% + 120px)}}
+@media(min-width:1024px){#ptr{left:calc(50% + 36px)}}
 #s-events.on,#s-me.on{overscroll-behavior-y:contain}
 
 /* Banner image (edit profile preview + other people's profiles) */
@@ -631,13 +634,13 @@ nav .navadd::before{display:none!important}
 :root[data-palette="mono"] nav .navadd svg,:root[data-palette="mono"] .fab.chat svg{stroke:var(--on-grad)}
 @media(min-width:1024px){
   /* Sidebar order: Home, Discover, Events, + Add, then You pinned to the bottom */
-  nav .navadd{order:1;align-self:stretch;flex-direction:row;justify-content:flex-start;gap:14px;width:100%;height:auto;margin:0;padding:13px 16px;border-radius:16px;border:0;background:var(--grad);color:#fff;font-size:15px;font-weight:800;box-shadow:0 8px 18px -8px var(--glow);display:flex;align-items:center}
-  nav .navadd:hover{background:var(--grad);color:#fff;filter:brightness(1.08)}
-  nav .navadd svg{width:22px;height:22px;stroke-width:2.2}
+  nav .navadd{order:1;align-self:stretch;flex-direction:row;justify-content:flex-start;gap:14px;width:100%;height:auto;margin:0;padding:13px 11px;border-radius:16px;border:0;background:none;color:var(--mute);font-size:15px;font-weight:800;box-shadow:none;display:flex;align-items:center}
+  nav .navadd:hover{background:color-mix(in srgb,var(--brand) 10%,transparent);color:var(--text)}
+  nav .navadd svg{width:22px;height:22px;stroke:currentColor;stroke-width:2}
   nav .navadd::after{content:"Add"}
+  :root[data-palette="mono"] nav .navadd svg{stroke:currentColor}
   nav button[data-s="me"]{order:2;margin-top:auto}
 }
-:root[data-palette="mono"] nav .navadd{color:var(--on-grad)}
 
 /* ── Theme choices with icons ── */
 .fc.th{display:inline-flex;align-items:center;gap:7px}
