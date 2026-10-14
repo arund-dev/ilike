@@ -717,3 +717,134 @@ nav .navadd::before{display:none!important}
 .fc.th{display:inline-flex;align-items:center;gap:7px}
 .ti{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:1023px){.fab.chat{bottom:calc(74px + env(safe-area-inset-bottom,0px))}}
+
+/* Session 1: calmer visual hierarchy, consistent controls, and mobile ergonomics. */
+:root{
+  --t:.28s;
+  --ease:cubic-bezier(.2,.75,.25,1);
+  --glow:hsl(var(--h2) 84% 61% / .22);
+  --shadow:0 10px 28px -20px rgba(0,0,0,.58);
+}
+
+body{
+  min-height:100%;
+  overscroll-behavior-y:none;
+  background:
+    radial-gradient(68% 42% at 100% 0%,hsl(var(--h2) 84% 61% / .11),transparent 72%),
+    radial-gradient(56% 38% at 0% 100%,hsl(var(--h) 83% 58% / .08),transparent 72%),
+    var(--bg);
+  background-attachment:scroll;
+}
+
+#app{height:var(--app-vh,100dvh);min-height:0}
+.screen.on{height:var(--app-vh,100dvh);animation-duration:.22s}
+.ov,.mod{height:var(--app-vh,100dvh);bottom:auto}
+.mod .sheet{
+  max-height:min(92vh,calc(var(--app-vh,100dvh) - env(safe-area-inset-top,0px) - 12px))!important;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+.top{
+  padding-left:max(18px,env(safe-area-inset-left,0px));
+  padding-right:max(18px,env(safe-area-inset-right,0px));
+  border-bottom-color:color-mix(in srgb,var(--line) 72%,transparent);
+}
+.logo-spark{
+  width:18px;height:18px;margin-left:4px;
+  animation:none;will-change:auto;color:var(--brand);
+}
+.logo-spark svg{display:block;width:100%;height:100%;fill:currentColor;stroke:none}
+
+.card{
+  border-radius:20px;
+  box-shadow:0 8px 24px -20px rgba(0,0,0,.58),0 1px 0 color-mix(in srgb,var(--text) 3%,transparent);
+}
+.btn:not(.ticket-btn){box-shadow:0 5px 14px -10px var(--glow)}
+.btn:not(.ticket-btn):active{transform:scale(.975)}
+.ib{
+  width:44px;height:44px;border-radius:15px;
+  box-shadow:0 4px 12px -10px var(--glow);
+}
+.ui-icon{
+  width:19px;height:19px;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.85;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+nav button{
+  min-height:48px;
+  gap:4px;
+  border-radius:15px;
+  padding-top:5px;padding-bottom:5px;
+}
+nav button svg,.ib svg,.lbx svg,.lbn svg{
+  width:20px;height:20px;flex:none;
+  stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round;
+}
+nav button.on{background:color-mix(in srgb,var(--brand) 9%,transparent)}
+nav button.on::before{display:none}
+nav button span{line-height:1.1}
+@media(max-width:1023px){
+  nav .navadd{
+    width:54px;height:54px;margin-top:-21px;
+    border-radius:18px;
+    box-shadow:0 8px 20px -9px var(--glow);
+  }
+  nav .navadd svg{width:24px;height:24px}
+}
+.fab::after{display:none}
+.fab.chat{width:54px;height:54px;border-radius:18px;box-shadow:0 8px 20px -9px var(--glow)}
+
+.set-action{
+  display:flex!important;align-items:center;justify-content:flex-start;
+  gap:12px;width:100%;min-height:52px;margin-top:8px;
+  padding:8px 12px;text-align:left;border-radius:16px;
+}
+.set-action>span:last-child{flex:1;text-align:left}
+.set-action-icon{
+  width:36px;height:36px;flex:none;
+  display:grid;place-items:center;
+  border-radius:12px;
+  color:var(--brand);
+  background:color-mix(in srgb,var(--brand) 10%,var(--card));
+}
+.set-action-icon .ui-icon{width:18px;height:18px}
+.set-action.danger .set-action-icon{
+  color:#ef6b73;background:color-mix(in srgb,#ef4444 10%,var(--card));
+}
+.settings-title{display:block;font-size:23px;letter-spacing:-.5px;margin:2px 2px 8px}
+.settings-done{min-height:48px;margin-top:18px}
+.media-action{display:inline-flex;align-items:center;gap:9px}
+.ev-gallery-uploader .ui-icon{width:26px;height:26px;color:var(--brand)}
+.install-hero-icon{
+  width:52px;height:52px;margin:0 auto 12px;
+  display:grid;place-items:center;border-radius:17px;
+  color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,var(--card));
+}
+.install-hero-icon .ui-icon{width:26px;height:26px}
+.lbx{display:grid;place-items:center}
+.lbn{place-items:center}
+.lbx svg,.lbn svg{stroke:#fff}
+
+button,a,input,textarea,select{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--brand) 72%,white);
+  outline-offset:2px;
+}
+
+@media(max-width:380px){
+  nav{padding-left:5px;padding-right:5px}
+  nav button{font-size:10px}
+  nav .navadd{width:50px;height:50px;margin-top:-18px}
+  .top{padding-left:14px;padding-right:14px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+}

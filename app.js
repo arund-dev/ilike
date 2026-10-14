@@ -9,6 +9,20 @@ const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
 const $=s=>document.querySelector(s);
+const UI_ICONS={
+  bell:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 21h4"/></svg>',
+  camera:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  block:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>',
+  report:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17.5h.01"/></svg>',
+  shield:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.2 8.4-8 10-4.8-1.6-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  message:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-12.2 7.7L3 21l1.8-5.2A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 12h8M8 9h5"/></svg>',
+  install:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>',
+  document:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v6h5M9 13h6M9 17h6"/></svg>',
+  key:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M13 10l2 2"/></svg>',
+  logout:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>',
+  trash:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
+  close:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>'
+};
 const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
 S.eventAuthorized=false;
 S.eventComments=new Map();
@@ -127,14 +141,39 @@ function show(id){
 let backGuardReady=false;
 function setupBackGuard(){
   if(backGuardReady||!S.user||!S.loaded)return;
-  history.replaceState({ilikeApp:'home'},'',location.href);
+  history.replaceState({ilikeApp:'base',screen:S.tab||'home'},'',location.href);
   history.pushState({ilikeApp:'guard'},'',location.href);
   backGuardReady=true;
 }
+function topOpenLayer(){
+  const layers=[...document.querySelectorAll('.ov.on,.mod.on')];
+  layers.sort((a,b)=>(parseInt(getComputedStyle(a).zIndex,10)||0)-(parseInt(getComputedStyle(b).zIndex,10)||0));
+  return layers[layers.length-1]||null;
+}
+function closeTopLayer(){
+  const layer=topOpenLayer();if(!layer)return false;
+  switch(layer.id){
+    case 'ev-ov':closeEventView();break;
+    case 'ticket-mod':closeTickets();break;
+    case 'ov':back();break;
+    case 'lb':closeLb();break;
+    case 'mod':closePost();break;
+    case 'pm':closePm();break;
+    case 'pf':closePf();break;
+    case 'th':closeThread();break;
+    case 'fb':closeFb();break;
+    case 'da':closeDa();break;
+    case 'ax':closeAx();break;
+    case 'rp':closeRp();break;
+    case 'ua':closeUa();break;
+    case 'cf':S.cfFn=null;layer.classList.remove('on');break;
+    default:layer.classList.remove('on');
+  }
+  return true;
+}
 addEventListener('popstate',()=>{
   if(!backGuardReady||!S.user||!S.loaded)return;
-  if($('#ev-ov')?.classList.contains('on')){
-    closeEventView();
+  if(closeTopLayer()){
     history.pushState({ilikeApp:'guard'},'',location.href);
     return;
   }
@@ -143,11 +182,23 @@ addEventListener('popstate',()=>{
     history.back();
     return;
   }
+  const feed=$('#feed'),scrollTop=feed?.scrollTop||0;
   closeAll();
   show('home');
-  loadPosts().then(draw);
   history.pushState({ilikeApp:'guard'},'',location.href);
+  loadPosts().then(()=>{draw();if(feed)feed.scrollTop=scrollTop});
 });
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape'||!topOpenLayer())return;
+  e.preventDefault();closeTopLayer();
+});
+function syncAppViewport(){
+  const h=window.visualViewport?.height;
+  if(h)document.documentElement.style.setProperty('--app-vh',Math.round(h)+'px');
+}
+syncAppViewport();
+window.visualViewport?.addEventListener('resize',syncAppViewport,{passive:true});
+addEventListener('orientationchange',syncAppViewport,{passive:true});
 
 function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
 function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
@@ -1235,7 +1286,7 @@ async function paintPush(){
   if(!S.np){const r=await sb.from('notification_prefs').select('messages,same,replies,follows').eq('user_id',S.user.id).maybeSingle();S.np=Object.assign({messages:true,same:true,replies:true,follows:true},r.data||{})}
   bx.innerHTML=(perm=='denied'?'<p class="mute sm" style="margin:0 4px 10px">Notifications are blocked. Turn them on for iLike in your phone settings, then come back.</p>':on
     ?`<button class="btn off wide" onclick="disablePush()">Turn off on this phone</button><p class="lab">Tell me about</p><div class="row" style="flex-wrap:wrap;gap:6px">${NP_KEYS.map(([k,t])=>`<button class="fc ${S.np[k]?'on':''}" onclick="togglePref('${k}')">${t}</button>`).join('')}</div>`
-    :`<button class="btn off wide" onclick="enablePush()">🔔 Turn on notifications</button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, likes, replies and new followers. This applies to this phone only.</p>`);
+     :`<button class="btn off wide set-action" onclick="enablePush()"><span class="set-action-icon">${UI_ICONS.bell}</span><span>Turn on notifications</span></button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, likes, replies and new followers. This applies to this phone only.</p>`);
 }
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
   if(!e.data||e.data.type!=='open'||!S.loaded)return;
@@ -1833,8 +1884,6 @@ function renderEventFullscreen(){
   const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
-  const tkt='<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2zM13 5v2M13 11v2M13 17v2"/></svg>';
-
   const chats=S.evChats.get(id)||[];
   const comments=S.eventComments.get(id)||[];
   const photos=S.evGallery.get(id)||[];
@@ -1849,13 +1898,6 @@ function renderEventFullscreen(){
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
         ${e.goers.length?e.goers.map(u=>`<div class="tapc" onclick="openProfile('${u}')" style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:50px">${av(u,'sm')}<span style="font-weight:700;font-size:13px">${esc(u==me?'You':nm(u))}</span></div>`).join(''):'<div class="mute sm">No attendees yet. Be the first to join!</div>'}
       </div>
-
-      <div class="card" style="margin:16px 0;padding:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--brand) 10%,var(--card)),var(--card))">
-        <div class="row" style="gap:10px;margin-bottom:8px">${tkt}<b>Event Admission &amp; Passes</b></div>
-        <p class="mute sm">Official tickets available. Instant mobile reservation with passes saved to your account.</p>
-        <button class="btn ticket-btn wide" onclick="openTickets('${e.id}')">🎟️ Buy / Reserve Tickets</button>
-      </div>
-
       ${host||isMod()?`<div class="evact" style="margin-top:24px">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit Event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel Event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete Event</button>`:''}</div>`:''}
     </div>`;
   } else if(S.evTab==='chat'){
@@ -1881,13 +1923,13 @@ function renderEventFullscreen(){
     tabBody=`<div class="ev-tab-content">
       <div class="ev-gallery-header">
         <div><b>Event Photos &amp; Highlights</b> <span class="mute sm">(${photos.length})</span></div>
-        ${host||isMod()?`<button class="btn sbtn" onclick="$('#ev-pic-in').click()">📷 Add Photo</button>`:''}
+        ${host||isMod()?`<button class="btn sbtn media-action" onclick="$('#ev-pic-in').click()">${UI_ICONS.camera}<span>Add Photo</span></button>`:''}
       </div>
       <input type="file" id="ev-pic-in" accept="image/*" hidden onchange="uploadEventGallery(this,'${id}')">
       <div class="ev-gallery-grid">
         ${photos.map((url,idx)=>`<div class="ev-gallery-item"><img src="${esc(url)}" alt="Event Photo" loading="lazy">${host||isMod()?`<button class="ev-gallery-del" onclick="event.stopPropagation();delGalleryPhoto('${id}',${idx})">✕</button>`:''}</div>`).join('')}
         ${!photos.length&&!host?'<div class="empty" style="grid-column:1/-1">No photos uploaded to this event gallery yet.</div>':''}
-        ${host?`<div class="ev-gallery-uploader" onclick="$('#ev-pic-in').click()"><span style="font-size:26px">📷</span><span>Add Photos</span></div>`:''}
+        ${host?`<div class="ev-gallery-uploader" onclick="$('#ev-pic-in').click()">${UI_ICONS.camera}<span>Add Photos</span></div>`:''}
       </div>
     </div>`;
   }
@@ -2180,7 +2222,19 @@ function delEv(id){
 }
 
 document.querySelectorAll('#nav button[data-s]').forEach(b=>b.onclick=async()=>{
-  const s=b.dataset.s;show(s);
+  const s=b.dataset.s;
+  if(s===S.tab){
+    const behavior=matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth';
+    if(s==='home')$('#feed')?.scrollTo({top:0,behavior});
+    else if(s==='find')ptrBox()?.scrollTo({top:0,behavior});
+    else if(s==='events')$('#s-events')?.scrollTo({top:0,behavior});
+    else if(s==='me'){
+      $('.col-l')?.scrollTo({top:0,behavior});
+      $('#mine')?.scrollTo({top:0,behavior});
+    }
+    return;
+  }
+  show(s);
   if(s=='find')await loadPeople();else if(s=='events')await loadEvents();else await loadPosts();
   if(s=='me')checkAch();
   draw();
@@ -2311,7 +2365,7 @@ async function installApp(){
     e.prompt();await e.userChoice.catch(()=>{});
     refreshInstall();return;
   }
-  $('#inf').innerHTML='<div style="font-size:40px">📲</div><div style="font-size:18px;font-weight:800;margin:6px 0">Add iLike to your home screen</div><p style="margin-top:10px">Tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>.</p>';
+  $('#inf').innerHTML=`<div class="install-hero-icon">${UI_ICONS.install}</div><div style="font-size:18px;font-weight:800;margin:6px 0">Add iLike to your home screen</div><p style="margin-top:10px">Tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>.</p>`;
   $('#info').classList.add('on');
 }
 addEventListener('offline',()=>toast("You're offline"));
@@ -2487,11 +2541,11 @@ function openAx(t,id){
     $('#ax').classList.add('on');return;
   }
   let h=`<b style="font-size:18px">${esc(nm(uid))}${rb(uid)}</b>`;
-  h+=`<button class="btn off wide" onclick="axReport()">🚩 Report ${axLabel[t]}</button>`;
-  h+=bl(uid)?`<button class="btn off wide" onclick="closeAx();unblock('${uid}')">Unblock</button>`:`<button class="btn off wide" onclick="axBlock()">🚫 Block ${esc(nm(uid))}</button>`;
+  h+=`<button class="btn off wide set-action" onclick="axReport()"><span class="set-action-icon">${UI_ICONS.report}</span><span>Report ${axLabel[t]}</span></button>`;
+  h+=bl(uid)?`<button class="btn off wide set-action" onclick="closeAx();unblock('${uid}')"><span class="set-action-icon">${UI_ICONS.block}</span><span>Unblock</span></button>`:`<button class="btn off wide set-action" onclick="axBlock()"><span class="set-action-icon">${UI_ICONS.block}</span><span>Block ${esc(nm(uid))}</span></button>`;
   if(isMod()){
     if(t!='user')h+=`<button class="btn off wide danger" onclick="axDelete()">Delete ${axLabel[t]}</button>`;
-    h+=`<button class="btn off wide" onclick="axModerate()">🛡 Moderate user</button>`;
+    h+=`<button class="btn off wide set-action" onclick="axModerate()"><span class="set-action-icon">${UI_ICONS.shield}</span><span>Moderate user</span></button>`;
   }
   h+='<button class="btn off wide" onclick="closeAx()">Cancel</button>';
   $('#axb').innerHTML=h;$('#ax').classList.add('on');
@@ -2543,7 +2597,7 @@ async function loadRepCount(){
 function paintRepBadge(){
   const b=$('#rpb');if(b){b.hidden=!(isMod()&&S.nrep);b.textContent=S.nrep>9?'9+':S.nrep}
   const ml=$('#modlab');if(ml)ml.hidden=!isMod();
-  const m=$('#modb');if(m){m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'')}
+  const m=$('#modb');if(m){m.hidden=!isMod();m.innerHTML=`<span class="set-action-icon">${UI_ICONS.shield}</span><span>Moderation tools${S.nrep?' ('+S.nrep+')':''}</span>`}
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
 function drawMod(){
