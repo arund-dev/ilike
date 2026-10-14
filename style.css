@@ -253,26 +253,30 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #evs .card{transition:transform .2s}
 
   /* You: two panes. Profile on the left, posts on the right. Each pane scrolls on its own and
-     the banner and photo shrink into a compact bar when either one is scrolled. */
+     the banner shrinks into a slim bar (photo and name float up into it) once either is scrolled. */
   #s-me.on{overflow:hidden;padding-bottom:0;overscroll-behavior-y:auto}
-  #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
-  .me-hero{flex:none;margin:0 12px;height:clamp(150px,21vh,210px);transition:height .45s var(--ease)}
-  .me-hero .banner{width:100%;height:100%;margin:0;aspect-ratio:auto;border-radius:24px;transition:border-radius .45s var(--ease)}
-  .me-hero .av{left:18px;bottom:-60px;width:120px;height:120px;font-size:50px;transition:left .45s var(--ease),bottom .45s var(--ease),width .45s var(--ease),height .45s var(--ease),font-size .45s var(--ease),border-width .45s var(--ease)}
-  .mcomp{display:block;position:absolute;z-index:2;right:88px;top:50%;max-width:55%;padding:6px 16px;border-radius:50px;text-align:right;line-height:1.25;opacity:0;transform:translateY(-50%) translateX(12px);pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .25s,transform .45s var(--ease)}
+  #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;container-type:inline-size;--mv:.8s cubic-bezier(.45,.05,.25,1)}
+  /* Banner keeps its 3:1 shape (never taller than 46% of the window) */
+  .me-hero{flex:none;margin:0 12px;height:min(calc((100cqw - 24px) / 3),46dvh);transition:height var(--mv)}
+  .me-hero .banner{width:100%;height:100%;margin:0;aspect-ratio:auto;border-radius:24px;transition:border-radius var(--mv)}
+  .me-hero .av{left:18px;bottom:-60px;width:120px;height:120px;font-size:50px;transform-origin:left bottom;transition:transform var(--mv)}
+  .mcomp{display:block;position:absolute;z-index:2;left:88px;top:50%;max-width:calc(100% - 120px);padding:6px 16px;border-radius:50px;text-align:left;line-height:1.25;opacity:0;transform:translateY(calc(-50% + 30px));pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .35s,transform var(--mv)}
   .mcomp b{display:block;font-size:15px}
   .mcomp span{display:block;font-size:12px}
   #me.compact .me-hero{height:72px}
   #me.compact .me-hero .banner{border-radius:20px}
-  #me.compact .me-hero .av{left:calc(100% - 70px);bottom:10px;width:52px;height:52px;font-size:22px;border-width:3px}
-  #me.compact .mcomp{opacity:1;transform:translateY(-50%);transition-delay:.15s,.1s}
+  #me.compact .me-hero .av{transform:translateY(-70px) scale(.44)}
+  #me.compact .mcomp{opacity:1;transform:translateY(-50%);transition-delay:.12s}
   .me-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:440px minmax(0,1fr);grid-template-rows:minmax(0,1fr);column-gap:24px;align-items:stretch;padding:0 12px}
   .col-l,.col-r{display:block;min-width:0;min-height:0}
-  .col-l{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;margin-top:68px;padding:0 6px calc(var(--nav-h) + 24px) 0;transition:margin-top .45s var(--ease)}
+  /* No visible scrollbars on the two panes */
+  .col-l,#mine{scrollbar-width:none;-ms-overflow-style:none}
+  .col-l::-webkit-scrollbar,#mine::-webkit-scrollbar{display:none}
+  .col-l{overflow-y:auto;overscroll-behavior:contain;margin-top:68px;padding:0 6px calc(var(--nav-h) + 24px) 0;transition:margin-top var(--mv)}
   #me.compact .col-l{margin-top:10px}
   .col-r{display:flex;flex-direction:column;margin-top:8px}
   .col-r .tabs{margin:0 0 8px;flex:none}
-  #mine{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:calc(var(--nav-h) + 24px)}
+  #mine{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:calc(var(--nav-h) + 24px)}
   .mehead{padding:0 18px}
   .mehead h1{font-size:30px}
 

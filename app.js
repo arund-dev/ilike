@@ -808,22 +808,24 @@ function mineBody(){
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
 function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();const m=$('#mine');if(m)m.scrollTop=0}
-// Desktop profile: the banner and photo shrink into a compact bar (photo on the right) once
-// either pane is scrolled, and grow back when both panes are at the top again.
+// Desktop profile: the banner shrinks into a slim bar (photo and name float up into it) once either
+// pane is scrolled, and grows back when both panes are at the top again.
 var meDesk=matchMedia('(min-width:1024px)'),meLock=0,meT=0;
 function meHeader(force){
   const me=$('#me'),l=$('#me .col-l'),r=$('#mine');
   if(!me||!l||!r)return;
   if(!meDesk.matches){me.classList.remove('compact');return}
+  // Ignore the scroll events caused by the resize itself, then check again once it has settled
   if(!force&&Date.now()<meLock){clearTimeout(meT);meT=setTimeout(()=>meHeader(),meLock-Date.now()+30);return}
   const on=me.classList.contains('compact'),y=Math.max(l.scrollTop,r.scrollTop);
-  // Collapsing frees about 140px. Only do it when the pane still has room to scroll afterwards,
-  // otherwise the page would flip back and forth.
+  // Collapsing gives the panes extra height. Only collapse when a pane still has room to scroll
+  // afterwards, otherwise the header would flip back and forth.
+  const gain=Math.max(0,$('.me-hero').offsetHeight-72)+58;
   const room=Math.max(l.scrollHeight-l.clientHeight,r.scrollHeight-r.clientHeight);
   let next=on;
-  if(!on&&y>16&&room>140+120)next=true;
+  if(!on&&y>10&&room>gain+80)next=true;
   else if(on&&y<4)next=false;
-  if(next!==on){me.classList.toggle('compact',next);meLock=Date.now()+450}
+  if(next!==on){me.classList.toggle('compact',next);meLock=Date.now()+850}
 }
 $('#me .col-l').addEventListener('scroll',()=>meHeader(),{passive:true});
 $('#mine').addEventListener('scroll',()=>meHeader(),{passive:true});

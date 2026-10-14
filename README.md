@@ -46,7 +46,7 @@ npx serve .
 
 ## Desktop profile layout
 
-On screens 1024 px wide and up, **You** is split into two panes. The left pane (photo, name, bio, Interests, Artists, Achievements) and the right pane (the My posts / Liked / Photos tabs and the list under them) scroll on their own, and the tab bar stays in place. The banner is shorter on desktop. When either pane is scrolled, the banner and profile photo shrink into a compact bar with the photo and name on the right, and they grow back when both panes return to the top. The behavior lives in `meHeader()` in `app.js` and the `.me-hero`, `.col-l` and `#mine` rules in the desktop block of `style.css`. Phones keep the original single-column layout. If a pane has too little content to scroll, the header stays expanded.
+On screens 1024 px wide and up, **You** is split into two panes. The left pane (photo, name, bio, Interests, Artists, Achievements) and the right pane (the My posts / Liked / Photos tabs and the list under them) scroll on their own, with no visible scrollbars, and the tab bar stays in place. The banner keeps its 3:1 shape (never taller than 46% of the window). When either pane is scrolled, the banner shrinks smoothly into a slim bar while the profile photo and name float up into it, and they grow back when both panes return to the top. The behavior lives in `meHeader()` in `app.js` and the `.me-hero`, `.col-l` and `#mine` rules in the desktop block of `style.css`; the animation speed is `--mv` on `#me`. Phones keep the original single-column layout. If a pane has too little content to scroll, the header stays expanded.
 
 ## Maintaining the interest menu
 
