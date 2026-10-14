@@ -44,6 +44,10 @@ For local development, any static web server can serve the folder. For example, 
 npx serve .
 ```
 
+## Desktop profile layout
+
+On screens 1024 px wide and up, **You** is split into two panes. The left pane (photo, name, bio, Interests, Artists, Achievements) and the right pane (the My posts / Liked / Photos tabs and the list under them) scroll on their own, and the tab bar stays in place. The banner is shorter on desktop. When either pane is scrolled, the banner and profile photo shrink into a compact bar with the photo and name on the right, and they grow back when both panes return to the top. The behavior lives in `meHeader()` in `app.js` and the `.me-hero`, `.col-l` and `#mine` rules in the desktop block of `style.css`. Phones keep the original single-column layout. If a pane has too little content to scroll, the header stays expanded.
+
 ## Maintaining the interest menu
 
 Edit `INTEREST_CATALOG` near the top of `app.js` to add a category or interest. Each category has a display colour and an `items` list of name and emoji pairs. When a user signs in, the app creates missing catalog rows in Supabase and updates the category, colour, and emoji of matching rows without changing their IDs. Keep existing interest names stable when possible because user selections refer to their database IDs.

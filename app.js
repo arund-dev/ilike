@@ -785,6 +785,7 @@ function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
   setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mav').dataset.zoom=S.avs[S.user.id]||'';$('#mbn').dataset.zoom=pr.banner_url||'';$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
   $('#mu').textContent='@'+(pr.username||'')+(pr.city?' · '+pr.city:'');
+  $('#mcn').textContent=S.name;$('#mcu').textContent='@'+(pr.username||'');
   $('#mf').innerHTML=`<button onclick="openFollows('${S.user.id}','ers')"><b>${S.folrs.size}</b> ${S.folrs.size==1?'follower':'followers'}</button><button onclick="openFollows('${S.user.id}','ing')"><b>${S.fol.size}</b> following</button>`;
   $('#mb').textContent=pr.bio||'';$('#mb').hidden=!pr.bio;
   const li=mine.filter(n=>!isArt(n)),la=mine.filter(isArt);
@@ -793,6 +794,7 @@ function meTab(){
   drawBadges();
   $('#mt').innerHTML=['My posts','Liked','Photos'].map((t,i)=>`<button class="${i==S.mt?'on':''}" onclick="setMt(${i})">${t}</button>`).join('');
   $('#mine').innerHTML=mineBody();
+  meHeader();
 }
 function mineBody(){
   if(S.mt==1){
@@ -805,7 +807,27 @@ function mineBody(){
   }
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
-function setMt(i){S.mt=i;if(i==1)loadLiked();meTab()}
+function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();const m=$('#mine');if(m)m.scrollTop=0}
+// Desktop profile: the banner and photo shrink into a compact bar (photo on the right) once
+// either pane is scrolled, and grow back when both panes are at the top again.
+var meDesk=matchMedia('(min-width:1024px)'),meLock=0,meT=0;
+function meHeader(force){
+  const me=$('#me'),l=$('#me .col-l'),r=$('#mine');
+  if(!me||!l||!r)return;
+  if(!meDesk.matches){me.classList.remove('compact');return}
+  if(!force&&Date.now()<meLock){clearTimeout(meT);meT=setTimeout(()=>meHeader(),meLock-Date.now()+30);return}
+  const on=me.classList.contains('compact'),y=Math.max(l.scrollTop,r.scrollTop);
+  // Collapsing frees about 140px. Only do it when the pane still has room to scroll afterwards,
+  // otherwise the page would flip back and forth.
+  const room=Math.max(l.scrollHeight-l.clientHeight,r.scrollHeight-r.clientHeight);
+  let next=on;
+  if(!on&&y>16&&room>140+120)next=true;
+  else if(on&&y<4)next=false;
+  if(next!==on){me.classList.toggle('compact',next);meLock=Date.now()+450}
+}
+$('#me .col-l').addEventListener('scroll',()=>meHeader(),{passive:true});
+$('#mine').addEventListener('scroll',()=>meHeader(),{passive:true});
+meDesk.addEventListener('change',()=>meHeader(true));
 // Posts you liked (newest posts first; we do not store when you liked them)
 async function loadLiked(){
   const r=await sb.from('sames').select('post_id').eq('user_id',S.user.id).limit(100);

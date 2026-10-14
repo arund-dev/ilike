@@ -126,8 +126,11 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:18px 18px 8px}
 #me{--accent:var(--brand)}
 .sw.on{box-shadow:0 0 0 2px var(--text),0 6px 14px -4px rgba(0,0,0,.25)}
 .fc.on{border-color:transparent;background:var(--grad);color:#fff}
-.mehead{padding:0 18px}
-.mehead .av{width:100px;height:100px;font-size:42px;margin-top:-50px;border-width:4px;border-color:var(--bg);box-shadow:0 0 0 3px var(--brand-dark),0 12px 28px -6px var(--glow)}
+.mehead{padding:50px 18px 0}
+/* The banner and photo live together so they can move as one on desktop */
+.me-hero{position:relative}
+.me-hero .av{position:absolute;left:18px;bottom:-50px;z-index:3;width:100px;height:100px;font-size:42px;border-width:4px;border-color:var(--bg);box-shadow:0 0 0 3px var(--brand-dark),0 12px 28px -6px var(--glow)}
+.mcomp{display:none}
 .mehead h1{font-size:26px;letter-spacing:-.6px;margin-top:8px}.mehead .nm{color:var(--accent)}
 
 /* ── FAB ── */
@@ -249,11 +252,29 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #evs .card:hover{transform:translateY(-3px)}
   #evs .card{transition:transform .2s}
 
-  /* You: profile left, posts right */
-  .banner{width:calc(100% - 24px);max-width:none;margin:0 12px;border-radius:24px}
-  .me-body{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:24px;align-items:start;padding:0 12px 24px}
-  .col-l,.col-r{display:block;min-width:0}
+  /* You: two panes. Profile on the left, posts on the right. Each pane scrolls on its own and
+     the banner and photo shrink into a compact bar when either one is scrolled. */
+  #s-me.on{overflow:hidden;padding-bottom:0;overscroll-behavior-y:auto}
+  #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  .me-hero{flex:none;margin:0 12px;height:clamp(150px,21vh,210px);transition:height .45s var(--ease)}
+  .me-hero .banner{width:100%;height:100%;margin:0;aspect-ratio:auto;border-radius:24px;transition:border-radius .45s var(--ease)}
+  .me-hero .av{left:18px;bottom:-60px;width:120px;height:120px;font-size:50px;transition:left .45s var(--ease),bottom .45s var(--ease),width .45s var(--ease),height .45s var(--ease),font-size .45s var(--ease),border-width .45s var(--ease)}
+  .mcomp{display:block;position:absolute;z-index:2;right:88px;top:50%;max-width:55%;padding:6px 16px;border-radius:50px;text-align:right;line-height:1.25;opacity:0;transform:translateY(-50%) translateX(12px);pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .25s,transform .45s var(--ease)}
+  .mcomp b{display:block;font-size:15px}
+  .mcomp span{display:block;font-size:12px}
+  #me.compact .me-hero{height:72px}
+  #me.compact .me-hero .banner{border-radius:20px}
+  #me.compact .me-hero .av{left:calc(100% - 70px);bottom:10px;width:52px;height:52px;font-size:22px;border-width:3px}
+  #me.compact .mcomp{opacity:1;transform:translateY(-50%);transition-delay:.15s,.1s}
+  .me-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:440px minmax(0,1fr);grid-template-rows:minmax(0,1fr);column-gap:24px;align-items:stretch;padding:0 12px}
+  .col-l,.col-r{display:block;min-width:0;min-height:0}
+  .col-l{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;margin-top:68px;padding:0 6px calc(var(--nav-h) + 24px) 0;transition:margin-top .45s var(--ease)}
+  #me.compact .col-l{margin-top:10px}
+  .col-r{display:flex;flex-direction:column;margin-top:8px}
+  .col-r .tabs{margin:0 0 8px;flex:none}
+  #mine{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:calc(var(--nav-h) + 24px)}
   .mehead{padding:0 18px}
+  .mehead h1{font-size:30px}
 
   /* Chats: right-hand drawer */
   .ov{left:auto;right:0;max-width:440px;transform:none;border-left:1px solid var(--line);box-shadow:-30px 0 60px -30px var(--glow)}
