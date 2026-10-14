@@ -895,7 +895,9 @@ const ME_LW=440,ME_H1=60;
 const meEl=()=>({st:$('#me .me-body'),L:$('#me .col-l'),R:$('#mine'),hero:$('.me-hero'),av:$('#mav'),pill:$('.mcomp'),tabs:$('#mt')});
 function meClear(){
   const e=meEl();
-  [e.hero,e.av,e.pill,e.L,e.R,e.tabs].forEach(x=>x&&x.removeAttribute('style'));
+  // The avatar's inline style also holds the profile photo (background-image), so only drop the scroll animation's transform.
+  [e.hero,e.pill,e.L,e.R,e.tabs].forEach(x=>x&&x.removeAttribute('style'));
+  if(e.av)e.av.style.removeProperty('transform');
   const me=$('#me');if(me){me.style.removeProperty('--H');me.style.removeProperty('--th')}
 }
 function meLayout(){
