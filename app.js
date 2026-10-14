@@ -794,7 +794,7 @@ function meTab(){
   drawBadges();
   $('#mt').innerHTML=['My posts','Liked','Photos'].map((t,i)=>`<button class="${i==S.mt?'on':''}" onclick="setMt(${i})">${t}</button>`).join('');
   $('#mine').innerHTML=mineBody();
-  meHeader();
+  meSync();
 }
 function mineBody(){
   if(S.mt==1){
@@ -807,29 +807,91 @@ function mineBody(){
   }
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
-function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();const m=$('#mine');if(m)m.scrollTop=0}
-// Desktop profile: the banner shrinks into a slim bar (photo and name float up into it) once either
-// pane is scrolled, and grows back when both panes are at the top again.
-var meDesk=matchMedia('(min-width:1024px)'),meLock=0,meT=0;
-function meHeader(force){
-  const me=$('#me'),l=$('#me .col-l'),r=$('#mine');
-  if(!me||!l||!r)return;
-  if(!meDesk.matches){me.classList.remove('compact');return}
-  // Ignore the scroll events caused by the resize itself, then check again once it has settled
-  if(!force&&Date.now()<meLock){clearTimeout(meT);meT=setTimeout(()=>meHeader(),meLock-Date.now()+30);return}
-  const on=me.classList.contains('compact'),y=Math.max(l.scrollTop,r.scrollTop);
-  // Collapsing gives the panes extra height. Only collapse when a pane still has room to scroll
-  // afterwards, otherwise the header would flip back and forth.
-  const gain=Math.max(0,$('.me-hero').offsetHeight-72)+58;
-  const room=Math.max(l.scrollHeight-l.clientHeight,r.scrollHeight-r.clientHeight);
-  let next=on;
-  if(!on&&y>10&&room>gain+80)next=true;
-  else if(on&&y<4)next=false;
-  if(next!==on){me.classList.toggle('compact',next);meLock=Date.now()+850}
+function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();meTop()}
+// ---- Desktop profile header (screens 1024px and wider) ----
+// One scroll position P (0 to D) drives everything: the banner shrinks and slides to the left, the
+// photo and name float up into it, and the posts side rises into the freed space. Both panes keep
+// the same P so they always line up. A pane that scrolls past D keeps the rest for its own content.
+var meDesk=matchMedia('(min-width:1024px)');
+var ME={W:0,H:0,D:0,TH:52,exp:{l:null,r:null}};
+const ME_LW=440,ME_H1=60;
+const meEl=()=>({st:$('#me .me-body'),L:$('#me .col-l'),R:$('#mine'),hero:$('.me-hero'),av:$('#mav'),pill:$('.mcomp'),tabs:$('#mt')});
+function meClear(){
+  const e=meEl();
+  [e.hero,e.av,e.pill,e.L,e.R,e.tabs].forEach(x=>x&&x.removeAttribute('style'));
+  const me=$('#me');if(me){me.style.removeProperty('--H');me.style.removeProperty('--th')}
 }
-$('#me .col-l').addEventListener('scroll',()=>meHeader(),{passive:true});
-$('#mine').addEventListener('scroll',()=>meHeader(),{passive:true});
-meDesk.addEventListener('change',()=>meHeader(true));
+function meLayout(){
+  const e=meEl();
+  if(!meDesk.matches||!e.st||!e.st.clientWidth)return false;
+  ME.W=e.st.clientWidth-24;
+  ME.H=Math.round(Math.min(ME.W/3,innerHeight*.46));
+  ME.D=ME.H-2;
+  ME.TH=e.tabs.offsetHeight||52;
+  const me=$('#me');me.style.setProperty('--H',ME.H+'px');me.style.setProperty('--th',ME.TH+'px');
+  // Each pane must be able to scroll at least D, so the header can always finish its animation
+  [e.L,e.R].forEach(el=>{
+    el.style.setProperty('--fill','0px');
+    const need=ME.D+el.clientHeight-el.scrollHeight;
+    if(need>0)el.style.setProperty('--fill',need+'px');
+  });
+  return true;
+}
+function mePaint(P){
+  const e=meEl(),{W,H,D,TH}=ME;
+  const Dh=H-ME_H1,                       // distance over which the banner gets shorter
+        q=Math.min(1,P/Dh),               // 0 to 1: banner height, photo and name
+        w0=Math.min(1,P/(Dh*.8)),         // 0 to 1: banner slides to the left
+        w=w0*w0*(3-2*w0),
+        hh=H-Math.min(P,Dh),
+        o=Math.max(0,Math.min(1,(q-.55)/.45));
+  e.hero.style.width=(W-(W-ME_LW)*w)+'px';
+  e.hero.style.height=hh+'px';
+  e.av.style.transform='translateY('+(-68*q)+'px) scale('+(1-.633*q)+')';
+  e.pill.style.opacity=o;
+  e.pill.style.transform='translateY(calc(-50% + '+((1-o)*24)+'px))';
+  e.L.style.clipPath='inset('+(hh+10*q)+'px 0 0 0)';
+  const T=H+8-Math.min(P,D);              // top edge of the Posts / Liked / Photos tabs
+  e.tabs.style.transform='translateY('+T+'px)';
+  e.R.style.clipPath='inset('+(T+TH+8)+'px 0 0 0)';
+}
+function meSync(){
+  if(!meLayout()){if(!meDesk.matches)meClear();return}
+  const e=meEl();
+  mePaint(Math.min(ME.D,Math.max(e.L.scrollTop,e.R.scrollTop)));
+}
+function meSet(key,v){
+  const el=meEl()[key=='l'?'L':'R'];v=Math.round(v);
+  if(Math.abs(el.scrollTop-v)<1)return;
+  ME.exp[key]=v;el.scrollTop=v;
+}
+function meScrolled(key){
+  if(!meDesk.matches||!ME.D)return;
+  const e=meEl(),el=key=='l'?e.L:e.R,ot=key=='l'?e.R:e.L,ok=key=='l'?'r':'l';
+  if(ME.exp[key]!==null){const same=Math.abs(el.scrollTop-ME.exp[key])<2;ME.exp[key]=null;if(same)return}
+  const y=el.scrollTop,D=ME.D;
+  let P;
+  if(y<D-1&&ot.scrollTop>D+2){P=D;meSet(key,D)}   // the other pane is scrolled deeper, so the header stays small
+  else{P=Math.min(y,D);if(ot.scrollTop<=D+2)meSet(ok,P)}
+  mePaint(P);
+}
+// Posts / Liked / Photos switch: start the list from its top but keep the header where it is
+function meTop(){
+  if(!meDesk.matches||!ME.D)return;
+  const e=meEl();
+  meSet('r',Math.min(ME.D,Math.max(e.L.scrollTop,e.R.scrollTop)));
+}
+$('#me .col-l').addEventListener('scroll',()=>meScrolled('l'),{passive:true});
+$('#mine').addEventListener('scroll',()=>meScrolled('r'),{passive:true});
+// The banner sits on top of the panes, so forward the mouse wheel to the pane underneath it
+$('.me-hero').addEventListener('wheel',ev=>{
+  if(!meDesk.matches)return;
+  const e=meEl(),t=ev.clientX<e.R.getBoundingClientRect().left?e.L:e.R;
+  t.scrollTop+=ev.deltaY*(ev.deltaMode==1?16:1);ev.preventDefault();
+},{passive:false});
+meDesk.addEventListener('change',()=>meSync());
+addEventListener('resize',()=>meSync());
+new ResizeObserver(()=>meSync()).observe($('#me .me-body'));
 // Posts you liked (newest posts first; we do not store when you liked them)
 async function loadLiked(){
   const r=await sb.from('sames').select('post_id').eq('user_id',S.user.id).limit(100);

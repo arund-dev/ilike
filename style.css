@@ -252,31 +252,26 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #evs .card:hover{transform:translateY(-3px)}
   #evs .card{transition:transform .2s}
 
-  /* You: two panes. Profile on the left, posts on the right. Each pane scrolls on its own and
-     the banner shrinks into a slim bar (photo and name float up into it) once either is scrolled. */
+  /* You: two panes. Profile on the left, posts on the right. Each pane scrolls on its own, with no
+     visible scrollbar. One scroll position (see meSync in app.js) drives the header: as you scroll
+     the banner shrinks and slides to the left, the photo and name float up into it, and the posts
+     side rises to fill the space. */
   #s-me.on{overflow:hidden;padding-bottom:0;overscroll-behavior-y:auto}
-  #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;container-type:inline-size;--mv:.8s cubic-bezier(.45,.05,.25,1)}
-  /* Banner keeps its 3:1 shape (never taller than 46% of the window) */
-  .me-hero{flex:none;margin:0 12px;height:min(calc((100cqw - 24px) / 3),46dvh);transition:height var(--mv)}
-  .me-hero .banner{width:100%;height:100%;margin:0;aspect-ratio:auto;border-radius:24px;transition:border-radius var(--mv)}
-  .me-hero .av{left:18px;bottom:-60px;width:120px;height:120px;font-size:50px;transform-origin:left bottom;transition:transform var(--mv)}
-  .mcomp{display:block;position:absolute;z-index:2;left:88px;top:50%;max-width:calc(100% - 120px);padding:6px 16px;border-radius:50px;text-align:left;line-height:1.25;opacity:0;transform:translateY(calc(-50% + 30px));pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .35s,transform var(--mv)}
-  .mcomp b{display:block;font-size:15px}
-  .mcomp span{display:block;font-size:12px}
-  #me.compact .me-hero{height:72px}
-  #me.compact .me-hero .banner{border-radius:20px}
-  #me.compact .me-hero .av{transform:translateY(-70px) scale(.44)}
-  #me.compact .mcomp{opacity:1;transform:translateY(-50%);transition-delay:.12s}
-  .me-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:440px minmax(0,1fr);grid-template-rows:minmax(0,1fr);column-gap:24px;align-items:stretch;padding:0 12px}
-  .col-l,.col-r{display:block;min-width:0;min-height:0}
-  /* No visible scrollbars on the two panes */
-  .col-l,#mine{scrollbar-width:none;-ms-overflow-style:none}
+  #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  .me-body{position:relative;flex:1 1 auto;min-height:0;display:grid;grid-template-columns:440px minmax(0,1fr);grid-template-rows:minmax(0,1fr);column-gap:24px;padding:0 12px;overflow:hidden}
+  .me-hero{position:absolute;left:12px;top:0;z-index:4;width:calc(100% - 24px);height:var(--H,300px)}
+  .me-hero .banner{width:100%;height:100%;margin:0;aspect-ratio:auto;border-radius:22px}
+  .me-hero .av{left:18px;bottom:-60px;width:120px;height:120px;font-size:50px;transform-origin:left bottom;will-change:transform}
+  .mcomp{display:block;position:absolute;z-index:2;left:72px;top:50%;max-width:calc(100% - 92px);padding:5px 14px;border-radius:50px;text-align:left;line-height:1.25;opacity:0;transform:translateY(calc(-50% + 24px));pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+  .mcomp b{display:block;font-size:14px}
+  .mcomp span{display:block;font-size:11px}
+  .col-l,.col-r{display:block;position:relative;min-width:0;min-height:0}
+  .col-l,#mine{overflow-y:auto;overscroll-behavior:contain;overflow-anchor:none;scrollbar-width:none;-ms-overflow-style:none}
   .col-l::-webkit-scrollbar,#mine::-webkit-scrollbar{display:none}
-  .col-l{overflow-y:auto;overscroll-behavior:contain;margin-top:68px;padding:0 6px calc(var(--nav-h) + 24px) 0;transition:margin-top var(--mv)}
-  #me.compact .col-l{margin-top:10px}
-  .col-r{display:flex;flex-direction:column;margin-top:8px}
-  .col-r .tabs{margin:0 0 8px;flex:none}
-  #mine{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:calc(var(--nav-h) + 24px)}
+  .col-l::after,#mine::after{content:"";display:block;height:var(--fill,0px)}
+  .col-l{padding:calc(var(--H,300px) + 68px) 6px calc(var(--nav-h) + 24px) 0}
+  .col-r .tabs{position:absolute;left:0;right:0;top:0;margin:0;z-index:3;will-change:transform}
+  #mine{position:absolute;inset:0;padding:calc(var(--H,300px) + 16px + var(--th,52px)) 0 calc(var(--nav-h) + 24px)}
   .mehead{padding:0 18px}
   .mehead h1{font-size:30px}
 
