@@ -8,8 +8,9 @@ const VAPID_PUBLIC='BC0pryw7UqZIAhNML0k41re86rCfX0PfqlWRLSTX_o-6GghUx3btDBxf3U5n
 const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
+const MAX_PHOTOS=6;
 const $=s=>document.querySelector(s);
-const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
+const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},usernames:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),edPhotos:[],photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
 S.eventAuthorized=false;
 S.eventComments=new Map();
 S.evTab='about';
@@ -60,6 +61,59 @@ const findPost=id=>S.pm.get(String(id));
 const tmx=d=>new Date(d).toLocaleString([],{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
 const tmk=d=>`<span class="tm" data-t="${d}" onclick="tmTap(this)">${ago(d)}</span>`;
 function tmTap(el){const x=el.dataset.x=='1';el.dataset.x=x?'':'1';el.textContent=x?ago(el.dataset.t):tmx(el.dataset.t)}
+
+// Format mentions (@username) inside post & comment text
+function formatBody(t){
+  return esc(t||'').replace(/@([a-zA-Z0-9_.]{3,20})/g,(match,u)=>{
+    return `<span class="mention-pill" onclick="event.stopPropagation();handleMentionClick('${esc(u)}')">@${esc(u)}</span>`;
+  });
+}
+
+async function handleMentionClick(username){
+  username=username.toLowerCase().replace(/^@/,'');
+  const foundPerson=S.people.find(p=>S.usernames[p.id]?.toLowerCase()===username);
+  if(foundPerson){openProfile(foundPerson.id);return}
+  const r=await sb.from('profiles').select('id').eq('username',username).maybeSingle();
+  if(r.data?.id){openProfile(r.data.id)}
+  else{toast('@'+username+' not found')}
+}
+
+// Mention suggestion popup logic
+let activeMentionInput=null;
+function onPostInput(el){
+  activeMentionInput=el;
+  const val=el.value,pos=el.selectionStart;
+  const match=val.slice(0,pos).match(/@([a-zA-Z0-9_.]*)$/);
+  const popId=el.id==='edt'?'#edt-mentions':'#txt-mentions';
+  const pop=$(popId);
+  if(!pop)return;
+  if(match){
+    const query=match[1].toLowerCase();
+    const matches=S.people.filter(p=>{
+      const un=(S.usernames[p.id]||'').toLowerCase();
+      return un.includes(query)||p.name.toLowerCase().includes(query);
+    }).slice(0,5);
+    if(matches.length){
+      pop.innerHTML=matches.map(p=>`<div class="mention-item" onclick="applyMention('${el.id}','${esc(S.usernames[p.id]||p.name)}')">${av(p.id,'sm')}<div><b>${esc(p.name)}</b> <span class="mute sm">@${esc(S.usernames[p.id]||'')}</span></div></div>`).join('');
+      pop.classList.add('on');
+      return;
+    }
+  }
+  pop.classList.remove('on');
+}
+function applyMention(targetId,username){
+  const el=$('#'+targetId);if(!el)return;
+  const val=el.value,pos=el.selectionStart;
+  const pre=val.slice(0,pos).replace(/@([a-zA-Z0-9_.]*)$/,'@'+username+' ');
+  el.value=pre+val.slice(pos);
+  const popId=targetId==='edt'?'#edt-mentions':'#txt-mentions';
+  $(popId)?.classList.remove('on');
+  el.focus();
+}
+function insertMentionTag(targetId){
+  const el=$('#'+targetId);if(!el)return;
+  el.value+=` @`;el.focus();onPostInput(el);
+}
 
 async function fetchAll(build,cap=5000){
   let out=[],from=0;
@@ -124,34 +178,48 @@ function show(id){
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x.dataset.s==id));
 }
 
+// ---------- Mobile & iPhone Back Button Navigation ----------
 let backGuardReady=false;
+function pushModalState(id){
+  history.pushState({ilikeModal:id||'modal'},'',location.href);
+}
+
 function setupBackGuard(){
   if(backGuardReady||!S.user||!S.loaded)return;
   history.replaceState({ilikeApp:'home'},'',location.href);
   history.pushState({ilikeApp:'guard'},'',location.href);
   backGuardReady=true;
 }
+
 addEventListener('popstate',()=>{
   if(!backGuardReady||!S.user||!S.loaded)return;
-  if($('#ev-ov')?.classList.contains('on')){
-    closeEventView();
+  
+  if($('#lb')?.classList.contains('on')){closeLb();history.pushState({ilikeApp:'guard'},'',location.href);return}
+  if($('#ticket-mod')?.classList.contains('on')){closeTickets();history.pushState({ilikeApp:'guard'},'',location.href);return}
+  if($('#ev-ov')?.classList.contains('on')){closeEventView();history.pushState({ilikeApp:'guard'},'',location.href);return}
+  if($('#ov')?.classList.contains('on')){
+    if(conv){openChats()}else{closeOv()}
+    history.pushState({ilikeApp:'guard'},'',location.href);return;
+  }
+  const openModals=document.querySelectorAll('.mod.on');
+  if(openModals.length){
+    openModals.forEach(m=>m.classList.remove('on'));
     history.pushState({ilikeApp:'guard'},'',location.href);
     return;
   }
-  if(S.tab==='home'){
-    backGuardReady=false;
-    history.back();
+  if(S.tab!=='home'){
+    closeAll();show('home');loadPosts().then(draw);
+    history.pushState({ilikeApp:'guard'},'',location.href);
     return;
   }
-  closeAll();
-  show('home');
-  loadPosts().then(draw);
-  history.pushState({ilikeApp:'guard'},'',location.href);
+  backGuardReady=false;
+  history.back();
 });
 
-function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
+function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on');pushModalState('confirm')}
 function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
 
+// ---------- Photo Preparation & Upload ----------
 function prep(file,max,square,ratio){
   return new Promise((res,rej)=>{
     const url=URL.createObjectURL(file),im=new Image();
@@ -163,7 +231,7 @@ function prep(file,max,square,ratio){
       else{const k=Math.min(1,max/Math.max(sw,sh));w=Math.round(sw*k);h=Math.round(sh*k)}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,w,h);
-      c.toBlob(b=>b?res(b):rej(new Error('Could not read that photo')),'image/jpeg',.85);
+      c.toBlob(b=>b?res(b):rej(new Error('Could not read that photo')),'image/jpeg',.86);
     };
     im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('Could not read that photo'))};
     im.src=url;
@@ -181,12 +249,13 @@ async function rmFiles(bucket,urls){
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
 
+// Lightbox
 const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,ptrs:new Map()};
 function openLb(u,list,i){
   LB.list=list&&list.length?list:[u];LB.i=Math.max(0,i||0);
-  $('#lb').classList.add('on');lbShow();
+  $('#lb').classList.add('on');pushModalState('lightbox');lbShow();
 }
-function closeLb(){$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[]}
+function closeLb(){$('#lb')?.classList.remove('on');LB.ptrs.clear();LB.list=[]}
 function lbShow(){
   LB.z=1;LB.x=LB.y=LB.dx=LB.dy=0;$('#lbi').src=LB.list[LB.i];lbPaint();
   const n=LB.list.length;
@@ -259,7 +328,7 @@ document.addEventListener('click',e=>{
   const z=e.target.closest('[data-zoom]');if(z&&z.dataset.zoom)openLb(z.dataset.zoom);
 });
 
-// ---------- Auth ----------
+// ---------- Auth Screen ----------
 const authMsg=e=>{const m=(e&&e.message)||'';
   return /invalid login/i.test(m)?'Wrong email or password.'
   :/not confirmed/i.test(m)?'Please confirm your email first. Check your inbox and spam folder.'
@@ -271,7 +340,7 @@ const authMsg=e=>{const m=(e&&e.message)||'';
 function keep(o){for(const k in o){const el=document.getElementById(k);if(el&&o[k])el.value=o[k]}}
 function renderAuth(){
   const su=S.mode=='signup';
-  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your name" autocomplete="name" maxlength="40">':''}<input class="fi" id="ae" type="email" placeholder="Email" autocomplete="email">${su?'<input class="fi" id="ai" placeholder="Invite code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40">':''}<input class="fi" id="ap" type="password" placeholder="${su?'Password (8+ characters)':'Password'}" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err ${S.good?'ok':''}">${esc(S.err)}</div>${S.unconf?'<button class="link" onclick="resendConfirm()">Resend confirmation email</button>':''}<button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create account':'Log in'}</button>${su?'<p class="mute sm legalnote">By creating an account you agree to the <button class="inl" onclick="openLegal(\'terms\')">Terms</button> and <button class="inl" onclick="openLegal(\'privacy\')">Privacy Policy</button>.</p>':'<button class="link" onclick="forgot()">Forgot password?</button>'}<button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button><div class="legalfoot"><button class="link" onclick="openLegal('terms')">Terms</button><button class="link" onclick="openLegal('privacy')">Privacy</button><button class="link" onclick="openLegal('contact')">Contact</button></div>`;
+  $('#af').innerHTML=`${su?'<input class="fi" id="an" placeholder="Your display name" autocomplete="name" maxlength="40">':''}<input class="fi" id="ae" type="email" placeholder="Email address" autocomplete="email">${su?'<input class="fi" id="ai" placeholder="Invite code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40">':''}<input class="fi" id="ap" type="password" placeholder="${su?'Create password (8+ characters)':'Password'}" autocomplete="${su?'new':'current'}-password" onkeydown="if(event.key==='Enter')go()"><div class="err ${S.good?'ok':''}">${esc(S.err)}</div>${S.unconf?'<button class="link" onclick="resendConfirm()">Resend confirmation email</button>':''}<button class="btn" style="width:100%" id="ago" onclick="go()">${su?'Create Account':'Log In'}</button>${su?'<p class="mute sm legalnote">By creating an account you agree to the <button class="inl" onclick="openLegal(\'terms\')">Terms</button> and <button class="inl" onclick="openLegal(\'privacy\')">Privacy Policy</button>.</p>':'<button class="link" onclick="forgot()">Forgot password?</button>'}<button class="link" onclick="swap()">${su?'Have an account? Log in':'New here? Create an account'}</button><div class="legalfoot"><button type="button" class="legal-btn" onclick="openLegal('terms')">Terms</button><span class="legal-dot">·</span><button type="button" class="legal-btn" onclick="openLegal('privacy')">Privacy</button><span class="legal-dot">·</span><button type="button" class="legal-btn" onclick="openLegal('contact')">Contact</button></div>`;
   if(su&&S.invite)keep({ai:S.invite});
 }
 function swap(){S.mode=S.mode=='login'?'signup':'login';S.err='';S.good=false;S.unconf='';renderAuth()}
@@ -318,17 +387,17 @@ async function forgot(){
 }
 async function logout(){try{await pushDrop()}catch(e){}await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
-// ---------- Onboarding ----------
-const obHead=n=>`<div class="obp">Step ${n} of 4</div>`;
+// ---------- Onboarding Flow ----------
+const obHead=n=>`<div class="obp">Step ${n} of 4</div><div style="height:4px;border-radius:4px;background:var(--line);margin:6px 0 14px"><div style="width:${n*25}%;height:100%;border-radius:4px;background:var(--grad);transition:width .3s"></div></div>`;
 function renderOb(){
   const st=S.obStep||0,el=$('#ob');if(!el)return;
   if(st==0)obInterests(el);else if(st==1)obProfileUi(el);else if(st==2)obPeopleUi(el);else obPostUi(el);
 }
 function obInterests(el){
   const L=S.ints.filter(i=>i.kind!='artist'),cats=[...new Set(L.map(i=>i.category))];
-  el.innerHTML=`${obHead(1)}<h2 style="margin:6px 0 6px">What do you like?</h2><p class="mute">Pick at least 3. Your feed is built from these.</p>${
-    cats.map(c=>`<div class="cath" style="color:${col(L.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${L.filter(i=>i.category===c).map(i=>`<button class="fc" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found. Open the app once as admin to load them.</div>'
-  }<div class="err" id="oe"></div><button class="btn" id="obs" style="width:100%" onclick="saveOb(this)" disabled>Continue (0)</button>`;
+  el.innerHTML=`${obHead(1)}<h2 style="margin:6px 0 6px">What do you like?</h2><p class="mute sm">Pick at least 3 to personalize your community feed.</p>${
+    cats.map(c=>`<div class="cath" style="color:${col(L.find(i=>i.category===c).id)}">${esc(c)}</div><div class="pkl">${L.filter(i=>i.category===c).map(i=>`<button class="fc ${S.pick.has(i.id)?'on':''}" style="--c:${col(i.id)}" onclick="obPick(this,${i.id})">${em(i.id)} ${esc(i.name)}</button>`).join('')}</div>`).join('')||'<div class="empty">No interests found.</div>'
+  }<div class="err" id="oe"></div><button class="btn" id="obs" style="width:100%" onclick="saveOb(this)" ${S.pick.size<3?'disabled':''}>Continue (${S.pick.size})</button>`;
 }
 function obPick(b,id){S.pick.has(id)?S.pick.delete(id):S.pick.add(id);b.classList.toggle('on');const s=$('#obs');s.disabled=S.pick.size<3;s.textContent='Continue ('+S.pick.size+')'}
 async function saveOb(b){
@@ -351,7 +420,7 @@ async function obGo(n){
 }
 function obProfileUi(el){
   const has=!!S.avs[S.user.id];
-  el.innerHTML=`${obHead(2)}<h2 style="margin:6px 0 6px">Put a face to your name</h2><p class="mute">A photo and a line about you help people say hi. You can skip this and do it later.</p><div class="obav"><span class="av big" id="obav" style="--c:var(--brand)"></span><button class="btn off sbtn" id="obab" onclick="$('#obf').click()">${has?'Change photo':'Add photo'}</button><input type="file" id="obf" accept="image/*" hidden onchange="obAvatar(this)"></div><label class="lab" for="obb">Bio</label><textarea id="obb" class="bioin" maxlength="160" placeholder="Tell people what you are into">${esc(S.prof.bio||'')}</textarea><label class="lab" for="obc">City</label><input class="fi" id="obc" maxlength="40" autocomplete="address-level2" value="${esc(S.prof.city||'')}"><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obProf(this)">Continue</button><button class="link" onclick="obGo(2)">Skip for now</button>`;
+  el.innerHTML=`${obHead(2)}<h2 style="margin:6px 0 6px">Put a face to your name</h2><p class="mute sm">A photo and a line about you help people say hi. You can skip this and do it later.</p><div class="obav"><span class="av big" id="obav" style="--c:var(--brand)"></span><button class="btn off sbtn" id="obab" onclick="$('#obf').click()">${has?'Change photo':'Add photo'}</button><input type="file" id="obf" accept="image/*" hidden onchange="obAvatar(this)"></div><label class="lab" for="obb">Bio</label><textarea id="obb" class="bioin" maxlength="160" placeholder="Tell people what you are into">${esc(S.prof.bio||'')}</textarea><label class="lab" for="obc">City</label><input class="fi" id="obc" maxlength="40" autocomplete="address-level2" value="${esc(S.prof.city||'')}"><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obProf(this)">Continue</button><button class="link" onclick="obGo(2)">Skip for now</button>`;
   setMyAv($('#obav'));
 }
 function obAvatar(inp){
@@ -382,7 +451,7 @@ function obPeopleUi(el){
   const rows=obCands().map(({p,sh,team})=>{
     const fo=S.fol.has(p.id);
     return `<div class="card row">${av(p.id)}<div class="grow"><b>${esc(p.name)}${rb(p.id)}</b><div class="mute sm">${sh.length?sh.slice(0,4).map(em).join(' ')+' '+sh.length+' in common':team?'The iLike team':'New to you'}</div></div><button class="btn sbtn ${fo?'off':''}" style="margin:0" onclick="obTog('${p.id}',this)">${fo?'Following ✓':'Follow'}</button></div>`}).join('');
-  el.innerHTML=`${obHead(3)}<h2 style="margin:6px 0 6px">Follow a few people</h2><p class="mute">Posts from people you follow show up in your Following tab. Pick 3 to start.</p>${rows||'<div class="empty">You are one of the first here.<br>People will appear in Discover as they join.</div>'}<div class="err" id="oe"></div><button class="btn" style="width:100%;margin-top:8px" id="obn" onclick="obGo(3)">${obFolLabel()}</button>`;
+  el.innerHTML=`${obHead(3)}<h2 style="margin:6px 0 6px">Follow a few people</h2><p class="mute sm">Posts from people you follow show up in your Following tab.</p>${rows||'<div class="empty">You are one of the first here.<br>People will appear in Discover as they join.</div>'}<div class="err" id="oe"></div><button class="btn" style="width:100%;margin-top:8px" id="obn" onclick="obGo(3)">${obFolLabel()}</button>`;
 }
 async function obTog(id,btn){
   if(btn.dataset.busy)return;btn.dataset.busy=1;
@@ -395,7 +464,7 @@ async function obTog(id,btn){
 function obPostUi(el){
   const L=[...S.mine].filter(n=>!isArt(n)),first=(S.name||'').split(' ')[0]||'there';
   const hi=`Hi, I'm ${first}! I'm into ${L.slice(0,2).map(iname).join(' and ')}. Who else?`;
-  el.innerHTML=`${obHead(4)}<h2 style="margin:6px 0 6px">Say hi</h2><p class="mute">Write your first post so people know you are here. You can edit the words.</p><textarea id="obt" maxlength="1000" aria-label="First post">${esc(hi)}</textarea><select id="obi" aria-label="Interest">${L.map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('')}</select><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obSendPost(this)">Post and finish</button><button class="link" onclick="finishOb()">Skip and finish</button>`;
+  el.innerHTML=`${obHead(4)}<h2 style="margin:6px 0 6px">Say hi</h2><p class="mute sm">Write your first post so people know you are here. You can edit the words.</p><textarea id="obt" maxlength="1000" aria-label="First post">${esc(hi)}</textarea><select id="obi" aria-label="Interest">${L.map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('')}</select><div class="err" id="oe"></div><button class="btn" style="width:100%" id="obn" onclick="obSendPost(this)">Post and finish</button><button class="link" onclick="finishOb()">Skip and finish</button>`;
 }
 async function obSendPost(b){
   const v=$('#obt').value.trim(),a=+$('#obi').value;
@@ -437,7 +506,7 @@ async function load(){
   if(!S.user){
     backGuardReady=false;
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
-    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.usernames={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
     S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
@@ -452,6 +521,7 @@ async function load(){
   S.prof=pr.data||{username:'',display_name:S.name,bio:null,city:null,theme_prefs:null,avatar_url:null,banner_url:null};
   if(S.prof.banned){S.err='This account has been suspended.';S.good=false;S.mode='login';await sb.auth.signOut();return}
   S.name=S.prof.display_name||S.name;
+  S.usernames[S.user.id]=S.prof.username;
   S.blocked=new Set((bk.data||[]).map(x=>x.blocked_id));
   S.role=S.prof.role||'user';S.roles[S.user.id]=S.role;
   const eventAuth=await sb.from('event_authorizations').select('user_id').eq('user_id',S.user.id).maybeSingle();
@@ -502,8 +572,13 @@ async function syncInterestCatalog(){
 
 async function getProfiles(ids){
   ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
-  const a=await sb.from('profiles').select('id,display_name,avatar_url,role').in('id',ids);
-  (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;S.roles[x.id]=x.role||'user';if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
+  const a=await sb.from('profiles').select('id,display_name,username,avatar_url,role').in('id',ids);
+  (a.data||[]).forEach(x=>{
+    S.names[x.id]=x.display_name;
+    if(x.username)S.usernames[x.id]=x.username;
+    S.roles[x.id]=x.role||'user';
+    if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id];
+  });
 }
 
 const COLS='id,body,created_at,edited_at,author_id';
@@ -537,11 +612,12 @@ async function loadPosts(){
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 async function loadPeople(){
-  const{data}=await fetchAll(()=>sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url,role)').order('user_id').order('interest_id'));
+  const{data}=await fetchAll(()=>sb.from('user_interests').select('user_id,interest_id,profiles(display_name,username,avatar_url,role)').order('user_id').order('interest_id'));
   const m={},c={};
   (data||[]).forEach(r=>{
     c[r.interest_id]=(c[r.interest_id]||0)+1;if(r.user_id===S.user.id)return;
     (m[r.user_id]||(m[r.user_id]={id:r.user_id,name:r.profiles?.display_name||'Member',ids:[]})).ids.push(r.interest_id);
+    if(r.profiles?.username)S.usernames[r.user_id]=r.profiles.username;
     if(r.profiles?.avatar_url)S.avs[r.user_id]=r.profiles.avatar_url;
     S.roles[r.user_id]=r.profiles?.role||'user';
   });
@@ -560,14 +636,15 @@ addEventListener('hashchange',()=>{
   const ev=location.hash.match(/^#event=([0-9a-f-]{36})/i);if(ev&&S.loaded)openEvent(ev[1]);
 });
 
-// ---------- Home Feed ----------
+// ---------- Home Feed & Posts (Up to 6 Photos) ----------
 const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
-  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  const imgsCount=p.imgs?p.imgs.length:0;
+  const imgs=imgsCount?`<div class="pimgs n${Math.min(imgsCount,6)}">${p.imgs.slice(0,6).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Post photo">`).join('')}</div>`:'';
+  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${formatBody(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
@@ -588,7 +665,7 @@ function openSames(id){
   $('#slt').textContent=l.length+(l.length==1?' person liked this':' people liked this');
   S.sl={ids:l,n:SL_PAGE,empty:'',row:u=>`<div class="prow"><span class="lk" onclick="openProfile('${u}')">${av(u)}</span><b class="grow lk" onclick="openProfile('${u}')">${esc(u==S.user.id?'You':nm(u))}</b>${u==S.user.id?'':`<button class="btn sbtn" onclick="sayHi('${u}')"><span class="wave-btn">👋</span> Say hi</button>`}</div>`};
   slDraw();
-  $('#sl').classList.add('on');
+  $('#sl').classList.add('on');pushModalState('sames');
 }
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
 function home(){
@@ -599,7 +676,7 @@ function home(){
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 
-// ---------- Compose Post ----------
+// ---------- Compose Post (Up to 6 Photos) ----------
 function tapFab(){
   const pa=$('#sel').value,pb=$('#sel2').value;
   const o=[...S.mine].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
@@ -607,7 +684,7 @@ function tapFab(){
   $('#sel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
   setSel($('#sel'),pa);setSel($('#sel2'),pb);restoreDraft();
   $('#shr').textContent=S.pfail?'Retry':'Share';
-  $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');
+  $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');pushModalState('compose');
 }
 function closePost(){
   if($('#mod').classList.contains('on')&&$('#txt').value.trim())toast('Draft saved');
@@ -618,10 +695,11 @@ function renderPhotos(){
     const s=ph.st||'ready';
     return `<div class="ph ${s}"><img src="${ph.prev}" alt="Photo ${i+1}">${s=='up'?'<span class="phs"><i class="spn"></i></span>':s=='ok'?'<span class="phs ok">✓</span>':s=='fail'?'<button class="phs bad" onclick="publish()">↻ Retry</button>':''}${S.posting?'':`<button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button>`}</div>`;
   }).join('');
-  $('#padd').hidden=S.photos.length>=4||!!S.posting;
+  $('#padd').hidden=S.photos.length>=MAX_PHOTOS||!!S.posting;
+  $('#padd').textContent=`📷 Add photos (${S.photos.length}/${MAX_PHOTOS})`;
 }
 async function pickPhotos(inp){
-  const files=[...inp.files].slice(0,4-S.photos.length);inp.value='';
+  const files=[...inp.files].slice(0,MAX_PHOTOS-S.photos.length);inp.value='';
   if(!files.length)return;
   toast('Preparing photos...');
   for(const f of files){
@@ -668,34 +746,56 @@ async function publish(){
   toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
 }
 
-// ---------- Post Menu / Edit / Delete ----------
+// ---------- Enhanced Edit Post Panel ----------
 function openPm(id){
   S.pmId=id;const p=findPost(id);
   $('#pmEdit').style.display=p&&p.author_id==S.user.id?'':'none';
-  $('#pm').classList.add('on');
+  $('#pm').classList.add('on');pushModalState('postMenu');
 }
-function closePm(){$('#pm').classList.remove('on')}
+function closePm(){$('#pm')?.classList.remove('on')}
 function renderEdPh(){
   const p=findPost(S.edId);
-  $('#edph').innerHTML=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(u)}" alt="Photo"><button onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
+  const existingImgs=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(u)}" alt="Photo"><button type="button" onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
+  const newImgs=S.edPhotos.map((ph,i)=>`<div class="ph"><img src="${ph.prev}" alt="New Photo"><button type="button" onclick="rmEdNewPhoto(${i})">✕</button></div>`).join('');
+  $('#edph').innerHTML=existingImgs+newImgs;
+  const currentTotal=((p&&p.imgs)||[]).filter(u=>!S.edRm.has(u)).length+S.edPhotos.length;
+  $('#ed-add-photo').hidden=currentTotal>=MAX_PHOTOS;
+  $('#ed-add-photo').textContent=`📷 Add photos (${currentTotal}/${MAX_PHOTOS})`;
 }
 function toggleRm(i){const u=findPost(S.edId).imgs[i];S.edRm.has(u)?S.edRm.delete(u):S.edRm.add(u);renderEdPh()}
+function rmEdNewPhoto(i){
+  URL.revokeObjectURL(S.edPhotos[i].prev);
+  S.edPhotos.splice(i,1);renderEdPh();
+}
+async function pickEditPhotos(inp){
+  const p=findPost(S.edId);
+  const currentTotal=((p&&p.imgs)||[]).filter(u=>!S.edRm.has(u)).length+S.edPhotos.length;
+  const files=[...inp.files].slice(0,MAX_PHOTOS-currentTotal);inp.value='';
+  if(!files.length)return;
+  toast('Adding photos...');
+  for(const f of files){
+    if(f.type&&!/^image\//.test(f.type)){toast('File is not an image');continue}
+    try{const blob=await prep(f,1600,false);S.edPhotos.push({blob,prev:URL.createObjectURL(blob)})}
+    catch(e){toast(e.message)}
+  }
+  renderEdPh();
+}
 function openEd(id){
   const p=findPost(id);if(!p)return;
-  closePm();S.edId=id;S.edRm=new Set();
+  closePm();S.edId=id;S.edRm=new Set();S.edPhotos=[];
   const o=[...new Set([...S.mine,...p.tags])].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
   $('#edsel').innerHTML=o;
   $('#edsel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
   $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';
-  $('#edt').value=p.body;renderEdPh();$('#ed').classList.add('on');
+  $('#edt').value=p.body;renderEdPh();$('#ed').classList.add('on');pushModalState('editPost');
 }
 async function saveEd(){
   const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=+$('#edsel2').value;
   if(!v){$('#edt').focus();return}
   if(!a){toast('Pick an interest');return}
-  const btn=$('#eds');btn.disabled=true;
-  const u=await sb.from('posts').update({body:v}).eq('id',id).eq('author_id',S.user.id);
-  if(u.error){btn.disabled=false;toast(u.error.message);return}
+  const btn=$('#eds');btn.disabled=true;btn.textContent='Saving...';
+  const u=await sb.from('posts').update({body:v,edited_at:new Date().toISOString()}).eq('id',id).eq('author_id',S.user.id);
+  if(u.error){btn.disabled=false;btn.textContent='Save changes';toast(u.error.message);return}
   const want=[...new Set([a,b].filter(Boolean))];
   const unchanged=want.length===p.tags.length&&want.every(x=>p.tags.includes(x));
   if(!unchanged){
@@ -707,8 +807,16 @@ async function saveEd(){
     const d=await sb.from('post_images').delete().eq('post_id',id).in('url',urls);
     if(!d.error)rmFiles('post-images',urls);
   }
-  btn.disabled=false;$('#ed').classList.remove('on');
-  await loadPosts();draw();toast('Saved');
+  if(S.edPhotos.length){
+    for(let i=0;i<S.edPhotos.length;i++){
+      try{
+        const url=await upload('post-images',S.edPhotos[i].blob);
+        await sb.from('post_images').insert({post_id:id,url,position:99+i});
+      }catch(e){}
+    }
+  }
+  btn.disabled=false;btn.textContent='Save changes';$('#ed').classList.remove('on');
+  await loadPosts();draw();toast('Post updated!');
 }
 function delPost(id){
   closePm();
@@ -724,11 +832,11 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
+const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${formatBody(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
-  $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join('')+(S.repMore?'<button class="btn off" style="width:100%;margin:8px 0" onclick="moreReplies()">Show more replies</button>':''):'<div class="empty">No replies yet.<br>Say something.</div>';
+  $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join('')+(S.repMore?'<button class="btn off" style="width:100%;margin:8px 0" onclick="moreReplies()">Show more replies</button>':''):'<div class="empty">No replies yet.<br>Say something nice.</div>';
 }
 const REP_PAGE=30;
 async function loadReplies(id,more,n){
@@ -750,8 +858,8 @@ async function loadReplies(id,more,n){
   renderThread();
 }
 function moreReplies(){if(S.th)loadReplies(S.th,true)}
-function openThread(id){S.th=String(id);S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');loadReplies(S.th)}
-function closeThread(){S.th=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
+function openThread(id){S.th=String(id);S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');pushModalState('thread');loadReplies(S.th)}
+function closeThread(){S.th=null;$('#rrt').hidden=true;$('#th')?.classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
   if(muted())return;
@@ -783,7 +891,7 @@ function mix(q){
 }
 function findTab(){
   const q=$('#q').value.toLowerCase();
-  $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}${rb(o.p.id)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
+  $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+(S.usernames[o.p.id]||'')+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}${rb(o.p.id)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
   $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
   $('#fx').innerHTML=S.skel&&!S.posts.length?'<div class="gridx">'+'<div class="gt sk-b"></div>'.repeat(6)+'</div>':m.length?'<div class="gridx">'+m.map(p=>{
@@ -793,15 +901,15 @@ function findTab(){
 function ftab(i){
   document.querySelectorAll('#ft button').forEach((b,k)=>b.classList.toggle('on',k==i));
   ['fp','fg','fx'].forEach((id,k)=>$('#'+id).style.display=k==i?'block':'none');
-  $('#q').placeholder=['Search people','Search circles','Search posts'][i];$('#q').value='';findTab();
+  $('#q').placeholder=['Search people...','Search circles...','Search posts...'][i];$('#q').value='';findTab();
 }
 function openCircle(id){ftab(2);$('#q').value=iname(id).toLowerCase();findTab()}
 let pvFn=null;
-function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
-function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
+function showPv(fn){pvFn=fn;$('#pv').classList.add('on');pushModalState('preview');refreshPv()}
+function refreshPv(){if(pvFn&&$('#pv')?.classList.contains('on'))$('#pvb').innerHTML=pvFn()}
 function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 
-// ---------- You + Profile ----------
+// ---------- You / Profile Screen ----------
 function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
   setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mav').dataset.zoom=S.avs[S.user.id]||'';$('#mbn').dataset.zoom=pr.banner_url||'';$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
@@ -934,8 +1042,8 @@ function drawPk(){
   $('#pkl').innerHTML=h;
 }
 function openPk(k){
-  S.pkm=k=='art'?'art':'int';$('#pks').value='';drawPk();$('#pk').classList.add('on');$('#pks').focus();
-  loadInts().then(()=>{if($('#pk').classList.contains('on'))drawPk()});
+  S.pkm=k=='art'?'art':'int';$('#pks').value='';drawPk();$('#pk').classList.add('on');pushModalState('picker');$('#pks').focus();
+  loadInts().then(()=>{if($('#pk')?.classList.contains('on'))drawPk()});
 }
 function ask(n){
   const on=S.mine.has(n);
@@ -947,7 +1055,7 @@ async function toggleInt(n){
   if(r.error){toast(r.error.message);return}
   on?S.mine.delete(n):S.mine.add(n);
   S.cnt[n]=Math.max(0,(S.cnt[n]||0)+(on?-1:1));
-  draw();if($('#pk').classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
+  draw();if($('#pk')?.classList.contains('on'))drawPk();toast((on?'Removed ':'Added ')+iname(n));
 }
 async function newArtist(){
   if(!isAdmin()){toast('Only admins can add new artists');return}
@@ -989,19 +1097,19 @@ async function newInterest(){
 
 function draw(){
   home();findTab();eventsTab();meTab();refreshPv();
-  if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();
-  if(S.pf&&$('#pf').classList.contains('on'))drawPf();
-  if(S.evActiveId&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if(S.th&&findPost(S.th)&&$('#th')?.classList.contains('on'))renderThread();
+  if(S.pf&&$('#pf')?.classList.contains('on'))drawPf();
+  if(S.evActiveId&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
 }
 
-// ---------- Edit Profile ----------
+// ---------- Edit Profile Screen ----------
 function openPe(){
   const p=S.prof||{};
   $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
   $('#pbc').textContent=($('#peb').value.length)+'/160';$('#pee').textContent='';
   setMyAv($('#peav'));$('#perm').hidden=!S.avs[S.user.id];
   setBanner($('#pebn'),p.banner_url);$('#pebrm').hidden=!p.banner_url;
-  $('#pe').classList.add('on');
+  $('#pe').classList.add('on');pushModalState('editProfile');
 }
 async function saveProfile(){
   const display_name=$('#pen').value.trim(),username=$('#peu').value.trim().toLowerCase().replace(/^@/,''),bio=$('#peb').value.trim(),city=$('#pec').value.trim(),e=$('#pee');
@@ -1013,7 +1121,7 @@ async function saveProfile(){
   const{error}=await sb.from('profiles').update(vals).eq('id',S.user.id);
   b.disabled=false;
   if(error){e.textContent=error.code=='23505'?'That username is taken.':error.message;return}
-  Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;
+  Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;S.usernames[S.user.id]=username;
   $('#pe').classList.remove('on');draw();toast('Profile saved');
 }
 async function setAvatarBlob(blob){
@@ -1071,9 +1179,9 @@ function cropFile(file,kind,cb){
   im.onload=()=>{
     Object.assign(CR,{k:kind,im,url,cb,z:1,d0:0});CR.ptrs.clear();
     $('#crt').textContent=kind=='avatar'?'Adjust your photo':'Adjust your banner';
-    $('#crh').textContent=kind=='avatar'?'Drag to move. Pinch or use the slider to zoom. Only the circle will show on your profile.':'Drag to move. Pinch or use the slider to zoom. Your profile photo covers the bottom left corner.';
+    $('#crh').textContent=kind=='avatar'?'Drag to move. Pinch or use the slider to zoom.':'Drag to move. Pinch or use the slider to zoom.';
     $('#crst').className='crst '+kind;$('#cri').src=url;$('#crz').value=1;
-    $('#cr').classList.add('on');
+    $('#cr').classList.add('on');pushModalState('crop');
     requestAnimationFrame(()=>{
       const st=$('#crst');CR.sw=st.clientWidth;CR.sh=st.clientHeight;
       CR.min=Math.max(CR.sw/im.naturalWidth,CR.sh/im.naturalHeight);
@@ -1097,7 +1205,7 @@ function crSetZ(z,fx,fy){
   CR.z=z;CR.x=fx-px*ns;CR.y=fy-py*ns;
   $('#crz').value=z;crPaint();
 }
-function crClose(){$('#cr').classList.remove('on');if(CR.url)URL.revokeObjectURL(CR.url);CR.url=null;CR.im=null;CR.cb=null;CR.ptrs.clear()}
+function crClose(){$('#cr')?.classList.remove('on');if(CR.url)URL.revokeObjectURL(CR.url);CR.url=null;CR.im=null;CR.cb=null;CR.ptrs.clear()}
 function crCancel(){crClose()}
 function crSave(){
   const im=CR.im,k=CR.k,cb=CR.cb;if(!im)return;
@@ -1126,15 +1234,15 @@ function crSave(){
   st.addEventListener('wheel',e=>{e.preventDefault();const r=rect();crSetZ(CR.z*(e.deltaY<0?1.08:.93),e.clientX-r.left,e.clientY-r.top)},{passive:false});
 })();
 
-// ---------- Settings ----------
+// ---------- Settings & Curated Themes ----------
 const ACCENTS=[
-  {n:'Purple',h:262,h2:292,h3:351},
-  {n:'Pink',h:330,h2:315,h3:350},
-  {n:'Red',h:0,h2:348,h3:22},
-  {n:'Orange',h:25,h2:38,h3:8},
-  {n:'Green',h:142,h2:162,h3:108},
-  {n:'Teal',h:174,h2:190,h3:152},
-  {n:'Blue',h:217,h2:232,h3:195},
+  {n:'Violet',h:265,h2:295,h3:350},
+  {n:'Rose',h:335,h2:315,h3:12},
+  {n:'Crimson',h:355,h2:340,h3:25},
+  {n:'Sunset',h:24,h2:40,h3:350},
+  {n:'Emerald',h:150,h2:168,h3:125},
+  {n:'Cyan',h:185,h2:205,h3:160},
+  {n:'Ocean',h:218,h2:238,h3:195},
   {n:'Mono',mono:true}
 ];
 const FONTS=[
@@ -1182,7 +1290,7 @@ function applyPrefs(p){
   if(p.font!=null)fnt(+p.font,1);
 }
 
-// ---------- Push Notifications ----------
+// Push notifications
 const pushOK=()=>!!VAPID_PUBLIC&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
 const NP_KEYS=[['messages','Messages'],['same','Likes'],['replies','Replies'],['follows','New followers']];
 const b64u=s=>{const p='='.repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
@@ -1245,7 +1353,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('messag
 });
 function openSet(){
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
-  paintCustomize();refreshInstall();paintPush();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
+  paintCustomize();refreshInstall();paintPush();paintRepBadge();if(isMod())loadRepCount();
+  $('#set').classList.add('on');pushModalState('settings');
 }
 async function changePw(){
   const v=$('#npw').value,e=$('#npe');e.textContent='';
@@ -1268,7 +1377,7 @@ $('#thm').innerHTML=THEMES.map(t=>`<button class="fc th" onclick="setTheme('${t[
 $('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
 $('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
 
-// ---------- Realtime Subscriptions ----------
+// Realtime subscriptions
 function subscribe(){
   if(S.ch)return;
   const id=S.user.id;
@@ -1287,7 +1396,7 @@ function updateBadges(){
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch();syncStatus()}});
 
-// ---------- Direct Messages ----------
+// Direct Messages
 let conv=false,ctab=0;
 async function loadMsgs(){
   const r=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(1000);
@@ -1334,7 +1443,7 @@ function leaveCircle(){
 }
 function openChats(){
   leaveRoom();conv=false;S.dm=null;setBar();
-  $('#ov').classList.add('on');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
+  $('#ov').classList.add('on');pushModalState('chats');$('#ct').textContent='Chats';$('#cv').style.display='none';$('#cl').style.display='block';
   const me=S.user.id;
   const tabs=`<div class="tabs"><button class="${ctab?'':'on'}" onclick="ctab=0;openChats()">Friends</button><button class="${ctab?'on':''}" onclick="ctab=1;openChats()">Circles</button></div>`;
   let body;
@@ -1361,7 +1470,7 @@ function drawDm(snap){
   let seen=null;
   for(let i=l.length-1;i>=0;i--){if(l[i].sender_id==me){if(l[i].read_at)seen=l[i].id;break}}
   el.innerHTML=l.length
-    ?l.map(m=>{const mine=m.sender_id==me;return `<div class="b ${mine?'me':''}">${esc(m.body)}<small class="t ${mine?'f':''}"><span>${tm(m.created_at)}${m.edited_at?' · edited':''}${m.id===seen?' · Seen':''}</span>${mine?moreBtn('dm',m.id):''}</small></div>`}).join('')
+    ?l.map(m=>{const mine=m.sender_id==me;return `<div class="b ${mine?'me':''}">${formatBody(m.body)}<small class="t ${mine?'f':''}"><span>${tm(m.created_at)}${m.edited_at?' · edited':''}${m.id===seen?' · Seen':''}</span>${mine?moreBtn('dm',m.id):''}</small></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">👋</div><b>Say hi to ${esc(nm(S.dm))}</b></div>`;
   settle(el,near,snap,l.length,!l.length||l[l.length-1].sender_id==me);
 }
@@ -1386,9 +1495,9 @@ const getMsg=s=>s&&(s.k=='dm'?S.msgs:(S.cm||[])).find(x=>String(x.id)===String(s
 function msgMenu(k,id){
   mmSel={k,id};const m=getMsg(mmSel);
   $('#mmEdit').style.display=m&&m.sender_id==S.user.id?'':'none';
-  $('#mm').classList.add('on');
+  $('#mm').classList.add('on');pushModalState('msgMenu');
 }
-function closeMm(){mmSel=null;$('#mm').classList.remove('on')}
+function closeMm(){mmSel=null;$('#mm')?.classList.remove('on')}
 function editMsg(){
   const sel=mmSel,m=getMsg(sel);closeMm();if(!m)return;
   S.edit=sel;$('#mi').value=m.body;$('#ebar').hidden=false;$('#sbtn').textContent='Save';syncSend();$('#mi').focus();
@@ -1434,10 +1543,10 @@ function goDiscover(i){
   loadPeople().then(findTab);
 }
 
-// ---------- Circles (Group Chats) ----------
+// ---------- Circles (Group Chatrooms) ----------
 function openChat(k){
   k=+k;leaveRoom();S.dm=null;S.room=k;S.cm=null;conv=true;setBar();
-  $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
+  $('#ov').classList.add('on');pushModalState('circleChat');$('#cl').style.display='none';$('#cv').style.display='flex';
   $('#ct').textContent=(S.im.get(k)?.emoji||'✦')+' '+iname(k);
   mcount=0;drawCircle(1);
   S.cch=sb.channel('circle-'+k+'-'+Date.now())
@@ -1464,8 +1573,8 @@ function drawCircle(snap){
   el.innerHTML=S.cm.length?S.cm.map(m=>{
     const ed=m.edited_at?' · edited':'';
     return m.sender_id==me
-      ?`<div class="b me">${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
-      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span><button class="mmore" onclick="event.stopPropagation();openAx('cm','${m.id}')" aria-label="Message options">⋯</button></small></div></div>`}).join('')
+      ?`<div class="b me">${formatBody(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
+      :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${formatBody(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span><button class="mmore" onclick="event.stopPropagation();openAx('cm','${m.id}')" aria-label="Message options">⋯</button></small></div></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
   const last=S.cm[S.cm.length-1];
   settle(el,near,snap,S.cm.length,!last||last.sender_id==me);
@@ -1580,7 +1689,7 @@ function markIds(ids){
 }
 function readNg(i){const g=S.ng&&S.ng[i];if(g)markIds(g.items.filter(n=>!n.read_at).map(n=>n.id))}
 function markNotifsRead(){markIds(S.notifs.filter(n=>!n.read_at).map(n=>n.id))}
-function openNotifs(){drawNotifs();$('#nv').classList.add('on')}
+function openNotifs(){drawNotifs();$('#nv').classList.add('on');pushModalState('notifs')}
 async function openNg(i){
   const g=S.ng&&S.ng[i];if(!g)return;
   markIds(g.items.filter(n=>!n.read_at).map(n=>n.id));
@@ -1598,7 +1707,7 @@ async function onNotif(n){
   updateBadges();
 }
 
-// ---------- Interests / Artists ----------
+// ---------- Interests & Artists ----------
 const isArt=n=>S.im.get(n)?.kind=='artist';
 async function ensureInts(ids){
   const miss=[...new Set(ids)].filter(n=>n&&!S.im.has(n));
@@ -1612,7 +1721,7 @@ async function loadInts(){
   S.ints=r.data;S.im=new Map(S.ints.map(x=>[x.id,x]));
 }
 
-// ---------- Follows ----------
+// Follows
 async function loadFollows(){
   const[a,b]=await Promise.all([
     sb.from('follows').select('following_id').eq('follower_id',S.user.id),
@@ -1638,7 +1747,7 @@ function peopleSheet(title,ids){
   $('#slt').textContent=title;
   S.sl={ids,n:SL_PAGE,empty:'<div class="empty">Nobody yet</div>',row:u=>`<div class="prow lk" onclick="openProfile('${u}')">${av(u)}<b class="grow">${esc(u==S.user.id?'You':nm(u))}</b></div>`};
   slDraw();
-  $('#sl').classList.add('on');
+  $('#sl').classList.add('on');pushModalState('peopleSheet');
 }
 async function openFollows(id,k){
   const a=k=='ers'?'follower_id':'following_id',b=k=='ers'?'following_id':'follower_id';
@@ -1658,7 +1767,7 @@ async function openProfile(id){
   id=String(id);
   if(id==S.user.id){closeAll();show('me');draw();checkAch();return}
   closeThread();$('#sl')?.classList.remove('on');
-  S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
+  S.pf={id,prof:null};$('#pf').classList.add('on');pushModalState('profile');drawPf();
   const[p,ui,ua,po,c1,c2]=await Promise.all([
     sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url,role').eq('id',id).maybeSingle(),
     sb.from('user_interests').select('interest_id').eq('user_id',id),
@@ -1669,6 +1778,7 @@ async function openProfile(id){
   if(!S.pf||S.pf.id!==id)return;
   if(!p.data){toast('That profile is gone');closePf();return}
   S.names[id]=p.data.display_name;
+  if(p.data.username)S.usernames[id]=p.data.username;
   if(p.data.avatar_url)S.avs[id]=p.data.avatar_url;else delete S.avs[id];
   const ints=(ui.data||[]).map(x=>x.interest_id);
   await ensureInts(ints);
@@ -1727,7 +1837,7 @@ function drawBadges(){
 function showAch(code,d){
   const a=S.achCat.find(x=>x.code==code);if(!a)return;
   $('#inf').innerHTML=`<div style="font-size:40px">${d?esc(a.emoji):'🔒'}</div><div style="font-size:18px;font-weight:800;margin:6px 0">${esc(a.title)}</div><div class="mute sm">${d?'Earned '+new Date(d).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'}):'Not earned yet'}</div><p style="margin-top:10px">${esc(a.description)}</p>`;
-  $('#info').classList.add('on');
+  $('#info').classList.add('on');pushModalState('ach');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1771,7 +1881,6 @@ function eventsTab(){
   pastDraw();
 }
 
-// Event Card in the list - with spacious padding, date pill, attendees, and tickets badge
 function eventCard(e){
   const me=S.user.id,on=e.goers.includes(me);
   const cancelled=e.cancelled_at?'<span class="evbadge">Cancelled</span>':'';
@@ -1805,14 +1914,14 @@ function openEvent(id){
   S.evActiveId=id;
   S.evTab='about';
   $('#ev-top-title').textContent=e.title;
-  $('#ev-ov').classList.add('on');
+  $('#ev-ov').classList.add('on');pushModalState('eventView');
   renderEventFullscreen();
   loadEventComments(id);
   loadEventChat(id);
 }
 
 function closeEventView(){
-  $('#ev-ov').classList.remove('on');
+  $('#ev-ov')?.classList.remove('on');
   S.evActiveId=null;
 }
 
@@ -1830,7 +1939,6 @@ function renderEventFullscreen(){
   const gone=!!e.cancelled_at;
   const past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
 
-  const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
   const tkt='<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2zM13 5v2M13 11v2M13 17v2"/></svg>';
@@ -1843,7 +1951,7 @@ function renderEventFullscreen(){
   if(S.evTab==='about'){
     tabBody=`<div class="ev-tab-content">
       <div class="ev-section-title">ABOUT THIS EVENT</div>
-      <p class="ev-desc-box">${e.description?esc(e.description):'<span class="mute">No description was added for this event.</span>'}</p>
+      <p class="ev-desc-box">${e.description?formatBody(e.description):'<span class="mute">No description was added for this event.</span>'}</p>
       
       <div class="ev-section-title">WHO'S GOING (${e.goers.length})</div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
@@ -1861,19 +1969,19 @@ function renderEventFullscreen(){
   } else if(S.evTab==='chat'){
     tabBody=`<div class="ev-tab-content ev-chat-container">
       <div class="ev-chat-messages" id="ev-chat-list">
-        ${chats.length?chats.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${esc(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join(''):`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`}
+        ${chats.length?chats.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${formatBody(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join(''):`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`}
       </div>
       <div class="ev-chat-input-bar">
-        <input id="ev-chat-in" maxlength="400" placeholder="Chat with attendees..." aria-label="Event chat input" onkeydown="if(event.key==='Enter')sendEventChat('${id}')">
+        <input id="ev-chat-in" maxlength="400" placeholder="Chat with attendees (use @name to tag)..." aria-label="Event chat input" onkeydown="if(event.key==='Enter')sendEventChat('${id}')">
         <button class="btn" onclick="sendEventChat('${id}')">Send</button>
       </div>
     </div>`;
   } else if(S.evTab==='comments'){
-    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${esc(c.body)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
+    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${formatBody(c.body)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
     tabBody=`<div class="ev-tab-content">
       <div class="event-comment-list">${rows}</div>
       <div class="event-comment-form">
-        <input id="ecin" maxlength="500" placeholder="Write a comment or question..." aria-label="Comment" onkeydown="if(event.key==='Enter')sendEventComment('${id}')">
+        <input id="ecin" maxlength="500" placeholder="Write a comment or question (use @name to tag)..." aria-label="Comment" onkeydown="if(event.key==='Enter')sendEventComment('${id}')">
         <button class="btn" onclick="sendEventComment('${id}')">Post</button>
       </div>
     </div>`;
@@ -1928,7 +2036,6 @@ async function loadEventChat(id){
     }catch(e){S.evChats.set(id,[])}
   }
 }
-
 async function sendEventChat(id){
   const inEl=$('#ev-chat-in'),text=inEl?.value.trim();
   if(!text||!id)return;
@@ -1966,7 +2073,6 @@ async function uploadEventGallery(input,id){
     toast(e.message||"Couldn't upload photo");
   }
 }
-
 function delGalleryPhoto(id,idx){
   confirmBox('Remove this photo from event gallery?','Remove',()=>{
     const list=S.evGallery.get(id)||[];
@@ -1986,14 +2092,12 @@ function openTickets(id){
   $('#ticket-ev-title').textContent=e.title;
   $('#ticket-ev-sub').textContent=evd(e.starts_at)+' · '+e.place;
   $('#ticket-err').textContent='';
-  $('#ticket-mod').classList.add('on');
+  $('#ticket-mod').classList.add('on');pushModalState('tickets');
   renderTicketTiers();
 }
-
 function closeTickets(){
   $('#ticket-mod')?.classList.remove('on');
 }
-
 function renderTicketTiers(){
   const tiers=[
     {id:'ga',name:'General Admission',desc:'Full event access and open seating',price:S.ticketPrices.ga},
@@ -2027,20 +2131,17 @@ function renderTicketTiers(){
   $('#t-total').textContent='$'+total.toFixed(2);
   $('#ticket-confirm-btn').disabled=totalQty<=0;
 }
-
 function adjustTicketQty(tier,delta){
   const cur=S.ticketQuantities[tier]||0;
   S.ticketQuantities[tier]=Math.max(0,Math.min(10,cur+delta));
   renderTicketTiers();
 }
-
 async function confirmTickets(){
   const id=S.ticketEvId;if(!id)return;
   const e=S.evm.get(id);
   const totalQty=(S.ticketQuantities.ga||0)+(S.ticketQuantities.vip||0)+(S.ticketQuantities.early||0);
   if(totalQty<=0)return;
   closeTickets();
-  // Automatically RSVP the user if not already in
   if(e&&!e.goers.includes(S.user.id)){
     e.goers.push(S.user.id);
     await sb.from('event_goers').insert({event_id:id,user_id:S.user.id});
@@ -2059,7 +2160,7 @@ async function loadEventComments(id){
   if(r.error){S.eventComments.set(id,[]);toast(eventCommentsError(r.error));return}
   await getProfiles((r.data||[]).map(c=>c.user_id));
   S.eventComments.set(id,r.data||[]);
-  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if(S.evActiveId===id&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
 }
 
 async function sendEventComment(id){
@@ -2071,7 +2172,7 @@ async function sendEventComment(id){
   input.disabled=false;
   if(r.error){toast(eventCommentsError(r.error));input.focus();return}
   const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);
-  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if(S.evActiveId===id&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
 }
 
 function delEventComment(eid,cid){
@@ -2080,7 +2181,7 @@ function delEventComment(eid,cid){
     if(r.error){toast(errMsg(r.error));return}
     if(!r.data?.length){toast("Couldn't delete that comment");return}
     S.eventComments.set(eid,(S.eventComments.get(eid)||[]).filter(c=>c.id!==cid));
-    if(S.evActiveId===eid&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+    if(S.evActiveId===eid&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
     toast('Comment deleted');
   });
 }
@@ -2100,7 +2201,7 @@ async function imin(id,btn){
   const r=on?await sb.from('event_goers').insert({event_id:id,user_id:u}):await sb.from('event_goers').delete().match({event_id:id,user_id:u});
   if(r.error){set(!on);toast("Couldn't save that");return}
   if(on)checkAch();
-  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if(S.evActiveId===id&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
 }
 
 function drawEvEm(){
@@ -2118,7 +2219,7 @@ function openEv(id){
   $('#evWhen').value=toLocalInput(e?e.starts_at:d);
   $('#evPlace').value=e?e.place:'';$('#evVenue').value=e?.venue||'';$('#evDesc').value=e?.description||'';
   $('#evErr').textContent='';$('#evSave').disabled=false;
-  $('#ev').classList.add('on');
+  $('#ev').classList.add('on');pushModalState('createEvent');
 }
 
 async function saveEv(){
@@ -2194,7 +2295,7 @@ function isDark(){
 function updateThemeIcon(){updateThemeColor()}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
-// ---------- Skeletons ----------
+// Skeletons
 const skL=w=>`<i class="sk-l" style="width:${w}%"></i>`;
 const skPost=()=>`<div class="card sk" aria-hidden="true"><div class="who"><span class="av sk-b"></span><div class="grow">${skL(40)}${skL(22)}</div></div>${skL(94)}${skL(68)}<div class="sk-pills"><i class="sk-b"></i><i class="sk-b"></i></div></div>`;
 const skPerson=()=>`<div class="card row sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(45)}${skL(30)}</div><i class="sk-b sk-btn"></i></div>`;
@@ -2202,7 +2303,7 @@ const skEvent=()=>`<div class="card sk" aria-hidden="true"><div class="row"><i c
 const skRep=()=>`<div class="rep sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(30)}${skL(80)}</div></div>`;
 const skProf=()=>`<div class="pfh sk" aria-hidden="true"><span class="av big sk-b"></span>${skL(40)}${skL(25)}${skL(80)}</div>`;
 
-// ---------- Drafts ----------
+// Drafts
 const dKey=()=>'il-draft-'+(S.user?.id||'');
 const rdKey=()=>'il-rdraft-'+(S.user?.id||'');
 function setSel(el,v){if(v&&[...el.options].some(o=>o.value==v))el.value=v}
@@ -2246,7 +2347,7 @@ async function refreshAll(){
   draw();
 }
 
-// ---------- Pull to Refresh ----------
+// Pull to refresh
 const PT={y:0,d:0,on:false,busy:false,box:null};
 const ptrEl=document.createElement('div');
 ptrEl.id='ptr';ptrEl.setAttribute('aria-hidden','true');
@@ -2293,7 +2394,7 @@ async function ptrEnd(){
 document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
-// ---------- PWA Install ----------
+// PWA Install
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
@@ -2303,7 +2404,7 @@ addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;refreshIn
 addEventListener('appinstalled',()=>{instEv=null;refreshInstall();toast('iLike installed')});
 function refreshInstall(){
   const show=!standalone()&&!!(instEv||isIOS);
-  $('#instl').hidden=!show;$('#instb').hidden=!show;
+  const sec=$('#inst-section');if(sec)sec.hidden=!show;
 }
 async function installApp(){
   if(instEv){
@@ -2312,7 +2413,7 @@ async function installApp(){
     refreshInstall();return;
   }
   $('#inf').innerHTML='<div style="font-size:40px">📲</div><div style="font-size:18px;font-weight:800;margin:6px 0">Add iLike to your home screen</div><p style="margin-top:10px">Tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>.</p>';
-  $('#info').classList.add('on');
+  $('#info').classList.add('on');pushModalState('installInfo');
 }
 addEventListener('offline',()=>toast("You're offline"));
 addEventListener('online',()=>{toast('Back online');if(S.user&&S.loaded)refreshAll().catch(()=>{})});
@@ -2324,7 +2425,7 @@ function updateThemeColor(){
   if(m&&c)m.setAttribute('content',c);
 }
 
-// ---------- Safety, Reporting, Moderation ----------
+// Safety, Moderation, Admin
 const bl=id=>S.blocked.has(id);
 const errMsg=e=>(e&&(e.code=='42501'||/row-level security/i.test(e.message||'')))?"You can't do that right now. You may be muted.":(e&&e.message)||'Something went wrong';
 const mutedNow=u=>!!(u&&u.muted_until&&new Date(u.muted_until)>new Date());
@@ -2366,14 +2467,14 @@ function blockUser(id){
     toast('Blocked '+nm(id));
   });
 }
-const APP_VER='7c',FBK=[['bug','🐞 Bug'],['idea','💡 Idea'],['other','Other']];
+const APP_VER='8a',FBK=[['bug','🐞 Bug'],['idea','💡 Idea'],['other','Other']];
 function paintFbk(){$('#fbk').innerHTML=FBK.map(k=>`<button class="fc ${S.fbk==k[0]?'on':''}" onclick="S.fbk='${k[0]}';paintFbk()">${k[1]}</button>`).join('')}
 function openFb(){
   $('#set').classList.remove('on');S.fbk='idea';paintFbk();
   $('#fbt').value='';$('#fbc').textContent='0/1000';$('#fbe').textContent='';$('#fbs').disabled=false;
-  $('#fb').classList.add('on');
+  $('#fb').classList.add('on');pushModalState('feedback');
 }
-function closeFb(){$('#fb').classList.remove('on')}
+function closeFb(){$('#fb')?.classList.remove('on')}
 async function sendFb(){
   const body=$('#fbt').value.trim(),e=$('#fbe');e.textContent='';
   if(body.length<3){e.textContent='Write a little more first.';return}
@@ -2428,8 +2529,8 @@ async function fbDone(id){
   drawFeedback();
 }
 
-function openDa(){$('#set').classList.remove('on');$('#dat').value='';$('#dae').textContent='';$('#dab').disabled=true;$('#dab').textContent='Delete forever';$('#da').classList.add('on')}
-function closeDa(){if(S.deleting)return;$('#da').classList.remove('on')}
+function openDa(){$('#set').classList.remove('on');$('#dat').value='';$('#dae').textContent='';$('#dab').disabled=true;$('#dab').textContent='Delete forever';$('#da').classList.add('on');pushModalState('deleteAccount')}
+function closeDa(){if(S.deleting)return;$('#da')?.classList.remove('on')}
 function daCheck(){$('#dab').disabled=$('#dat').value.trim().toUpperCase()!=='DELETE'}
 async function doDelete(){
   if(S.deleting||$('#dat').value.trim().toUpperCase()!=='DELETE')return;
@@ -2461,7 +2562,7 @@ async function openBlocked(){
   const ids=[...S.blocked];await getProfiles(ids);
   $('#slt').textContent='Blocked people';
   $('#sll').innerHTML=ids.map(u=>`<div class="prow">${av(u)}<b class="grow">${esc(nm(u))}</b><button class="btn off sbtn" style="margin:0" onclick="unblock('${u}')">Unblock</button></div>`).join('')||'<div class="empty">You have not blocked anyone.</div>';
-  $('#sl').classList.add('on');
+  $('#sl').classList.add('on');pushModalState('blocked');
 }
 async function unblock(id){
   const{error}=await sb.from('blocks').delete().match({blocker_id:S.user.id,blocked_id:id});
@@ -2484,7 +2585,7 @@ function openAx(t,id){
   S.ax={t,id:String(id),uid};
   if(t=='reply'&&uid==S.user.id){
     $('#axb').innerHTML=`<b style="font-size:18px">Your reply</b><button class="btn off wide danger" onclick="closeAx();delReply('${String(id)}')">Delete reply</button><button class="btn off wide" onclick="closeAx()">Cancel</button>`;
-    $('#ax').classList.add('on');return;
+    $('#ax').classList.add('on');pushModalState('actionSheet');return;
   }
   let h=`<b style="font-size:18px">${esc(nm(uid))}${rb(uid)}</b>`;
   h+=`<button class="btn off wide" onclick="axReport()">🚩 Report ${axLabel[t]}</button>`;
@@ -2494,7 +2595,7 @@ function openAx(t,id){
     h+=`<button class="btn off wide" onclick="axModerate()">🛡 Moderate user</button>`;
   }
   h+='<button class="btn off wide" onclick="closeAx()">Cancel</button>';
-  $('#axb').innerHTML=h;$('#ax').classList.add('on');
+  $('#axb').innerHTML=h;$('#ax').classList.add('on');pushModalState('actionSheet');
 }
 function closeAx(){$('#ax')?.classList.remove('on')}
 function axBlock(){const a=S.ax;closeAx();if(a)blockUser(a.uid)}
@@ -2514,7 +2615,7 @@ const REASONS=['Spam','Harassment','Hate or unsafe','Inappropriate','Other'];
 function axReport(){
   const a=S.ax;closeAx();if(!a)return;
   S.rp={type:a.t=='cm'?'circle_message':a.t,id:a.id,uid:a.uid,reason:''};
-  $('#rpd').value='';drawRp();$('#rp').classList.add('on');
+  $('#rpd').value='';drawRp();$('#rp').classList.add('on');pushModalState('report');
 }
 function drawRp(){
   if(!S.rp)return;
@@ -2545,7 +2646,7 @@ function paintRepBadge(){
   const ml=$('#modlab');if(ml)ml.hidden=!isMod();
   const m=$('#modb');if(m){m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'')}
 }
-function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
+function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');pushModalState('modTools');drawMod()}
 function drawMod(){
   const tabs=['Reports','Users','Event publishers'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
@@ -2603,7 +2704,12 @@ async function searchUsers(){
   const r=await qb;
   if(!$('#musl')||mtab!=1)return;
   if(r.error){$('#musl').innerHTML=`<div class="empty">${esc(r.error.message)}</div>`;return}
-  r.data.forEach(u=>{S.names[u.id]=u.display_name;S.roles[u.id]=u.role||'user';if(u.avatar_url)S.avs[u.id]=u.avatar_url});
+  r.data.forEach(u=>{
+    S.names[u.id]=u.display_name;
+    if(u.username)S.usernames[u.id]=u.username;
+    S.roles[u.id]=u.role||'user';
+    if(u.avatar_url)S.avs[u.id]=u.avatar_url;
+  });
   $('#musl').innerHTML=r.data.map(u=>`<div class="card row" onclick="openUa('${u.id}')">${av(u.id)}<div class="grow"><b>${esc(u.display_name)}${rb(u.id)}</b><div class="mute sm">@${esc(u.username||'')}${u.banned?' · Banned':''}${mutedNow(u)?' · Muted':''}</div></div></div>`).join('')||'<div class="empty">No one found</div>';
 }
 async function drawEventPublishers(){
@@ -2635,7 +2741,7 @@ async function setEventPublisher(id,on){
 }
 async function openUa(id){
   id=String(id);S.ua=id;
-  $('#uab').innerHTML='<div class="empty">Loading...</div>';$('#ua').classList.add('on');
+  $('#uab').innerHTML='<div class="empty">Loading...</div>';$('#ua').classList.add('on');pushModalState('userActions');
   const r=await sb.from('profiles').select('id,display_name,username,role,muted_until,banned,avatar_url').eq('id',id).maybeSingle();
   if(S.ua!==id)return;
   if(!r.data){$('#uab').innerHTML='<div class="empty">User not found</div>';return}
@@ -2659,7 +2765,7 @@ function drawUa(u){
   h+='<button class="btn off wide" onclick="closeUa()">Close</button>';
   $('#uab').innerHTML=h;
 }
-function closeUa(){S.ua=null;$('#ua').classList.remove('on')}
+function closeUa(){S.ua=null;$('#ua')?.classList.remove('on')}
 async function uaDone(id,msg){toast(msg);await openUa(id);if($('#mo')?.classList.contains('on')&&mtab==1)searchUsers();draw()}
 async function uaMute(id,min){
   const{error}=await sb.rpc('mute_user',{target:id,minutes:min});
@@ -2768,7 +2874,7 @@ const LEGAL={
     ['Problems with a person','Use Report or Block in the app (the ⋯ button on posts, messages and profiles). Moderators will look at it.'],
     ['Emergencies','If someone is in danger, contact your local emergency services first.']]]
 };
-function openLegal(k){S.lg=LEGAL[k]?k:'terms';drawLegal();$('#lg').classList.add('on')}
+function openLegal(k){S.lg=LEGAL[k]?k:'terms';drawLegal();$('#lg').classList.add('on');pushModalState('legal')}
 function drawLegal(){
   $('#lgt').innerHTML=Object.keys(LEGAL).map(k=>`<button class="${k==S.lg?'on':''}" onclick="S.lg='${k}';drawLegal()">${LEGAL[k][0]}</button>`).join('');
   $('#lgb').innerHTML=LEGAL[S.lg][1].map(([h,t])=>`<h4>${esc(h)}</h4><p>${esc(t).replace(esc(CONTACT_EMAIL),`<a href="mailto:${esc(CONTACT_EMAIL)}">${esc(CONTACT_EMAIL)}</a>`)}</p>`).join('')+`<p class="mute sm" style="margin-top:12px">Last updated October 2026</p>`;
@@ -2799,13 +2905,13 @@ function admDupes(){
   slDraw();$('#sl').classList.add('on');
 }
 function admPair(x,y){
-  $('#sl').classList.remove('on');
+  $('#sl')?.classList.remove('on');
   const[src,dst]=(S.cnt[x]||0)<=(S.cnt[y]||0)?[x,y]:[y,x];
   S.mg=src;admDoMerge(dst);
 }
-function admArt(id){S.am=id;$('#amt').textContent=iname(id);$('#am').classList.add('on')}
+function admArt(id){S.am=id;$('#amt').textContent=iname(id);$('#am').classList.add('on');pushModalState('adminArt')}
 function admRename(){
-  $('#am').classList.remove('on');$('#rni').value=iname(S.am);$('#rne').textContent='';$('#rn').classList.add('on');
+  $('#am')?.classList.remove('on');$('#rni').value=iname(S.am);$('#rne').textContent='';$('#rn').classList.add('on');pushModalState('adminRename');
 }
 async function admSaveRename(){
   const name=$('#rni').value.trim().replace(/\s+/g,' '),id=S.am;
@@ -2817,7 +2923,7 @@ async function admSaveRename(){
   $('#rn').classList.remove('on');await loadInts();draw();drawLists();toast('Renamed');
 }
 function admMerge(){
-  $('#am').classList.remove('on');S.mg=S.am;$('#mgs').value='';$('#mgt').textContent='Merge "'+iname(S.mg)+'" into...';drawMg();$('#mg').classList.add('on');
+  $('#am')?.classList.remove('on');S.mg=S.am;$('#mgs').value='';$('#mgt').textContent='Merge "'+iname(S.mg)+'" into...';drawMg();$('#mg').classList.add('on');pushModalState('adminMerge');
 }
 function drawMg(){
   const q=$('#mgs').value.toLowerCase();
@@ -2828,11 +2934,11 @@ function admDoMerge(t){
   confirmBox('Merge "'+iname(s)+'" into "'+iname(t)+'"? Members and posts move over.','Merge',async()=>{
     const{error}=await sb.rpc('merge_interests',{source:s,target:t});
     if(error){toast(error.message);return}
-    $('#mg').classList.remove('on');await refreshInterests();drawLists();toast('Merged');
+    $('#mg')?.classList.remove('on');await refreshInterests();drawLists();toast('Merged');
   });
 }
 function admDelete(){
-  const id=S.am;$('#am').classList.remove('on');
+  const id=S.am;$('#am')?.classList.remove('on');
   confirmBox('Delete "'+iname(id)+'"? It is removed from everyone\'s profile.','Delete',async()=>{
     const{error}=await sb.rpc('remove_interest',{target:id});
     if(error){toast(error.message);return}

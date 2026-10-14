@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#130a24">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="iLike">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -26,74 +26,114 @@
 <body class="noapp">
 <div id="app">
 
+<!-- Screen: Auth -->
 <section class="screen on" id="s-auth">
-<div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
-<div class="pscroll"><p class="mute" style="margin:18px 18px 0;text-align:center">Find people who like what you like.</p><div class="card" id="af"></div></div>
-</section>
-
-<section class="screen" id="s-onb">
-<div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
-<div class="pscroll"><div id="ob"></div></div>
-</section>
-
-<section class="screen" id="s-home">
-<div class="top">
-  <span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span>
-  <div style="display:flex;gap:8px">
-    <button class="ib" onclick="openNotifs()" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i class="badge" id="nb" hidden></i></button>
+  <div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
+  <div class="pscroll">
+    <div style="text-align:center;padding:24px 18px 0">
+      <div style="font-size:48px;margin-bottom:8px">✦</div>
+      <h2 style="margin:0 0 4px;font-size:24px">Welcome to iLike</h2>
+      <p class="mute sm">Connect with people who share your passion, hobbies, and music.</p>
+    </div>
+    <div class="card" id="af"></div>
   </div>
-</div>
-<div class="fl" id="fl"></div>
-<div id="feed"></div>
-<button class="fab chat" onclick="openChats()" aria-label="Chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><i class="badge" id="chb" hidden></i></button>
 </section>
 
-<section class="screen" id="s-find">
-<div class="top"><span class="logo-wrap"><span class="logo">Discover</span></span></div>
-<div class="tabs" id="ft"><button class="on" onclick="ftab(0)">People like you</button><button onclick="ftab(1)">Circles</button><button onclick="ftab(2)">Explore</button></div>
-<input class="q" id="q" placeholder="Search people" aria-label="Search" oninput="findTab()">
-<div id="fp" class="pscroll"><div id="ppl"></div></div>
-<div id="fg" class="pscroll" style="display:none"><div class="rooms" id="rooms"></div></div>
-<div id="fx" class="pscroll" style="display:none"></div>
+<!-- Screen: Onboarding -->
+<section class="screen" id="s-onb">
+  <div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
+  <div class="pscroll"><div id="ob"></div></div>
 </section>
 
-<section class="screen" id="s-events">
-<div class="top">
-  <span class="logo-wrap"><span class="logo">Events</span></span>
-  <button class="ib" id="newEventBtn" onclick="openEv()" aria-label="Create an event" hidden><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-</div>
-<div class="ev-container">
-  <div class="ev-hero-banner">
-    <div class="ev-hero-content">
-      <span class="ev-pill">Community Happenings</span>
-      <h2>Discover &amp; Join Local Hangouts</h2>
-      <p class="mute sm">Find upcoming gatherings, connect with attendees, and plan unforgettable events.</p>
+<!-- Screen: Home Feed -->
+<section class="screen" id="s-home">
+  <div class="top">
+    <span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span>
+    <div style="display:flex;gap:8px">
+      <button class="ib" onclick="openNotifs()" aria-label="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <i class="badge" id="nb" hidden></i>
+      </button>
+      <button class="ib" onclick="openChats()" aria-label="Messages">
+        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <i class="badge" id="chb" hidden></i>
+      </button>
     </div>
   </div>
-  <div id="evs"></div>
-  <div id="pevs"></div>
-</div>
+  <div class="fl" id="fl"></div>
+  <div id="feed"></div>
 </section>
 
+<!-- Screen: Discover -->
+<section class="screen" id="s-find">
+  <div class="top"><span class="logo-wrap"><span class="logo">Discover</span></span></div>
+  <div class="tabs" id="ft"><button class="on" onclick="ftab(0)">People like you</button><button onclick="ftab(1)">Circles</button><button onclick="ftab(2)">Explore</button></div>
+  <input class="q" id="q" placeholder="Search people..." aria-label="Search" oninput="findTab()">
+  <div id="fp" class="pscroll"><div id="ppl"></div></div>
+  <div id="fg" class="pscroll" style="display:none"><div class="rooms" id="rooms"></div></div>
+  <div id="fx" class="pscroll" style="display:none"></div>
+</section>
+
+<!-- Screen: Events -->
+<section class="screen" id="s-events">
+  <div class="top">
+    <span class="logo-wrap"><span class="logo">Events</span></span>
+    <button class="ib" id="newEventBtn" onclick="openEv()" aria-label="Create an event" hidden><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+  <div class="ev-container">
+    <div class="ev-hero-banner">
+      <div class="ev-hero-content">
+        <span class="ev-pill">Community Happenings</span>
+        <h2>Discover &amp; Join Local Hangouts</h2>
+        <p class="mute sm">Find upcoming gatherings, connect with attendees, and plan unforgettable events.</p>
+      </div>
+    </div>
+    <div id="evs"></div>
+    <div id="pevs"></div>
+  </div>
+</section>
+
+<!-- Screen: You / Profile -->
 <section class="screen" id="s-me">
-<div id="me">
-<div class="top"><span class="logo-wrap"><span class="logo">You</span></span><div style="display:flex;gap:8px"><button class="ib" onclick="openPe()" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button><button class="ib" onclick="openSet()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><i class="badge" id="rpb" hidden></i></button></div></div>
-<div class="me-body"><div class="me-hero"><div class="banner" id="mbn"></div><span class="av" id="mav" style="--c:var(--brand)"></span><div class="mcomp"><b id="mcn"></b><span class="mute sm" id="mcu"></span></div></div><div class="col-l">
-<div class="mehead"><h1><span class="nm" id="mn"></span></h1><div class="mute" id="mu"></div><div class="cnts" id="mf"></div><p id="mb" class="bio" hidden></p></div>
-<h2>Interests</h2><div class="card" id="shelf"></div>
-<h2>Artists</h2><div class="card" id="art"></div>
-<h2>Achievements</h2><div class="card" id="badges"></div></div>
-<div class="col-r"><div class="tabs" id="mt"></div><div id="mine"></div></div></div>
-</div>
+  <div id="me">
+    <div class="top">
+      <span class="logo-wrap"><span class="logo">You</span></span>
+      <div style="display:flex;gap:8px">
+        <button class="ib" onclick="openPe()" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
+        <button class="ib" onclick="openSet()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><i class="badge" id="rpb" hidden></i></button>
+      </div>
+    </div>
+    <div class="me-body">
+      <div class="me-hero">
+        <div class="banner" id="mbn"></div>
+        <span class="av" id="mav" style="--c:var(--brand)"></span>
+        <div class="mcomp"><b id="mcn"></b><span class="mute sm" id="mcu"></span></div>
+      </div>
+      <div class="col-l">
+        <div class="mehead">
+          <h1><span class="nm" id="mn"></span></h1>
+          <div class="mute" id="mu"></div>
+          <div class="cnts" id="mf"></div>
+          <p id="mb" class="bio" hidden></p>
+        </div>
+        <h2>Interests</h2><div class="card" id="shelf"></div>
+        <h2>Artists</h2><div class="card" id="art"></div>
+        <h2>Achievements</h2><div class="card" id="badges"></div>
+      </div>
+      <div class="col-r"><div class="tabs" id="mt"></div><div id="mine"></div></div>
+    </div>
+  </div>
 </section>
 
+<!-- Bottom Navigation Bar -->
 <nav id="nav">
-<button class="on" data-s="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home</button>
-<button data-s="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Discover</button>
-<button class="navadd" id="fabBtn" onclick="tapFab()" aria-label="New post"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-<button data-s="events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Events</button>
-<button data-s="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>You</button>
+  <button class="on" data-s="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+  <button data-s="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Discover</button>
+  <button class="navadd" id="fabBtn" onclick="tapFab()" aria-label="New post"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button data-s="events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Events</button>
+  <button data-s="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>You</button>
 </nav>
+
 </div>
 
 <!-- Full-screen Event View Overlay -->
@@ -132,25 +172,187 @@
   </div>
 </div>
 
+<!-- Chats Drawer -->
 <div class="ov" id="ov">
-<div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
-<div id="cl" style="overflow-y:auto"></div>
-<div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0"><div class="cstrip" id="cstrip" hidden></div><div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div><div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div><div class="rtbar" id="rtbar" hidden><span>Couldn't send. Your message is still in the box.</span><button class="link" onclick="send()">Retry</button><button class="link" onclick="failDismiss()">Dismiss</button></div><div class="mcnt" id="mcnt" hidden></div><div class="inp" id="inp"><input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()"><button class="btn" id="sbtn" onclick="send()" disabled>Send</button></div><div class="inp" id="jbar" style="display:none;align-items:center"><div class="grow mute sm" id="jtx"></div><button class="btn" onclick="joinRoom()">Join</button></div></div>
+  <div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
+  <div id="cl" style="overflow-y:auto"></div>
+  <div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0">
+    <div class="cstrip" id="cstrip" hidden></div>
+    <div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div>
+    <div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div>
+    <div class="rtbar" id="rtbar" hidden><span>Couldn't send. Your message is still in the box.</span><button class="link" onclick="send()">Retry</button><button class="link" onclick="failDismiss()">Dismiss</button></div>
+    <div class="mcnt" id="mcnt" hidden></div>
+    <div class="inp" id="inp">
+      <input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()">
+      <button class="btn" id="sbtn" onclick="send()" disabled>Send</button>
+    </div>
+    <div class="inp" id="jbar" style="display:none;align-items:center">
+      <div class="grow mute sm" id="jtx"></div>
+      <button class="btn" onclick="joinRoom()">Join</button>
+    </div>
+  </div>
 </div>
-<div class="mod" id="mod" onclick="if(event.target===this)closePost()"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b style="font-size:18px">New post</b><textarea id="txt" maxlength="1000" placeholder="What are you into today?" aria-label="Post text"></textarea><div class="photos" id="pph"></div><button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos</button><input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)"><select id="sel" aria-label="Interest"></select><select id="sel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button><button class="btn off" onclick="closePost()">Cancel</button><button class="btn" id="shr" onclick="publish()">Share</button></div></div></div>
+
+<!-- Modal: New Post Composer (Up to 6 photos + Mention helper) -->
+<div class="mod" id="mod" onclick="if(event.target===this)closePost()">
+  <div class="sheet" style="max-height:94vh;overflow-y:auto">
+    <b style="font-size:19px">Create Post</b>
+    <div style="position:relative;margin-top:10px">
+      <textarea id="txt" maxlength="1000" placeholder="What are you into today? Use @username to tag people!" aria-label="Post text" oninput="onPostInput(this)"></textarea>
+      <div id="txt-mentions" class="mention-popup"></div>
+    </div>
+    <div class="photos" id="pph"></div>
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos (up to 6)</button>
+      <button class="btn off sbtn" type="button" onclick="insertMentionTag('txt')">@ Tag person</button>
+    </div>
+    <input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)">
+    <label class="lab" for="sel">Select Primary Interest</label>
+    <select id="sel" aria-label="Interest"></select>
+    <label class="lab" for="sel2">Mix with Second Interest (optional)</label>
+    <select id="sel2" aria-label="Second interest"></select>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button>
+      <button class="btn off" onclick="closePost()">Cancel</button>
+      <button class="btn" id="shr" onclick="publish()">Share</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Post (Full Edit Panel) -->
+<div class="mod" id="ed" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="sheet" style="max-height:94vh;overflow-y:auto">
+    <b style="font-size:19px">Edit Post</b>
+    <div style="position:relative;margin-top:10px">
+      <textarea id="edt" maxlength="1000" aria-label="Post text" oninput="onPostInput(this)"></textarea>
+      <div id="edt-mentions" class="mention-popup"></div>
+    </div>
+    <div class="photos" id="edph"></div>
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <button class="btn off sbtn" id="ed-add-photo" onclick="$('#ed-file').click()">📷 Add more photos</button>
+      <button class="btn off sbtn" type="button" onclick="insertMentionTag('edt')">@ Tag person</button>
+    </div>
+    <input type="file" id="ed-file" accept="image/*" multiple hidden onchange="pickEditPhotos(this)">
+    <label class="lab" for="edsel">Primary Interest</label>
+    <select id="edsel" aria-label="Interest"></select>
+    <label class="lab" for="edsel2">Second Interest</label>
+    <select id="edsel2" aria-label="Second interest"></select>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn off" onclick="$('#ed').classList.remove('on')">Cancel</button>
+      <button class="btn" id="eds" onclick="saveEd()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Settings (Grouped and Restyled) -->
+<div class="mod" id="set" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="row" style="justify-content:space-between;margin-bottom:4px">
+      <b style="font-size:20px">Settings &amp; Preferences</b>
+      <button class="ib" style="width:36px;height:36px" onclick="$('#set').classList.remove('on')" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Appearance Card -->
+    <div class="set-card-group">
+      <div class="set-group-title">🎨 Appearance &amp; Style</div>
+      <p class="lab" style="margin-top:0">Theme Mode</p>
+      <div class="row" id="thm" style="gap:8px"></div>
+      
+      <p class="lab">Accent Color</p>
+      <div class="sws-wrap" id="sws"></div>
+      
+      <p class="lab">Typography</p>
+      <div class="row" id="fcs" style="flex-wrap:wrap;gap:8px"></div>
+      
+      <div id="inst-section" style="margin-top:12px" hidden>
+        <button class="btn off wide" id="instb" onclick="installApp()">📲 Install iLike to Home Screen</button>
+      </div>
+    </div>
+
+    <!-- Account & Security Card -->
+    <div class="set-card-group">
+      <div class="set-group-title">🔒 Account &amp; Security</div>
+      <div class="mute sm" id="setem" style="margin-bottom:10px"></div>
+      <input class="fi" id="npw" type="password" placeholder="New password (8+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePw()">
+      <div class="err" id="npe"></div>
+      <button class="btn off wide" onclick="changePw()">Update Password</button>
+    </div>
+
+    <!-- Notifications Card -->
+    <div class="set-card-group" id="pushhd" hidden>
+      <div class="set-group-title">🔔 Push Notifications</div>
+      <div id="pushbox"></div>
+    </div>
+
+    <!-- Safety & Moderation Card -->
+    <div class="set-card-group">
+      <div class="set-group-title">🛡️ Safety &amp; Community</div>
+      <button class="btn off wide" onclick="openBlocked()">🚫 Blocked People</button>
+      <button class="btn off wide" onclick="openFb()">💬 Send Feedback &amp; Ideas</button>
+      <button class="btn off wide" onclick="openLegal('terms')">Terms &amp; Privacy Policy</button>
+      <div id="modlab" hidden style="margin-top:8px">
+        <button class="btn off wide" id="modb" onclick="openMod()">🛡 Moderation Tools</button>
+      </div>
+    </div>
+
+    <!-- Session & Danger Card -->
+    <div class="set-card-group" style="border-color:color-mix(in srgb,#f87171 30%,var(--line))">
+      <div class="set-group-title" style="color:#f87171">⚠️ Account Actions</div>
+      <button class="btn off wide" onclick="$('#set').classList.remove('on');logout()">Log Out</button>
+      <button class="btn off wide danger" onclick="openDa()">Delete My Account</button>
+    </div>
+
+    <button class="btn wide" style="margin-top:4px" onclick="$('#set').classList.remove('on')">Done</button>
+  </div>
+</div>
+
+<!-- Modal: Edit Profile -->
+<div class="mod" id="pe" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="sheet" style="max-height:92vh;overflow-y:auto">
+    <b style="font-size:19px">Edit Profile</b>
+    <div class="row" style="margin:16px 0 6px">
+      <span class="av big" id="peav" style="--c:var(--brand)"></span>
+      <div>
+        <button class="btn off sbtn" onclick="$('#pfa').click()">Change photo</button>
+        <button class="link rmav" id="perm" onclick="removeAvatar()">Remove photo</button>
+      </div>
+    </div>
+    <input type="file" id="pfa" accept="image/*" hidden onchange="pickAvatar(this)">
+    <p class="lab">Banner Image (3:1)</p>
+    <div class="pebn" id="pebn"></div>
+    <div class="row">
+      <button class="btn off sbtn" onclick="$('#pfbn').click()">Change banner</button>
+      <button class="link rmav" id="pebrm" onclick="removeBanner()">Remove banner</button>
+    </div>
+    <input type="file" id="pfbn" accept="image/*" hidden onchange="pickBanner(this)">
+    <label class="lab" for="pen">Display Name</label>
+    <input class="fi" id="pen" maxlength="40" autocomplete="name">
+    <label class="lab" for="peu">Username (@username)</label>
+    <input class="fi" id="peu" maxlength="20" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="letters, numbers, _ or .">
+    <label class="lab" for="peb">Bio</label>
+    <textarea id="peb" class="bioin" maxlength="160" placeholder="Tell people what you are into" oninput="$('#pbc').textContent=this.value.length+'/160'"></textarea>
+    <div class="mute sm" id="pbc" style="text-align:right;margin-bottom:8px">0/160</div>
+    <label class="lab" for="pec">City</label>
+    <input class="fi" id="pec" maxlength="40" autocomplete="address-level2">
+    <div class="err" id="pee"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn off" onclick="$('#pe').classList.remove('on')">Cancel</button>
+      <button class="btn" id="pes" onclick="saveProfile()">Save profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remaining Modals & Sheets -->
 <div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search interests" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px"><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="pv" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pvb"></div><div style="padding:0 16px"><button class="btn off" style="width:100%" onclick="$('#pv').classList.remove('on')">Close</button></div></div></div>
-<div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rtbar" id="rrt" hidden><span>Couldn't send. Your reply is still in the box.</span><button class="link" onclick="sendReply()">Retry</button><button class="link" onclick="S.rfail=null;$('#rrt').hidden=true">Dismiss</button></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
+<div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rtbar" id="rrt" hidden><span>Couldn't send. Your reply is still in the box.</span><button class="link" onclick="sendReply()">Retry</button><button class="link" onclick="S.rfail=null;$('#rrt').hidden=true">Dismiss</button></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply (use @name to tag)" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
 <div class="mod" id="pf" style="z-index:44" onclick="if(event.target===this)closePf()"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pfb"></div><div style="padding:0 16px;margin-top:8px"><button class="btn off" style="width:100%" onclick="closePf()">Close</button></div></div></div>
 <div class="mod" id="ev" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b id="evHead" style="font-size:18px">Create event</b><label class="lab" for="evTitle">Event name</label><input class="fi" id="evTitle" maxlength="80" placeholder="Nada musical show"><p class="lab">Pick an emoji</p><div class="evem" id="evEm"></div><label class="lab" for="evWhen">When</label><input class="fi" id="evWhen" type="datetime-local"><label class="lab" for="evPlace">Location</label><input class="fi" id="evPlace" maxlength="80" placeholder="Location"><label class="lab" for="evVenue">Venue details (optional)</label><input class="fi" id="evVenue" maxlength="120" placeholder="Hall, entrance, or meeting point"><label class="lab" for="evDesc">Description</label><textarea id="evDesc" maxlength="500" placeholder="Tell people what this event is about"></textarea><div class="err" id="evErr"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#ev').classList.remove('on')">Cancel</button><button class="btn" id="evSave" onclick="saveEv()">Save</button></div></div></div>
 <div class="mod" id="info" style="z-index:56" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="inf"></div><button class="btn wide" onclick="$('#info').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="pm" style="z-index:50" onclick="if(event.target===this)closePm()"><div class="sheet"><button class="btn off wide" id="pmEdit" onclick="openEd(S.pmId)">Edit post</button><button class="btn off wide danger" onclick="delPost(S.pmId)">Delete post</button><button class="btn off wide" onclick="closePm()">Cancel</button></div></div>
-<div class="mod" id="ed" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b style="font-size:18px">Edit post</b><textarea id="edt" maxlength="1000" aria-label="Post text"></textarea><div class="photos" id="edph"></div><select id="edsel" aria-label="Interest"></select><select id="edsel2" aria-label="Second interest"></select><div class="row" style="justify-content:flex-end;margin-top:6px"><button class="btn off" onclick="$('#ed').classList.remove('on')">Cancel</button><button class="btn" id="eds" onclick="saveEd()">Save</button></div></div></div>
-<div class="mod" id="pe" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Edit profile</b><div class="row" style="margin:14px 0 4px"><span class="av big" id="peav" style="--c:var(--brand)"></span><div><button class="btn off sbtn" onclick="$('#pfa').click()">Change photo</button><button class="link rmav" id="perm" onclick="removeAvatar()">Remove photo</button></div></div><input type="file" id="pfa" accept="image/*" hidden onchange="pickAvatar(this)"><p class="lab">Banner</p><div class="pebn" id="pebn"></div><div class="row"><button class="btn off sbtn" onclick="$('#pfbn').click()">Change banner</button><button class="link rmav" id="pebrm" onclick="removeBanner()">Remove banner</button></div><input type="file" id="pfbn" accept="image/*" hidden onchange="pickBanner(this)"><label class="lab" for="pen">Name</label><input class="fi" id="pen" maxlength="40" autocomplete="name"><label class="lab" for="peu">Username</label><input class="fi" id="peu" maxlength="20" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="letters, numbers, _ or ."><label class="lab" for="peb">Bio</label><textarea id="peb" class="bioin" maxlength="160" placeholder="Tell people what you are into" oninput="$('#pbc').textContent=this.value.length+'/160'"></textarea><div class="mute sm" id="pbc" style="text-align:right;margin-bottom:8px">0/160</div><label class="lab" for="pec">City</label><input class="fi" id="pec" maxlength="40" autocomplete="address-level2"><div class="err" id="pee"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#pe').classList.remove('on')">Cancel</button><button class="btn" id="pes" onclick="saveProfile()">Save</button></div></div></div>
-<div class="mod" id="set" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:88vh;overflow-y:auto"><b style="font-size:18px">Settings</b><h4 class="sethd first">Appearance</h4><p class="lab">Theme</p><div class="row" id="thm"></div><p class="lab">Colour</p><div class="row" style="flex-wrap:wrap" id="sws"></div><p class="lab">Font</p><div class="row" id="fcs"></div><p class="lab" id="instl" hidden>App</p><button class="btn off wide" id="instb" hidden onclick="installApp()">📲 Install iLike</button><h4 class="sethd">Account</h4><div class="mute sm" id="setem" style="margin:0 4px 10px"></div><input class="fi" id="npw" type="password" placeholder="New password (8+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePw()"><div class="err" id="npe"></div><button class="btn off wide" onclick="changePw()">Change password</button><h4 class="sethd" id="pushhd" hidden>Notifications</h4><div id="pushbox" hidden></div><h4 class="sethd">Privacy &amp; safety</h4><button class="btn off wide" onclick="openBlocked()">🚫 Blocked people</button><h4 class="sethd">Help</h4><button class="btn off wide" onclick="openFb()">💬 Send feedback</button><button class="btn off wide" onclick="openLegal('terms')">Terms, privacy &amp; contact</button><h4 class="sethd" id="modlab" hidden>Moderation</h4><button class="btn off wide" id="modb" hidden onclick="openMod()">🛡 Moderation tools</button><h4 class="sethd">Session</h4><button class="btn off wide" onclick="$('#set').classList.remove('on');logout()">Log out</button><button class="btn off wide danger" onclick="openDa()">Delete my account</button><button class="btn wide" onclick="$('#set').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="cf" style="z-index:55" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="cft" style="font-size:18px;font-weight:800"></div><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn off" onclick="$('#cf').classList.remove('on')">Cancel</button><button class="btn" id="cfy" onclick="cfyes()">Add</button></div></div></div>
 <div class="mod" id="fb" style="z-index:50" onclick="if(event.target===this)closeFb()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Send feedback</b><p class="mute sm" style="margin:6px 0 10px">Found a bug or have an idea? Tell us. We read everything.</p><div class="row" id="fbk"></div><textarea id="fbt" maxlength="1000" placeholder="What happened, or what would you like to see?" aria-label="Feedback" oninput="$('#fbc').textContent=this.value.length+'/1000'"></textarea><div class="mute sm" id="fbc" style="text-align:right">0/1000</div><div class="err" id="fbe"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="closeFb()">Cancel</button><button class="btn" id="fbs" onclick="sendFb()">Send</button></div></div></div>
-<div class="mod" id="da" style="z-index:51" onclick="if(event.target===this)closeDa()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Delete your account?</b><p style="margin:10px 0;line-height:1.5;font-size:14px">This permanently removes your profile, posts, replies, photos, messages, follows and blocked list. People you chatted with will no longer see your messages. <b>This can't be undone.</b></p><label class="lab" for="dat">Type DELETE to confirm</label><input class="fi" id="dat" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" oninput="daCheck()" onkeydown="if(event.key==='Enter')doDelete()"><div class="err" id="dae"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn off" onclick="closeDa()">Cancel</button><button class="btn dfill" id="dab" disabled onclick="doDelete()">Delete forever</button></div></div></div>
+<div class="mod" id="da" style="z-index:51" onclick="if(event.target===this)closeDa()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Delete your account?</b><p style="margin:10px 0;line-height:1.5;font-size:14px">This permanently removes your profile, posts, replies, photos, messages, follows and blocked list. <b>This can't be undone.</b></p><label class="lab" for="dat">Type DELETE to confirm</label><input class="fi" id="dat" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" oninput="daCheck()" onkeydown="if(event.key==='Enter')doDelete()"><div class="err" id="dae"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn off" onclick="closeDa()">Cancel</button><button class="btn dfill" id="dab" disabled onclick="doDelete()">Delete forever</button></div></div></div>
 <div class="ov" id="nv"><div class="top"><button class="ib" onclick="$('#nv').classList.remove('on')" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b style="font-size:18px">Notifications</b><button class="link nmr" id="nmr" hidden onclick="markNotifsRead()">Mark all read</button></div><div id="nl" style="overflow-y:auto"></div></div>
 <div class="mod" id="sl" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:80vh;overflow-y:auto"><b id="slt" style="font-size:18px"></b><div id="sll" style="margin:8px -6px 0"></div><button class="btn wide" onclick="$('#sl').classList.remove('on')">Done</button></div></div>
 <div class="mod" id="mm" style="z-index:60" onclick="if(event.target===this)closeMm()"><div class="sheet"><button class="btn off wide" id="mmEdit" onclick="editMsg()">Edit message</button><button class="btn off wide danger" onclick="delMsg()">Delete message</button><button class="btn off wide" onclick="closeMm()">Cancel</button></div></div>
@@ -168,7 +370,6 @@
 
 <div id="crash" hidden role="alert"><span>Something went wrong.</span><button onclick="location.reload()">Tap to reload</button><button class="x" onclick="this.parentNode.hidden=true" aria-label="Dismiss">✕</button></div>
 <script>
-// Global error fallback: a crash shows a reload bar instead of a blank screen.
 (function(){
   var shown=false;
   function crash(why){
