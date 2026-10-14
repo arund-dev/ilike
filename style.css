@@ -335,7 +335,6 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .ev-hero-banner{margin:12px 0 20px}
   #evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;padding:0}
   .event-card-item:hover{transform:translateY(-4px)}
-  #ev-ov{max-width:760px;right:auto;left:50%;transform:translateX(-50%);border-left:1px solid var(--line);border-right:1px solid var(--line)}
   .ev-gallery-grid{grid-template-columns:repeat(3,1fr);gap:14px}
 
   /* You */
@@ -788,7 +787,7 @@ nav button span{line-height:1.1}
 @media(max-width:1023px){
   nav .navadd{
     width:54px;height:54px;margin-top:-21px;
-    border-radius:18px;
+    border-radius:50%;
     box-shadow:0 8px 20px -9px var(--glow);
   }
   nav .navadd svg{width:24px;height:24px}
@@ -848,3 +847,76 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     transition-duration:.01ms!important;
   }
 }
+
+
+/* ═══ Session 2 ═══ */
+
+/* Desktop sidebar, collapsed: icons only (no label letters peeking out) */
+@media(min-width:1024px){
+  nav button,nav .navadd{gap:14px;padding:13px 11px;min-height:48px;border-radius:16px;justify-content:flex-start}
+  nav button span,nav .navadd::after{
+    opacity:0;max-width:0;overflow:hidden;white-space:nowrap;
+    transition:opacity .15s ease,max-width .25s var(--ease,ease);
+  }
+  nav:hover button span,nav:has(:focus-visible) button span,
+  nav:hover .navadd::after,nav:has(:focus-visible) .navadd::after{opacity:1;max-width:160px}
+}
+
+/* Event view: wide centred panel over a blurred, click-to-close backdrop */
+#ev-bd{
+  position:fixed;inset:0;z-index:41;background:var(--scrim);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity var(--t) var(--ease),visibility 0s linear var(--t);
+}
+body:has(#ev-ov.on) #ev-bd{
+  opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity var(--t) var(--ease),visibility 0s;
+}
+@keyframes evPop{
+  from{opacity:0;transform:translateX(-50%) translateY(18px) scale(.985)}
+  to{opacity:1;transform:translateX(-50%)}
+}
+@media(min-width:700px){
+  #ev-ov{
+    top:3vh;bottom:auto;height:calc(var(--app-vh,100dvh) - 6vh);
+    width:min(1040px,calc(100% - 64px));max-width:none;
+    left:50%;right:auto;transform:translateX(-50%);
+    border:1px solid var(--line);border-radius:28px;overflow:hidden;
+    box-shadow:0 40px 100px -30px rgba(0,0,0,.6);
+  }
+  #ev-ov.on{animation:evPop .3s cubic-bezier(.16,1,.3,1)}
+  #ev-ov .top{padding-top:16px}
+  #ev-ov #ev-scroll{padding-bottom:32px!important}
+}
+
+/* Shared panel layout (Settings, Edit profile): fixed header, scrolling body */
+.mod .sheet.pnl{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.pnl-head{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:22px 16px 12px 20px;
+  border-bottom:1px solid color-mix(in srgb,var(--line) 72%,transparent);
+}
+.pnl-head.mid{padding-left:12px}
+.pnl-title{flex:1;min-width:0;font-size:20px;letter-spacing:-.4px}
+.pnl-head.mid .pnl-title{text-align:center;font-size:17px;letter-spacing:-.2px}
+.pnl-side{
+  background:none;border:0;color:var(--mute);font:inherit;font-weight:700;
+  min-height:44px;padding:0 10px;border-radius:12px;cursor:pointer;
+}
+.pnl-side:hover{color:var(--text)}
+.pnl-save{margin:0;min-height:40px;min-width:72px}
+.pnl-save:disabled{opacity:.45;cursor:default;box-shadow:none}
+.pnl-body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:4px 18px calc(22px + env(safe-area-inset-bottom,0px));
+}
+.set-email{display:flex;flex-direction:column;gap:2px;margin:12px 4px 4px}
+.set-email b{font-size:15px;word-break:break-all}
+#pwbox{margin-top:8px}
+#pwbox .fi{margin-bottom:6px}
+.fld-err{color:#f87171;font-size:13px;margin:-4px 4px 8px}
+.fld-err:empty{display:none}
+.fi.bad{border-color:#f87171}
+.lab.first{margin-top:6px}
+.set-action[hidden]{display:none!important}

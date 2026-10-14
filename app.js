@@ -158,6 +158,7 @@ function closeTopLayer(){
     case 'ov':back();break;
     case 'lb':closeLb();break;
     case 'mod':closePost();break;
+    case 'pe':closePe();break;
     case 'pm':closePm();break;
     case 'pf':closePf();break;
     case 'th':closeThread();break;
@@ -198,6 +199,13 @@ function syncAppViewport(){
 }
 syncAppViewport();
 window.visualViewport?.addEventListener('resize',syncAppViewport,{passive:true});
+function keepFieldVisible(t){
+  if(!t||!t.matches||!t.matches('input,textarea,select')||!t.closest('.mod .sheet'))return;
+  try{t.scrollIntoView({block:'center',behavior:'smooth'})}catch(x){}
+}
+document.addEventListener('focusin',e=>{const t=e.target;setTimeout(()=>keepFieldVisible(t),320)});
+let kbT=0;
+window.visualViewport?.addEventListener('resize',()=>{clearTimeout(kbT);kbT=setTimeout(()=>keepFieldVisible(document.activeElement),120)},{passive:true});
 addEventListener('orientationchange',syncAppViewport,{passive:true});
 
 function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
@@ -622,7 +630,7 @@ function post(p,o){
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
-const ICO_REPLY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle class="dot" cx="8.5" cy="12" r="1.15"/><circle class="dot" cx="12" cy="12" r="1.15"/><circle class="dot" cx="15.5" cy="12" r="1.15"/></svg>';
+const ICO_REPLY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5L8 20.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M8 9h8M8 12.5h5"/></svg>';
 const ICO_SHARE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>';
 
 async function same(id,btn){
@@ -1046,26 +1054,69 @@ function draw(){
 }
 
 // ---------- Edit Profile ----------
+let peSnap=null,peBusy=false,peUT=0;
+const PE_USER=/^[a-z0-9_.]{3,20}$/;
+function peVals(){return{display_name:$('#pen').value.trim(),username:$('#peu').value.trim().toLowerCase().replace(/^@/,''),bio:$('#peb').value.trim(),city:$('#pec').value.trim()}}
+function peDirty(){if(!peSnap)return false;const v=peVals();return Object.keys(v).some(k=>v[k]!==peSnap[k])}
+function peSync(){const b=$('#pes');if(b)b.disabled=peBusy||!peDirty()}
+function peFld(id,msg){const el=$('#'+id+'-e');if(el)el.textContent=msg||'';$('#'+id)?.classList.toggle('bad',!!msg)}
+function peErrors(){
+  const v=peVals(),er={};
+  if(!v.display_name)er.pen='Add your name.';
+  if(!PE_USER.test(v.username))er.peu='Use 3 to 20 letters, numbers, _ or .';
+  return er;
+}
+function peInput(id){
+  peFld(id,'');$('#pee').textContent='';
+  if(id==='peb')$('#pbc').textContent=$('#peb').value.length+'/160';
+  peSync();
+}
+async function peUserAvail(){
+  if(!peSnap)return;
+  const v=peVals().username;
+  if(v===peSnap.username||!PE_USER.test(v))return;
+  const t=++peUT;
+  try{
+    const r=await sb.from('profiles').select('id').eq('username',v).neq('id',S.user.id).limit(1);
+    if(t!==peUT||peVals().username!==v||r.error)return;
+    if(r.data&&r.data.length)peFld('peu','That username is taken.');
+  }catch(x){}
+}
 function openPe(){
   const p=S.prof||{};
   $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
   $('#pbc').textContent=($('#peb').value.length)+'/160';$('#pee').textContent='';
+  ['pen','peu'].forEach(i=>peFld(i,''));
+  peBusy=false;peSnap=peVals();$('#pes').textContent='Save';peSync();
   setMyAv($('#peav'));$('#perm').hidden=!S.avs[S.user.id];
   setBanner($('#pebn'),p.banner_url);$('#pebrm').hidden=!p.banner_url;
   $('#pe').classList.add('on');
+  const body=$('#pe .pnl-body');if(body)body.scrollTop=0;
+}
+function closePe(force){
+  if(!$('#pe').classList.contains('on'))return;
+  if(!force&&peDirty()&&!peBusy){confirmBox('Discard your changes?','Discard',()=>closePe(true));return}
+  $('#pe').classList.remove('on');peSnap=null;
 }
 async function saveProfile(){
-  const display_name=$('#pen').value.trim(),username=$('#peu').value.trim().toLowerCase().replace(/^@/,''),bio=$('#peb').value.trim(),city=$('#pec').value.trim(),e=$('#pee');
-  e.textContent='';
-  if(!display_name){e.textContent='Add your name.';return}
-  if(!/^[a-z0-9_.]{3,20}$/.test(username)){e.textContent='Username: 3 to 20 letters, numbers, _ or .';return}
-  const b=$('#pes');b.disabled=true;
-  const vals={display_name,username,bio:bio||null,city:city||null};
+  if(peBusy||!peDirty())return;
+  const e=$('#pee');e.textContent='';
+  const er=peErrors();
+  ['pen','peu'].forEach(i=>peFld(i,er[i]));
+  const first=Object.keys(er)[0];
+  if(first){$('#'+first).focus();return}
+  const v=peVals(),b=$('#pes');
+  peBusy=true;b.disabled=true;b.textContent='Saving...';
+  const vals={display_name:v.display_name,username:v.username,bio:v.bio||null,city:v.city||null};
   const{error}=await sb.from('profiles').update(vals).eq('id',S.user.id);
-  b.disabled=false;
-  if(error){e.textContent=error.code=='23505'?'That username is taken.':error.message;return}
-  Object.assign(S.prof,vals);S.name=display_name;S.names[S.user.id]=display_name;
-  $('#pe').classList.remove('on');draw();toast('Profile saved');
+  peBusy=false;b.textContent='Save';
+  if(error){
+    if(error.code=='23505'){peFld('peu','That username is taken.');$('#peu').focus()}
+    else e.textContent=error.message||"Couldn't save. Try again.";
+    peSync();return;
+  }
+  Object.assign(S.prof,vals);S.name=v.display_name;S.names[S.user.id]=v.display_name;
+  closePe(true);draw();toast('Profile saved');
 }
 async function setAvatarBlob(blob){
   const url=await upload('avatars',blob),old=S.avs[S.user.id];
@@ -1294,8 +1345,14 @@ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('messag
   const p=u.match(/#post=([0-9a-f-]{36})/i),d=u.match(/#dm=([0-9a-f-]{36})/i),ev=u.match(/#event=([0-9a-f-]{36})/i);
   if(p)openPostId(p[1]);else if(d)openDm(d[1]);else if(ev)openEvent(ev[1]);
 });
+function togglePw(force){
+  const box=$('#pwbox'),t=$('#pwtog');if(!box)return;
+  const open=typeof force==='boolean'?force:box.hidden;
+  box.hidden=!open;t?.setAttribute('aria-expanded',open?'true':'false');
+  if(open)setTimeout(()=>$('#npw')?.focus(),50);
+}
 function openSet(){
-  $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
+  $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';togglePw(false);
   paintCustomize();refreshInstall();paintPush();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
 }
 async function changePw(){
@@ -1303,12 +1360,11 @@ async function changePw(){
   if(v.length<8){e.textContent='Use 8 or more characters.';return}
   const{error}=await sb.auth.updateUser({password:v});
   if(error){e.textContent=error.message;return}
-  $('#npw').value='';toast('Password changed');
+  $('#npw').value='';togglePw(false);toast('Password changed');
 }
 function recoverUi(){
   S.rec=false;history.replaceState(null,'',location.pathname);
-  openSet();toast('Choose a new password');
-  setTimeout(()=>$('#npw')?.focus(),400);
+  openSet();togglePw(true);toast('Choose a new password');
 }
 const THEME_ICO={
   auto:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/>',
