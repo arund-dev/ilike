@@ -1,397 +1,397 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#130a24">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="iLike">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="assets/icon-192.png">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<title>iLike ✦</title>
-<meta name="description" content="Find people who like what you like.">
-<meta property="og:title" content="iLike ✦">
-<meta property="og:description" content="Find people who like what you like.">
-<meta property="og:type" content="website">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#130a24">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="iLike">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>iLike ✦</title>
+  <meta name="description" content="Find people who like what you like. Connect over shared interests, community circles, and live events.">
+  <meta property="og:title" content="iLike ✦">
+  <meta property="og:description" content="Find people who like what you like. Connect over shared interests, community circles, and live events.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="noapp">
+<body>
 <div id="app">
 
-<!-- Screen: Auth -->
-<section class="screen on" id="s-auth">
-  <div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
-  <div class="pscroll">
-    <div style="text-align:center;padding:24px 18px 0">
-      <div style="font-size:48px;margin-bottom:8px">✦</div>
-      <h2 style="margin:0 0 4px;font-size:24px">Welcome to iLike</h2>
-      <p class="mute sm">Connect with people who share your passion, hobbies, and music.</p>
+  <!-- ── Screen: Home Feed ── -->
+  <section class="screen on" id="s-home">
+    <header class="top">
+      <div class="logo-wrap">
+        <span class="logo">iLike</span>
+        <span class="logo-spark">
+          <svg class="ui-icon icon-sm" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </span>
+      </div>
+      <div class="row" style="gap:8px">
+        <button class="ib" onclick="window.iLike.openNotifs()" aria-label="Notifications">
+          <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="badge" id="nb" hidden>2</span>
+        </button>
+        <button class="ib" onclick="window.iLike.openChats()" aria-label="Messages">
+          <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span class="badge" id="chb" hidden>1</span>
+        </button>
+      </div>
+    </header>
+    <div class="fl" id="fl"></div>
+    <div id="feed"></div>
+  </section>
+
+  <!-- ── Screen: Discover ── -->
+  <section class="screen" id="s-find">
+    <header class="top">
+      <span class="logo-wrap"><span class="logo">Discover</span></span>
+    </header>
+    <div class="tabs" id="ft">
+      <button class="on" onclick="window.iLike.ftab(0)">People like you</button>
+      <button onclick="window.iLike.ftab(1)">Circles</button>
+      <button onclick="window.iLike.ftab(2)">Explore</button>
     </div>
-    <div class="card" id="af"></div>
-  </div>
-</section>
+    <input class="q" id="q" placeholder="Search people..." aria-label="Search" oninput="window.iLike.findTab()">
+    <div id="fp" class="pscroll"><div id="ppl"></div></div>
+    <div id="fg" class="pscroll" style="display:none"><div class="rooms" id="rooms"></div></div>
+    <div id="fx" class="pscroll" style="display:none"></div>
+  </section>
 
-<!-- Screen: Onboarding -->
-<section class="screen" id="s-onb">
-  <div class="top"><span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span></div>
-  <div class="pscroll"><div id="ob"></div></div>
-</section>
-
-<!-- Screen: Home Feed -->
-<section class="screen" id="s-home">
-  <div class="top">
-    <span class="logo-wrap"><span class="logo">iLike</span><span class="logo-spark">✦</span></span>
-    <div style="display:flex;gap:8px">
-      <button class="ib" onclick="openNotifs()" aria-label="Notifications">
-        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        <i class="badge" id="nb" hidden></i>
+  <!-- ── Screen: Events ── -->
+  <section class="screen" id="s-events">
+    <header class="top">
+      <span class="logo-wrap"><span class="logo">Events</span></span>
+      <button class="ib" id="newEventBtn" onclick="window.iLike.openModal('ev')" aria-label="Create an event">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button class="ib" onclick="openChats()" aria-label="Messages">
-        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <i class="badge" id="chb" hidden></i>
-      </button>
-    </div>
-  </div>
-  <div class="fl" id="fl"></div>
-  <div id="feed"></div>
-</section>
-
-<!-- Screen: Discover -->
-<section class="screen" id="s-find">
-  <div class="top"><span class="logo-wrap"><span class="logo">Discover</span></span></div>
-  <div class="tabs" id="ft"><button class="on" onclick="ftab(0)">People like you</button><button onclick="ftab(1)">Circles</button><button onclick="ftab(2)">Explore</button></div>
-  <input class="q" id="q" placeholder="Search people..." aria-label="Search" oninput="findTab()">
-  <div id="fp" class="pscroll"><div id="ppl"></div></div>
-  <div id="fg" class="pscroll" style="display:none"><div class="rooms" id="rooms"></div></div>
-  <div id="fx" class="pscroll" style="display:none"></div>
-</section>
-
-<!-- Screen: Events -->
-<section class="screen" id="s-events">
-  <div class="top">
-    <span class="logo-wrap"><span class="logo">Events</span></span>
-    <button class="ib" id="newEventBtn" onclick="openEv()" aria-label="Create an event" hidden><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-  </div>
-  <div class="ev-container">
-    <div class="ev-hero-banner">
-      <div class="ev-hero-content">
-        <span class="ev-pill">Community Happenings</span>
-        <h2>Discover &amp; Join Local Hangouts</h2>
-        <p class="mute sm">Find upcoming gatherings, connect with attendees, and plan unforgettable events.</p>
-      </div>
-    </div>
-    <div id="evs"></div>
-    <div id="pevs"></div>
-  </div>
-</section>
-
-<!-- Screen: You / Profile -->
-<section class="screen" id="s-me">
-  <div id="me">
-    <div class="top">
-      <span class="logo-wrap"><span class="logo">You</span></span>
-      <div style="display:flex;gap:8px">
-        <button class="ib" onclick="openPe()" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
-        <button class="ib" onclick="openSet()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><i class="badge" id="rpb" hidden></i></button>
-      </div>
-    </div>
-    <div class="me-body">
-      <div class="me-hero">
-        <div class="banner" id="mbn"></div>
-        <span class="av" id="mav" style="--c:var(--brand)"></span>
-        <div class="mcomp"><b id="mcn"></b><span class="mute sm" id="mcu"></span></div>
-      </div>
-      <div class="col-l">
-        <div class="mehead">
-          <h1><span class="nm" id="mn"></span></h1>
-          <div class="mute" id="mu"></div>
-          <div class="cnts" id="mf"></div>
-          <p id="mb" class="bio" hidden></p>
+    </header>
+    <div class="ev-container">
+      <div class="ev-hero-banner">
+        <div class="ev-hero-content">
+          <span class="ev-pill">Community Gatherings</span>
+          <h2>Discover &amp; Join Local Hangouts</h2>
+          <p class="mute sm">Find upcoming meetups, connect with attendees, and reserve official event passes.</p>
         </div>
-        <h2>Interests</h2><div class="card" id="shelf"></div>
-        <h2>Artists</h2><div class="card" id="art"></div>
-        <h2>Achievements</h2><div class="card" id="badges"></div>
       </div>
-      <div class="col-r"><div class="tabs" id="mt"></div><div id="mine"></div></div>
+      <div id="evs"></div>
+      <div id="pevs"></div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- Bottom Navigation Bar -->
-<nav id="nav">
-  <button class="on" data-s="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home</button>
-  <button data-s="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Discover</button>
-  <button class="navadd" id="fabBtn" onclick="tapFab()" aria-label="New post"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-  <button data-s="events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Events</button>
-  <button data-s="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>You</button>
-</nav>
+  <!-- ── Screen: You / Profile ── -->
+  <section class="screen" id="s-me">
+    <div id="me" style="display:flex;flex-direction:column;height:100%">
+      <header class="top">
+        <span class="logo-wrap"><span class="logo">You</span></span>
+        <div class="row" style="gap:8px">
+          <button class="ib" onclick="window.iLike.openPe()" aria-label="Edit profile">
+            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          </button>
+          <button class="ib" onclick="window.iLike.openSet()" aria-label="Settings">
+            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="me-body">
+        <div class="col-l">
+          <div class="me-hero">
+            <div class="banner" id="mbn"></div>
+            <div id="mav"></div>
+          </div>
+          <div class="mehead">
+            <h1 style="font-size:24px;font-weight:800;letter-spacing:-0.5px"><span class="nm" id="mn"></span></h1>
+            <div class="mute sm" id="mu"></div>
+            <p id="mb" class="bio" style="margin-top:10px;line-height:1.5" hidden></p>
+          </div>
+          <h2 style="font-size:18px;font-weight:800;margin:20px 16px 8px">Interests</h2>
+          <div class="card" id="shelf"></div>
+          <h2 style="font-size:18px;font-weight:800;margin:16px 16px 8px">Artists</h2>
+          <div class="card" id="art"></div>
+          <h2 style="font-size:18px;font-weight:800;margin:16px 16px 8px">Achievements</h2>
+          <div class="card" id="badges"></div>
+        </div>
+        <div class="col-r">
+          <div class="tabs" id="mt"></div>
+          <div id="mine"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Bottom Navigation Bar ── -->
+  <nav id="nav">
+    <button class="on" data-s="home">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5h-5a1 1 0 0 1-1-1v-5h-4v5a1 1 0 0 1-1 1h-5A1.5 1.5 0 0 1 3 20Z"/></svg>
+      <span>Home</span>
+    </button>
+    <button data-s="find">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><path d="M11 8v2"/><path d="M11 14v-2"/><path d="M9 11h4"/></svg>
+      <span>Discover</span>
+    </button>
+    <button class="navadd" id="fabBtn" onclick="window.iLike.tapFab()" aria-label="New post">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="#fff"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button data-s="events">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="18" height="18" x="3" y="4" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+      <span>Events</span>
+    </button>
+    <button data-s="me">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.5 3.5-6 8-6s8 2.5 8 6"/></svg>
+      <span>You</span>
+    </button>
+  </nav>
 
 </div>
 
-<!-- Full-screen Event View Overlay -->
+<!-- ── Full-screen Event View Overlay ── -->
 <div class="ov" id="ev-ov">
   <div class="top ev-top">
-    <button class="ib" onclick="closeEventView()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="ib" onclick="window.iLike.closeEventView()" aria-label="Back">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
     <div class="ev-top-title-wrap"><b id="ev-top-title" class="clip">Event Details</b></div>
-    <div style="display:flex;gap:6px">
-      <button class="ib" id="ev-share-btn" onclick="shareCurrentEvent()" aria-label="Share Event"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>
+    <div class="row" style="gap:6px">
+      <button class="ib" onclick="window.iLike.shareCurrentEvent()" aria-label="Share Event">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+      </button>
     </div>
   </div>
-  <div id="ev-scroll" class="pscroll" style="padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))">
+  <div id="ev-scroll" class="pscroll">
     <div id="ev-view-body"></div>
   </div>
 </div>
 
-<!-- Buy Tickets Modal -->
-<div class="mod" id="ticket-mod" style="z-index:65" onclick="if(event.target===this)closeTickets()">
-  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+<!-- ── Buy / Reserve Tickets Modal ── -->
+<div class="mod" id="ticket-mod">
+  <div class="sheet">
     <div class="ticket-head">
-      <span class="date" style="font-size:11px">OFFICIAL TICKETS</span>
-      <h3 id="ticket-ev-title" style="margin:6px 0 2px;font-size:19px">Event Tickets</h3>
+      <span class="ev-ticket-badge" style="margin-bottom:6px">OFFICIAL PASSES</span>
+      <h3 id="ticket-ev-title" style="margin:4px 0 2px;font-size:20px;font-weight:800">Event Tickets</h3>
       <div class="mute sm" id="ticket-ev-sub">Date &amp; Venue</div>
     </div>
     <div id="ticket-tiers" class="ticket-tiers-box"></div>
     <div class="ticket-summary">
       <div class="row" style="justify-content:space-between"><span class="mute sm">Tickets (<span id="t-qty-label">0</span>)</span><b id="t-subtotal">$0.00</b></div>
-      <div class="row" style="justify-content:space-between"><span class="mute sm">Booking Fee</span><span class="mute sm" id="t-fee">$0.00</span></div>
-      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:6px"><b style="font-size:16px">Total</b><b style="font-size:18px;color:var(--brand)" id="t-total">$0.00</b></div>
+      <div class="row" style="justify-content:space-between"><span class="mute sm">Convenience Fee</span><span class="mute sm" id="t-fee">$0.00</span></div>
+      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:6px"><b style="font-size:16px">Total Amount</b><b style="font-size:18px;color:var(--brand)" id="t-total">$0.00</b></div>
     </div>
-    <div class="err" id="ticket-err"></div>
-    <div class="row" style="justify-content:flex-end;margin-top:12px">
-      <button class="btn off" onclick="closeTickets()">Cancel</button>
-      <button class="btn" id="ticket-confirm-btn" onclick="confirmTickets()" disabled>Reserve Tickets</button>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn off" onclick="window.iLike.closeTickets()">Cancel</button>
+      <button class="btn" id="ticket-confirm-btn" onclick="window.iLike.confirmTickets()">Reserve Passes</button>
     </div>
   </div>
 </div>
 
-<!-- Chats Drawer -->
+<!-- ── Chats / Messages Drawer ── -->
 <div class="ov" id="ov">
-  <div class="top"><button class="ib" onclick="back()" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="ct" style="font-size:18px">Chats</b><span style="width:42px"></span></div>
-  <div id="cl" style="overflow-y:auto"></div>
+  <div class="top">
+    <button class="ib" onclick="window.iLike.closeModal('ov')" aria-label="Back">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <b id="ct" style="font-size:18px">Chats</b>
+    <span style="width:42px"></span>
+  </div>
+  <div id="cl" style="overflow-y:auto;flex:1"></div>
   <div id="cv" style="display:none;flex-direction:column;flex:1;min-height:0">
-    <div class="cstrip" id="cstrip" hidden></div>
-    <div id="mwrap"><div id="msgs"></div><button class="jump" id="jump" hidden onclick="jumpNew()">↓ New messages</button></div>
-    <div class="ebar" id="ebar" hidden><span>Editing message</span><button class="link" onclick="resetEdit()">Cancel</button></div>
-    <div class="rtbar" id="rtbar" hidden><span>Couldn't send. Your message is still in the box.</span><button class="link" onclick="send()">Retry</button><button class="link" onclick="failDismiss()">Dismiss</button></div>
-    <div class="mcnt" id="mcnt" hidden></div>
-    <div class="inp" id="inp">
-      <input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" oninput="syncSend()" onkeydown="if(event.key==='Enter')send()">
-      <button class="btn" id="sbtn" onclick="send()" disabled>Send</button>
-    </div>
-    <div class="inp" id="jbar" style="display:none;align-items:center">
-      <div class="grow mute sm" id="jtx"></div>
-      <button class="btn" onclick="joinRoom()">Join</button>
+    <div id="msgs"></div>
+    <div class="inp">
+      <input id="mi" maxlength="500" placeholder="Say something nice..." aria-label="Message" onkeydown="if(event.key==='Enter')window.iLike.send()">
+      <button class="btn" onclick="window.iLike.send()">Send</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: New Post Composer (Up to 6 photos + Mention helper) -->
-<div class="mod" id="mod" onclick="if(event.target===this)closePost()">
-  <div class="sheet" style="max-height:94vh;overflow-y:auto">
-    <b style="font-size:19px">Create Post</b>
-    <div style="position:relative;margin-top:10px">
-      <textarea id="txt" maxlength="1000" placeholder="What are you into today? Use @username to tag people!" aria-label="Post text" oninput="onPostInput(this)"></textarea>
+<!-- ── Modal: New Post Composer ── -->
+<div class="mod" id="mod">
+  <div class="sheet">
+    <b style="font-size:20px;font-weight:800">Create Post</b>
+    <div style="position:relative;margin-top:12px">
+      <textarea id="txt" maxlength="1000" placeholder="What are you into today? Use @username to tag people!" aria-label="Post text"></textarea>
       <div id="txt-mentions" class="mention-popup"></div>
     </div>
     <div class="photos" id="pph"></div>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      <button class="btn off sbtn" id="padd" onclick="$('#pfile').click()">📷 Add photos (up to 6)</button>
-      <button class="btn off sbtn" type="button" onclick="insertMentionTag('txt')">@ Tag person</button>
+      <button class="btn off sbtn" id="padd" onclick="$('#pfile')?.click()">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+        <span>Add photos (up to 6)</span>
+      </button>
+      <button class="btn off sbtn" type="button" onclick="window.iLike.insertMentionTag('txt')">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
+        <span>Tag person</span>
+      </button>
     </div>
-    <input type="file" id="pfile" accept="image/*" multiple hidden onchange="pickPhotos(this)">
-    <label class="lab" for="sel">Select Primary Interest</label>
+    <input type="file" id="pfile" accept="image/*" multiple hidden onchange="window.iLike.pickPhotos(this)">
+    
+    <label class="lab" for="sel" style="display:block;margin:10px 0 4px;font-size:12px;font-weight:700;color:var(--mute)">Primary Interest</label>
     <select id="sel" aria-label="Interest"></select>
-    <label class="lab" for="sel2">Mix with Second Interest (optional)</label>
+
+    <label class="lab" for="sel2" style="display:block;margin:10px 0 4px;font-size:12px;font-weight:700;color:var(--mute)">Second Interest (optional)</label>
     <select id="sel2" aria-label="Second interest"></select>
-    <div class="row" style="justify-content:flex-end;margin-top:12px">
-      <button class="link pdis" id="pdis" hidden onclick="discardDraft()">Discard draft</button>
-      <button class="btn off" onclick="closePost()">Cancel</button>
-      <button class="btn" id="shr" onclick="publish()">Share</button>
+
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn off" onclick="window.iLike.closePost()">Cancel</button>
+      <button class="btn" id="shr" onclick="window.iLike.publish()">Share</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Edit Post (Full Edit Panel) -->
-<div class="mod" id="ed" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')">
-  <div class="sheet" style="max-height:94vh;overflow-y:auto">
-    <b style="font-size:19px">Edit Post</b>
-    <div style="position:relative;margin-top:10px">
-      <textarea id="edt" maxlength="1000" aria-label="Post text" oninput="onPostInput(this)"></textarea>
-      <div id="edt-mentions" class="mention-popup"></div>
+<!-- ── Modal: Edit Post ── -->
+<div class="mod" id="ed">
+  <div class="sheet">
+    <b style="font-size:20px;font-weight:800">Edit Post</b>
+    <div style="position:relative;margin-top:12px">
+      <textarea id="edt" maxlength="1000" aria-label="Post text"></textarea>
     </div>
-    <div class="photos" id="edph"></div>
-    <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      <button class="btn off sbtn" id="ed-add-photo" onclick="$('#ed-file').click()">📷 Add more photos</button>
-      <button class="btn off sbtn" type="button" onclick="insertMentionTag('edt')">@ Tag person</button>
-    </div>
-    <input type="file" id="ed-file" accept="image/*" multiple hidden onchange="pickEditPhotos(this)">
-    <label class="lab" for="edsel">Primary Interest</label>
-    <select id="edsel" aria-label="Interest"></select>
-    <label class="lab" for="edsel2">Second Interest</label>
-    <select id="edsel2" aria-label="Second interest"></select>
-    <div class="row" style="justify-content:flex-end;margin-top:12px">
-      <button class="btn off" onclick="$('#ed').classList.remove('on')">Cancel</button>
-      <button class="btn" id="eds" onclick="saveEd()">Save changes</button>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn off" onclick="window.iLike.closeModal('ed')">Cancel</button>
+      <button class="btn" onclick="window.iLike.saveEd()">Save changes</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Settings (Grouped and Restyled) -->
-<div class="mod" id="set" onclick="if(event.target===this)this.classList.remove('on')">
-  <div class="sheet" style="max-height:90vh;overflow-y:auto">
-    <div class="row" style="justify-content:space-between;margin-bottom:4px">
-      <b style="font-size:20px">Settings &amp; Preferences</b>
-      <button class="ib" style="width:36px;height:36px" onclick="$('#set').classList.remove('on')" aria-label="Close">✕</button>
+<!-- ── Modal: Replies / Thread ── -->
+<div class="mod" id="th">
+  <div class="sheet">
+    <div class="rhead">
+      <b style="font-size:19px;font-weight:800">Replies</b>
+      <button class="ib" onclick="window.iLike.closeThread()" aria-label="Close">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
-
-    <!-- Appearance Card -->
-    <div class="set-card-group">
-      <div class="set-group-title">🎨 Appearance &amp; Style</div>
-      <p class="lab" style="margin-top:0">Theme Mode</p>
-      <div class="row" id="thm" style="gap:8px"></div>
-      
-      <p class="lab">Accent Color</p>
-      <div class="sws-wrap" id="sws"></div>
-      
-      <p class="lab">Typography</p>
-      <div class="row" id="fcs" style="flex-wrap:wrap;gap:8px"></div>
-      
-      <div id="inst-section" style="margin-top:12px" hidden>
-        <button class="btn off wide" id="instb" onclick="installApp()">📲 Install iLike to Home Screen</button>
-      </div>
+    <div id="thp"></div>
+    <div id="thr" style="max-height:280px;overflow-y:auto;margin:12px 0"></div>
+    <div class="rbar">
+      <input id="rin" maxlength="500" placeholder="Write a reply..." onkeydown="if(event.key==='Enter')window.iLike.sendReply()">
+      <button class="btn" onclick="window.iLike.sendReply()">Reply</button>
     </div>
-
-    <!-- Account & Security Card -->
-    <div class="set-card-group">
-      <div class="set-group-title">🔒 Account &amp; Security</div>
-      <div class="mute sm" id="setem" style="margin-bottom:10px"></div>
-      <input class="fi" id="npw" type="password" placeholder="New password (8+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePw()">
-      <div class="err" id="npe"></div>
-      <button class="btn off wide" onclick="changePw()">Update Password</button>
-    </div>
-
-    <!-- Notifications Card -->
-    <div class="set-card-group" id="pushhd" hidden>
-      <div class="set-group-title">🔔 Push Notifications</div>
-      <div id="pushbox"></div>
-    </div>
-
-    <!-- Safety & Moderation Card -->
-    <div class="set-card-group">
-      <div class="set-group-title">🛡️ Safety &amp; Community</div>
-      <button class="btn off wide" onclick="openBlocked()">🚫 Blocked People</button>
-      <button class="btn off wide" onclick="openFb()">💬 Send Feedback &amp; Ideas</button>
-      <button class="btn off wide" onclick="openLegal('terms')">Terms &amp; Privacy Policy</button>
-      <div id="modlab" hidden style="margin-top:8px">
-        <button class="btn off wide" id="modb" onclick="openMod()">🛡 Moderation Tools</button>
-      </div>
-    </div>
-
-    <!-- Session & Danger Card -->
-    <div class="set-card-group" style="border-color:color-mix(in srgb,#f87171 30%,var(--line))">
-      <div class="set-group-title" style="color:#f87171">⚠️ Account Actions</div>
-      <button class="btn off wide" onclick="$('#set').classList.remove('on');logout()">Log Out</button>
-      <button class="btn off wide danger" onclick="openDa()">Delete My Account</button>
-    </div>
-
-    <button class="btn wide" style="margin-top:4px" onclick="$('#set').classList.remove('on')">Done</button>
   </div>
 </div>
 
-<!-- Modal: Edit Profile -->
-<div class="mod" id="pe" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')">
-  <div class="sheet" style="max-height:92vh;overflow-y:auto">
-    <b style="font-size:19px">Edit Profile</b>
-    <div class="row" style="margin:16px 0 6px">
-      <span class="av big" id="peav" style="--c:var(--brand)"></span>
-      <div>
-        <button class="btn off sbtn" onclick="$('#pfa').click()">Change photo</button>
-        <button class="link rmav" id="perm" onclick="removeAvatar()">Remove photo</button>
+<!-- ── Modal: Settings ── -->
+<div class="mod" id="set">
+  <div class="sheet">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <b style="font-size:20px;font-weight:800">Settings &amp; Preferences</b>
+      <button class="ib" onclick="window.iLike.closeModal('set')" aria-label="Close">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Appearance -->
+    <div class="set-card-group">
+      <div class="set-group-title">
+        <svg class="ui-icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2Z"/></svg>
+        <span>Appearance &amp; Style</span>
+      </div>
+      <div class="row" style="gap:8px;margin-bottom:12px">
+        <button class="fc" onclick="window.iLike.setTheme('auto')">Auto</button>
+        <button class="fc" onclick="window.iLike.setTheme('light')">Light</button>
+        <button class="fc" onclick="window.iLike.setTheme('dark')">Dark</button>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:var(--mute);margin-bottom:6px">Accent Color</div>
+      <div class="sws-wrap">
+        <button class="sw" style="background:#8B5CF6" onclick="window.iLike.accent(0)" aria-label="Violet"></button>
+        <button class="sw" style="background:#EC4899" onclick="window.iLike.accent(1)" aria-label="Rose"></button>
+        <button class="sw" style="background:#22C55E" onclick="window.iLike.accent(2)" aria-label="Emerald"></button>
+        <button class="sw" style="background:#3B82F6" onclick="window.iLike.accent(3)" aria-label="Ocean"></button>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:var(--mute);margin:14px 0 6px">Typography</div>
+      <div class="row" style="gap:8px">
+        <button class="fc" onclick="window.iLike.fnt(0)">Modern</button>
+        <button class="fc" onclick="window.iLike.fnt(1)">Editorial</button>
+        <button class="fc" onclick="window.iLike.fnt(2)">Mono</button>
       </div>
     </div>
-    <input type="file" id="pfa" accept="image/*" hidden onchange="pickAvatar(this)">
-    <p class="lab">Banner Image (3:1)</p>
-    <div class="pebn" id="pebn"></div>
-    <div class="row">
-      <button class="btn off sbtn" onclick="$('#pfbn').click()">Change banner</button>
-      <button class="link rmav" id="pebrm" onclick="removeBanner()">Remove banner</button>
+
+    <!-- Safety & Info -->
+    <div class="set-card-group">
+      <div class="set-group-title">
+        <svg class="ui-icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Safety &amp; Community</span>
+      </div>
+      <button class="btn off wide" onclick="window.iLike.toast('No members currently blocked')">Blocked Accounts</button>
+      <button class="btn off wide" style="margin-top:8px" onclick="window.iLike.toast('Support: ilike.team789@gmail.com')">Contact Support</button>
     </div>
-    <input type="file" id="pfbn" accept="image/*" hidden onchange="pickBanner(this)">
-    <label class="lab" for="pen">Display Name</label>
-    <input class="fi" id="pen" maxlength="40" autocomplete="name">
-    <label class="lab" for="peu">Username (@username)</label>
-    <input class="fi" id="peu" maxlength="20" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="letters, numbers, _ or .">
-    <label class="lab" for="peb">Bio</label>
-    <textarea id="peb" class="bioin" maxlength="160" placeholder="Tell people what you are into" oninput="$('#pbc').textContent=this.value.length+'/160'"></textarea>
-    <div class="mute sm" id="pbc" style="text-align:right;margin-bottom:8px">0/160</div>
-    <label class="lab" for="pec">City</label>
-    <input class="fi" id="pec" maxlength="40" autocomplete="address-level2">
-    <div class="err" id="pee"></div>
+
+    <button class="btn wide" style="margin-top:6px" onclick="window.iLike.closeModal('set')">Done</button>
+  </div>
+</div>
+
+<!-- ── Modal: Edit Profile ── -->
+<div class="mod" id="pe">
+  <div class="sheet">
+    <b style="font-size:20px;font-weight:800">Edit Profile</b>
+    <div style="margin:16px 0">
+      <label for="pen" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin-bottom:4px">Display Name</label>
+      <input class="fi" id="pen" maxlength="40" placeholder="Your name">
+
+      <label for="peu" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin:12px 0 4px">Username (@handle)</label>
+      <input class="fi" id="peu" maxlength="20" placeholder="username">
+
+      <label for="peb" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin:12px 0 4px">Bio</label>
+      <textarea id="peb" maxlength="160" placeholder="Tell people what you are into"></textarea>
+
+      <label for="pec" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin:12px 0 4px">City / Location</label>
+      <input class="fi" id="pec" maxlength="40" placeholder="City or region">
+    </div>
     <div class="row" style="justify-content:flex-end">
-      <button class="btn off" onclick="$('#pe').classList.remove('on')">Cancel</button>
-      <button class="btn" id="pes" onclick="saveProfile()">Save profile</button>
+      <button class="btn off" onclick="window.iLike.closeModal('pe')">Cancel</button>
+      <button class="btn" onclick="window.iLike.saveProfile()">Save profile</button>
     </div>
   </div>
 </div>
 
-<!-- Remaining Modals & Sheets -->
-<div class="mod" id="pk" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="pkt" style="font-size:18px">Your interests</b><input class="fi" id="pks" placeholder="Search interests" maxlength="40" autocomplete="off" oninput="drawPk()" style="margin-top:12px"><div class="pkl" id="pkl"></div><button class="btn" style="width:100%" onclick="$('#pk').classList.remove('on')">Done</button></div></div>
-<div class="mod" id="pv" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pvb"></div><div style="padding:0 16px"><button class="btn off" style="width:100%" onclick="$('#pv').classList.remove('on')">Close</button></div></div></div>
-<div class="mod" id="th" onclick="if(event.target===this)closeThread()"><div class="sheet thsheet"><div class="rhead"><b style="font-size:18px">Replies</b><button class="ib" onclick="closeThread()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="thbody"><div id="thp"></div><div id="thr"></div></div><div class="rtbar" id="rrt" hidden><span>Couldn't send. Your reply is still in the box.</span><button class="link" onclick="sendReply()">Retry</button><button class="link" onclick="S.rfail=null;$('#rrt').hidden=true">Dismiss</button></div><div class="rbar"><input id="rin" maxlength="500" placeholder="Write a reply (use @name to tag)" aria-label="Reply" oninput="saveRD()" onkeydown="if(event.key==='Enter')sendReply()"><button class="btn" id="rsend" onclick="sendReply()">Reply</button></div></div></div>
-<div class="mod" id="pf" style="z-index:44" onclick="if(event.target===this)closePf()"><div class="sheet" style="padding:8px 0 calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto"><div id="pfb"></div><div style="padding:0 16px;margin-top:8px"><button class="btn off" style="width:100%" onclick="closePf()">Close</button></div></div></div>
-<div class="mod" id="ev" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:92vh;overflow-y:auto"><b id="evHead" style="font-size:18px">Create event</b><label class="lab" for="evTitle">Event name</label><input class="fi" id="evTitle" maxlength="80" placeholder="Nada musical show"><p class="lab">Pick an emoji</p><div class="evem" id="evEm"></div><label class="lab" for="evWhen">When</label><input class="fi" id="evWhen" type="datetime-local"><label class="lab" for="evPlace">Location</label><input class="fi" id="evPlace" maxlength="80" placeholder="Location"><label class="lab" for="evVenue">Venue details (optional)</label><input class="fi" id="evVenue" maxlength="120" placeholder="Hall, entrance, or meeting point"><label class="lab" for="evDesc">Description</label><textarea id="evDesc" maxlength="500" placeholder="Tell people what this event is about"></textarea><div class="err" id="evErr"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#ev').classList.remove('on')">Cancel</button><button class="btn" id="evSave" onclick="saveEv()">Save</button></div></div></div>
-<div class="mod" id="info" style="z-index:56" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="inf"></div><button class="btn wide" onclick="$('#info').classList.remove('on')">Done</button></div></div>
-<div class="mod" id="pm" style="z-index:50" onclick="if(event.target===this)closePm()"><div class="sheet"><button class="btn off wide" id="pmEdit" onclick="openEd(S.pmId)">Edit post</button><button class="btn off wide danger" onclick="delPost(S.pmId)">Delete post</button><button class="btn off wide" onclick="closePm()">Cancel</button></div></div>
-<div class="mod" id="cf" style="z-index:55" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><div id="cft" style="font-size:18px;font-weight:800"></div><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn off" onclick="$('#cf').classList.remove('on')">Cancel</button><button class="btn" id="cfy" onclick="cfyes()">Add</button></div></div></div>
-<div class="mod" id="fb" style="z-index:50" onclick="if(event.target===this)closeFb()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Send feedback</b><p class="mute sm" style="margin:6px 0 10px">Found a bug or have an idea? Tell us. We read everything.</p><div class="row" id="fbk"></div><textarea id="fbt" maxlength="1000" placeholder="What happened, or what would you like to see?" aria-label="Feedback" oninput="$('#fbc').textContent=this.value.length+'/1000'"></textarea><div class="mute sm" id="fbc" style="text-align:right">0/1000</div><div class="err" id="fbe"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="closeFb()">Cancel</button><button class="btn" id="fbs" onclick="sendFb()">Send</button></div></div></div>
-<div class="mod" id="da" style="z-index:51" onclick="if(event.target===this)closeDa()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><b style="font-size:18px">Delete your account?</b><p style="margin:10px 0;line-height:1.5;font-size:14px">This permanently removes your profile, posts, replies, photos, messages, follows and blocked list. <b>This can't be undone.</b></p><label class="lab" for="dat">Type DELETE to confirm</label><input class="fi" id="dat" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" oninput="daCheck()" onkeydown="if(event.key==='Enter')doDelete()"><div class="err" id="dae"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn off" onclick="closeDa()">Cancel</button><button class="btn dfill" id="dab" disabled onclick="doDelete()">Delete forever</button></div></div></div>
-<div class="ov" id="nv"><div class="top"><button class="ib" onclick="$('#nv').classList.remove('on')" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b style="font-size:18px">Notifications</b><button class="link nmr" id="nmr" hidden onclick="markNotifsRead()">Mark all read</button></div><div id="nl" style="overflow-y:auto"></div></div>
-<div class="mod" id="sl" style="z-index:50" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:80vh;overflow-y:auto"><b id="slt" style="font-size:18px"></b><div id="sll" style="margin:8px -6px 0"></div><button class="btn wide" onclick="$('#sl').classList.remove('on')">Done</button></div></div>
-<div class="mod" id="mm" style="z-index:60" onclick="if(event.target===this)closeMm()"><div class="sheet"><button class="btn off wide" id="mmEdit" onclick="editMsg()">Edit message</button><button class="btn off wide danger" onclick="delMsg()">Delete message</button><button class="btn off wide" onclick="closeMm()">Cancel</button></div></div>
-<div class="ov" id="mo"><div class="top"><button class="ib" onclick="$('#mo').classList.remove('on')" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b style="font-size:18px">Moderation</b><span style="width:42px"></span></div><div id="mot"></div><div id="mob"></div></div>
-<div class="mod" id="ax" style="z-index:52" onclick="if(event.target===this)closeAx()"><div class="sheet"><div id="axb"></div></div></div>
-<div class="mod" id="rp" style="z-index:52" onclick="if(event.target===this)closeRp()"><div class="sheet"><b style="font-size:18px">Report</b><p class="mute sm" style="margin:6px 0 10px">Moderators will review this. The person is not told who reported.</p><div class="pkl" id="rpr"></div><textarea id="rpd" maxlength="500" placeholder="Anything else we should know? (optional)" aria-label="Report details"></textarea><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="closeRp()">Cancel</button><button class="btn" id="rps" onclick="sendReport()" disabled>Send report</button></div></div></div>
-<div class="mod" id="ua" style="z-index:52" onclick="if(event.target===this)closeUa()"><div class="sheet" style="max-height:90vh;overflow-y:auto"><div id="uab"></div></div></div>
-<div class="mod" id="am" style="z-index:52" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><b id="amt" style="font-size:18px"></b><button class="btn off wide" onclick="admRename()">Rename</button><button class="btn off wide" onclick="admMerge()">Merge into another artist</button><button class="btn off wide danger" onclick="admDelete()">Delete artist</button><button class="btn off wide" onclick="$('#am').classList.remove('on')">Cancel</button></div></div>
-<div class="mod" id="rn" style="z-index:53" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet"><b style="font-size:18px">Rename artist</b><input class="fi" id="rni" maxlength="40" style="margin-top:12px" onkeydown="if(event.key==='Enter')admSaveRename()"><div class="err" id="rne"></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="$('#rn').classList.remove('on')">Cancel</button><button class="btn" onclick="admSaveRename()">Save</button></div></div></div>
-<div class="mod" id="mg" style="z-index:53" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:85vh;overflow-y:auto"><b id="mgt" style="font-size:18px"></b><input class="fi" id="mgs" placeholder="Search artists" maxlength="40" autocomplete="off" oninput="drawMg()" style="margin-top:12px"><div id="mgl" style="margin:8px -6px 0"></div><button class="btn off wide" onclick="$('#mg').classList.remove('on')">Cancel</button></div></div>
-<div class="mod" id="lg" style="z-index:58" onclick="if(event.target===this)this.classList.remove('on')"><div class="sheet" style="max-height:88vh;overflow-y:auto"><div class="tabs" id="lgt"></div><div class="legal" id="lgb"></div><button class="btn wide" onclick="$('#lg').classList.remove('on')">Done</button></div></div>
-<div class="mod" id="cr" style="z-index:64"><div class="sheet crsheet"><b id="crt" style="font-size:18px">Adjust your photo</b><p class="mute sm" id="crh" style="margin:4px 0 14px"></p><div class="crst avatar" id="crst"><img id="cri" alt="" draggable="false"><div class="crmask"></div></div><div class="row" style="margin:16px 4px 6px"><span class="mute sm">－</span><input type="range" id="crz" class="grow" min="1" max="4" step="0.01" value="1" aria-label="Zoom" oninput="crSetZ(+this.value,CR.sw/2,CR.sh/2)"><span class="mute sm">＋</span></div><div class="row" style="justify-content:flex-end"><button class="btn off" onclick="crCancel()">Cancel</button><button class="btn" onclick="crSave()">Save</button></div></div></div>
-<div class="mod lb" id="lb" style="z-index:70"><div class="lbst" id="lbst"><img id="lbi" alt="Photo" draggable="false"></div><button class="lbx" onclick="closeLb()" aria-label="Close photo">✕</button><div class="lbc" id="lbc"></div><button class="lbn lbp" id="lbp" onclick="lbGo(-1)" aria-label="Previous photo">‹</button><button class="lbn lbnx" id="lbnx" onclick="lbGo(1)" aria-label="Next photo">›</button></div>
+<!-- ── Modal: Interests & Artists Picker ── -->
+<div class="mod" id="pk">
+  <div class="sheet">
+    <b id="pkt" style="font-size:20px;font-weight:800">Your Interests</b>
+    <input class="fi" id="pks" placeholder="Search interests..." style="margin:12px 0" oninput="window.iLike.drawPk()">
+    <div class="row" id="pkl" style="flex-wrap:wrap;gap:8px;max-height:300px;overflow-y:auto;padding:4px 0"></div>
+    <button class="btn wide" style="margin-top:16px" onclick="window.iLike.closeModal('pk')">Done</button>
+  </div>
+</div>
+
+<!-- ── Modal: Create Event ── -->
+<div class="mod" id="ev">
+  <div class="sheet">
+    <b style="font-size:20px;font-weight:800">Create Event</b>
+    <div style="margin:14px 0">
+      <label for="evTitle" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin-bottom:4px">Event Title</label>
+      <input class="fi" id="evTitle" placeholder="e.g. Sunset Vinyl Listening Session">
+
+      <label for="evPlace" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin:12px 0 4px">Location</label>
+      <input class="fi" id="evPlace" placeholder="Location name or address">
+
+      <label for="evDesc" style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin:12px 0 4px">Description</label>
+      <textarea id="evDesc" placeholder="Details about the hangout, schedule, or what to bring"></textarea>
+    </div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn off" onclick="window.iLike.closeModal('ev')">Cancel</button>
+      <button class="btn" onclick="window.iLike.closeModal('ev');window.iLike.toast('Event proposed! Live in Events tab.')">Publish Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Other Modals ── -->
+<div class="mod" id="pm"><div class="sheet"><button class="btn off wide" onclick="window.iLike.openEd(window.iLike.S?.pmId)">Edit post</button><button class="btn off wide danger" style="margin-top:8px" onclick="window.iLike.delPost(window.iLike.S?.pmId)">Delete post</button><button class="btn off wide" style="margin-top:8px" onclick="window.iLike.closeModal('pm')">Cancel</button></div></div>
+<div class="mod" id="ax"><div class="sheet" id="axb"></div></div>
+<div class="mod" id="sl"><div class="sheet"><b id="slt" style="font-size:18px">Likes</b><div id="sll" style="margin-top:12px"></div><button class="btn wide" style="margin-top:14px" onclick="window.iLike.closeModal('sl')">Done</button></div></div>
+<div class="mod" id="info"><div class="sheet"><div id="inf"></div><button class="btn wide" style="margin-top:16px" onclick="window.iLike.closeModal('info')">Done</button></div></div>
+<div class="mod" id="cf"><div class="sheet"><div id="cft" style="font-size:18px;font-weight:800"></div><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn off" onclick="window.iLike.closeModal('cf')">Cancel</button><button class="btn" id="cfy" onclick="window.iLike.cfyes()">Confirm</button></div></div></div>
+<div class="mod" id="pf"><div class="sheet" style="padding:0"><div id="pfb"></div><div style="padding:16px"><button class="btn off wide" onclick="window.iLike.closeModal('pf')">Close</button></div></div></div>
+<div class="ov" id="nv"><div class="top"><button class="ib" onclick="window.iLike.closeModal('nv')" aria-label="Back"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 18-6-6 6-6"/></svg></button><b style="font-size:18px">Notifications</b><span style="width:42px"></span></div><div id="nl"></div></div>
+
+<!-- ── Toast ── -->
 <div id="toast"></div>
 
-<div id="crash" hidden role="alert"><span>Something went wrong.</span><button onclick="location.reload()">Tap to reload</button><button class="x" onclick="this.parentNode.hidden=true" aria-label="Dismiss">✕</button></div>
-<script>
-(function(){
-  var shown=false;
-  function crash(why){
-    try{console.error('iLike error:',why)}catch(e){}
-    if(shown)return;shown=true;
-    var b=document.getElementById('crash');if(b)b.hidden=false;
-  }
-  window.addEventListener('error',function(e){
-    if(e.target&&e.target!==window&&e.target.tagName){
-      if(e.target.tagName==='SCRIPT')crash('script failed: '+(e.target.src||''));
-      return;
-    }
-    if(/ResizeObserver/i.test(e.message||''))return;
-    crash(e.error||e.message);
-  },true);
-  window.addEventListener('unhandledrejection',function(e){
-    var m=String((e.reason&&e.reason.message)||e.reason||'');
-    if(!navigator.onLine||/Failed to fetch|NetworkError|Load failed|AbortError|aborted/i.test(m))return;
-    crash(e.reason);
-  });
-})();
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
