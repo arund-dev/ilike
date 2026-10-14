@@ -32,9 +32,11 @@ The app connects to Supabase through the URL and publishable key configured near
 
 ## Event tab
 
-The **Events** tab lists upcoming community events as cards. Opening a card shows its full description and a comment section for member opinions. Only admins, moderators, and members in `event_authorizations` may publish events; anyone signed in may read and comment.
+The **Events** tab lists upcoming community events as cards, and **Show past events** at the bottom loads the last 20 on demand. Opening a card shows its full description and a comment section for member opinions. Only admins, moderators, and members in `event_authorizations` may publish events; anyone signed in may read and comment (banned or muted members cannot). Hosts can edit, cancel or delete their own events; admins and moderators can cancel any event. Comment authors can delete their own comments, and admins and moderators can delete anyone's.
 
-Before deploying this version, run [`event-tab.sql`](event-tab.sql) in the Supabase SQL Editor. Admins and moderators can then approve or remove event publishers in **Settings → Moderation tools → Event publishers**. The permission is enforced by a database trigger as well as the interface.
+Before deploying this version, run [`event-tab.sql`](event-tab.sql) in the Supabase SQL Editor. It is safe to run again, so run it again whenever the file changes. Admins and moderators can then approve or remove event publishers in **Settings → Moderation tools → Event publishers**. The permissions are enforced by a database trigger and row-level security policies as well as the interface.
+
+**Moderation tools tabs:** every moderator sees Reports, Users and Event publishers. Lists, Invites, Feedback and Stats are admin-only, so they appear only when `profiles.role` is `admin`. To make an account an admin, run `update public.profiles set role = 'admin' where id = '<user id>';` in the SQL Editor, then reload the app.
 
 For local development, any static web server can serve the folder. For example, with Node.js installed:
 

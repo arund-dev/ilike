@@ -2,9 +2,9 @@
 const SUPABASE_URL="https://rgrtwewhiylwkxgbcgyx.supabase.co";
 const SUPABASE_KEY="sb_publishable_frBJksxES3J_AZICQ619fw_6e7hP59z";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-// Shown on the Terms / Privacy / Contact sheet. Must be an inbox you check.
 // Push notifications: paste the PUBLIC key from PUSH-SETUP.md here. While this is empty, the notification settings stay hidden.
 const VAPID_PUBLIC='BC0pryw7UqZIAhNML0k41re86rCfX0PfqlWRLSTX_o-6GghUx3btDBxf3U5nfqWcNIiPvHsF9Tm5jwMc5tunqyM';
+// Shown on the Terms / Privacy / Contact sheet. Must be an inbox you check.
 const CONTACT_EMAIL='ilike.team789@gmail.com';
 const APP_URL=()=>location.origin+location.pathname;
 
@@ -415,7 +415,7 @@ async function load(){
     backGuardReady=false;
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
-    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.eventAuthorized=false;S.eventComments=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
+    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
@@ -1662,8 +1662,11 @@ const iminHTML=on=>`<span>${on?"You're in ✓":"I'm in"}</span>`;
 
 async function loadEvents(){
   const since=new Date(Date.now()-3*36e5).toISOString();
-  const r=await sb.from('events').select(EVCOLS).gte('starts_at',since).order('starts_at').limit(60);
-  if(r.error){if(!S.evs)S.evs=[];eventsTab();return}
+  const[r,ea]=await Promise.all([
+    sb.from('events').select(EVCOLS).gte('starts_at',since).order('starts_at').limit(60),
+    sb.from('event_authorizations').select('user_id').eq('user_id',S.user.id).maybeSingle()]);
+  if(!ea.error)S.eventAuthorized=!!ea.data;
+  if(r.error){if(!S.evs)S.evs=[];toast("Couldn't load events");eventsTab();return}
   await getProfiles(r.data.map(e=>e.organizer_id));
   S.evs=r.data;
   S.evm=new Map(S.evs.map(e=>[e.id,e]));
@@ -1687,7 +1690,7 @@ function eventsTab(){
   newBtn.hidden=!canManageEvents();
   if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
   el.innerHTML=S.evs.length?S.evs.map(eventCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">Events</div><b>No upcoming events</b><div class="sm" style="margin:6px 0 16px">Check back soon for new things to do.</div>${canManageEvents()?'<button class="btn" onclick="openEv()">Create the first event</button>':''}</div>`;
-  $('#pevs').innerHTML='';
+  pastDraw();
 }
 function eventCard(e){
   const cancelled=e.cancelled_at?'<span class="evbadge">Cancelled</span>':'';
@@ -1700,26 +1703,27 @@ function openEvent(id){
 function eventDetail(id){
   const e=S.evm.get(id);if(!e)return '';
   const mine=e.organizer_id==S.user.id;
+  const gone=!!e.cancelled_at,past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
   const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
   return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
-${e.cancelled_at?'<div class="evcx">This event was cancelled.</div>':''}
+${gone?'<div class="evcx">This event was cancelled.</div>':past?'<div class="evcx soft">This event has passed.</div>':''}
 <div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
 <div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
 <div class="ev-row">${usr}<span>Posted by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(mine?'you':nm(e.organizer_id))}</b></span></div>
 ${e.description?`<p class="evdesc">${esc(e.description)}</p>`:'<p class="evdesc mute">No description was added.</p>'}
-${mine?`<div class="evact"><button class="btn off" onclick="openEv('${e.id}')">Edit event</button><button class="btn off danger" onclick="delEv('${e.id}')">Delete</button></div>`:''}
+${mine||isMod()?`<div class="evact">${mine&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel event</button>`:''}${mine?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete</button>`:''}</div>`:''}
 ${eventCommentsHTML(e.id)}</div>`;
 }
 function eventCommentsHTML(id){
-  const comments=S.eventComments.get(id);
-  const rows=comments===undefined?'<div class="mute sm">Loading comments...</div>':comments.length?comments.map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span><div>${esc(c.body)}</div></div></div>`).join(''):'<div class="mute sm">Be the first to comment.</div>';
+  const comments=S.eventComments.get(id)?.filter(c=>!S.blocked.has(c.user_id));
+  const rows=comments===undefined?'<div class="mute sm">Loading comments...</div>':comments.length?comments.map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span>${c.user_id==S.user.id||isMod()?`<button class="link sm" style="margin-left:8px" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}<div>${esc(c.body)}</div></div></div>`).join(''):'<div class="mute sm">Be the first to comment.</div>';
   return `<div class="event-comments"><div class="evh">COMMENTS</div><div class="event-comment-list">${rows}</div><div class="event-comment-form"><input id="ecin" maxlength="500" placeholder="Share your thoughts" aria-label="Comment on this event" onkeydown="if(event.key==='Enter')sendEventComment('${id}')"><button class="btn" onclick="sendEventComment('${id}')">Comment</button></div></div>`;
 }
 const eventCommentsError=e=>e&&(e.code==='PGRST205'||/event_comments|relation .*does not exist/i.test(e.message||''))
   ?'Comments need database setup. Run event-tab.sql in Supabase first.'
-  :(e?.message||"Couldn't load comments");
+  :errMsg(e);
 async function loadEventComments(id){
   S.eventComments.delete(id);refreshPv();
   const r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at').limit(100);
@@ -1729,12 +1733,21 @@ async function loadEventComments(id){
 }
 async function sendEventComment(id){
   const input=$('#ecin'),body=input?.value.trim();
-  if(!body)return;
+  if(!body||input.disabled)return;
+  if(muted())return;
   input.disabled=true;
   const r=await sb.from('event_comments').insert({event_id:id,user_id:S.user.id,body}).select().single();
   input.disabled=false;
-  if(r.error){toast(eventCommentsError(r.error));return}
+  if(r.error){toast(eventCommentsError(r.error));input.focus();return}
   const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);refreshPv();
+}
+function delEventComment(eid,cid){
+  confirmBox('Delete this comment?','Delete',async()=>{
+    const r=await sb.from('event_comments').delete().eq('id',cid).select('id');
+    if(r.error){toast(errMsg(r.error));return}
+    if(!r.data?.length){toast("Couldn't delete that comment");return}
+    S.eventComments.set(eid,(S.eventComments.get(eid)||[]).filter(c=>c.id!==cid));refreshPv();toast('Comment deleted');
+  });
 }
 function eventHTML(id){
   const e=S.evm.get(id);if(!e)return '';
@@ -1799,10 +1812,11 @@ async function saveEv(){
   const vals={title,emoji:S.evEm,starts_at:when.toISOString(),place,venue:venue||null,description:desc||null};
   const b=$('#evSave');b.disabled=true;
   let r;
-  if(S.evId)r=await sb.from('events').update(vals).eq('id',S.evId).eq('organizer_id',S.user.id);
-  else r=await sb.from('events').insert({...vals,organizer_id:S.user.id});
+  if(S.evId)r=await sb.from('events').update(vals).eq('id',S.evId).eq('organizer_id',S.user.id).select('id');
+  else r=await sb.from('events').insert({...vals,organizer_id:S.user.id}).select('id');
   b.disabled=false;
-  if(r.error){err.textContent=r.error.message;return}
+  if(r.error){err.textContent=errMsg(r.error);return}
+  if(!r.data?.length){err.textContent="That event could not be saved. You may not be allowed to edit it.";return}
   const wasNew=!S.evId;
   $('#ev').classList.remove('on');
   await loadEvents();draw();toast(wasNew?'Event published':'Event updated');
@@ -1820,21 +1834,20 @@ async function loadPast(){
   const since=new Date(Date.now()-3*36e5).toISOString();
   const r=await sb.from('events').select(EVCOLS).lt('starts_at',since).order('starts_at',{ascending:false}).limit(20);
   if(r.error){toast('Could not load past events');S.pev=[];return}
-  const ids=r.data.map(e=>e.id);
-  const g=ids.length?await sb.from('event_goers').select('event_id,user_id').in('event_id',ids):{data:[]};
-  await getProfiles([...r.data.map(e=>e.organizer_id),...(g.data||[]).map(x=>x.user_id)]);
-  S.pev=r.data.map(e=>({...e,past:true,goers:(g.data||[]).filter(x=>x.event_id===e.id).map(x=>x.user_id)}));
+  await getProfiles(r.data.map(e=>e.organizer_id));
+  S.pev=r.data.map(e=>({...e,past:true}));
   S.pev.forEach(e=>S.evm.set(e.id,e));
 }
 async function togglePast(){S.pevOpen=!S.pevOpen;if(S.pevOpen)S.pev=null;pastDraw();if(S.pevOpen){await loadPast();pastDraw()}}
 function pastDraw(){
   const el=$('#pevs');if(!el)return;
-  el.innerHTML=`<button class="link pastbtn" onclick="togglePast()">${S.pevOpen?'Hide past events':'Show past events'}</button>`+(S.pevOpen?(S.pev==null?'<div class="mute sm" style="padding:8px 4px">Loading...</div>':S.pev.length?S.pev.map(evCard).join(''):'<div class="mute sm" style="padding:8px 4px">No past events yet.</div>'):'');
+  el.innerHTML=`<button class="link pastbtn" onclick="togglePast()">${S.pevOpen?'Hide past events':'Show past events'}</button>`+(S.pevOpen?(S.pev==null?'<div class="mute sm" style="padding:8px 4px">Loading...</div>':S.pev.length?S.pev.map(eventCard).join(''):'<div class="mute sm" style="padding:8px 4px">No past events yet.</div>'):'');
 }
 function delEv(id){
   confirmBox('Delete this event?','Delete',async()=>{
-    const{error}=await sb.from('events').delete().eq('id',id).eq('organizer_id',S.user.id);
-    if(error){toast(error.message);return}
+    const{data,error}=await sb.from('events').delete().eq('id',id).eq('organizer_id',S.user.id).select('id');
+    if(error){toast(errMsg(error));return}
+    if(!data?.length){toast("Couldn't delete that event");return}
     $('#pv').classList.remove('on');S.evm.delete(id);
     await loadEvents();draw();toast('Event deleted');
   });
