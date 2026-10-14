@@ -920,3 +920,12 @@ body:has(#ev-ov.on) #ev-bd{
 .fi.bad{border-color:#f87171}
 .lab.first{margin-top:6px}
 .set-action[hidden]{display:none!important}
+
+/* Floating close button that stays visible while a sheet scrolls (profile, post view) */
+.sx{position:sticky;top:10px;height:0;z-index:6;display:flex;justify-content:flex-end;padding-right:12px;pointer-events:none}
+.sxb{
+  pointer-events:auto;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;
+  display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.52);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+}
+.sxb svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round}

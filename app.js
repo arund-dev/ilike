@@ -240,12 +240,12 @@ async function rmFiles(bucket,urls){
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
 
-const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,ptrs:new Map()};
+const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,closedAt:0,ptrs:new Map()};
 function openLb(u,list,i){
   LB.list=list&&list.length?list:[u];LB.i=Math.max(0,i||0);
   $('#lb').classList.add('on');lbShow();
 }
-function closeLb(){$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[]}
+function closeLb(){LB.closedAt=Date.now();$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[]}
 function lbShow(){
   LB.z=1;LB.x=LB.y=LB.dx=LB.dy=0;$('#lbi').src=LB.list[LB.i];lbPaint();
   const n=LB.list.length;
@@ -312,6 +312,8 @@ function lbZoom(z,fx,fy){
   });
 })();
 
+// The tap that closes the photo viewer must not also hit whatever is underneath it.
+document.addEventListener('click',e=>{if(Date.now()-LB.closedAt<500){e.stopPropagation();e.preventDefault()}},true);
 document.addEventListener('click',e=>{
   const i=e.target.closest('.pimgs img,.phgrid img,.ev-gallery-item img');
   if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')];openLb(i.src,g.map(x=>x.src),g.indexOf(i));return}
@@ -2884,7 +2886,7 @@ function openLegal(k){S.lg=LEGAL[k]?k:'terms';drawLegal();$('#lg').classList.add
 function drawLegal(){
   $('#lgt').innerHTML=Object.keys(LEGAL).map(k=>`<button class="${k==S.lg?'on':''}" onclick="S.lg='${k}';drawLegal()">${LEGAL[k][0]}</button>`).join('');
   $('#lgb').innerHTML=LEGAL[S.lg][1].map(([h,t])=>`<h4>${esc(h)}</h4><p>${esc(t).replace(esc(CONTACT_EMAIL),`<a href="mailto:${esc(CONTACT_EMAIL)}">${esc(CONTACT_EMAIL)}</a>`)}</p>`).join('')+`<p class="mute sm" style="margin-top:12px">Last updated October 2026</p>`;
-  $('#lgb').scrollTop=0;
+  const lgBody=$('#lg .pnl-body');if(lgBody)lgBody.scrollTop=0;
 }
 
 async function admAddArtist(){
