@@ -110,9 +110,11 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:18px 18px 8px}
 .fc[style]{border-color:color-mix(in srgb,var(--c) 40%,var(--line))}
 .fc.on{background:var(--grad);background-origin:border-box;border-color:transparent;color:#fff;box-shadow:0 6px 16px -4px var(--glow)}
 .row{display:flex;gap:12px;align-items:center}
-.btn{background:var(--grad);color:#fff;border:0;border-radius:14px;padding:10px 18px;font-weight:800;cursor:pointer;transition:.2s;box-shadow:0 8px 20px -8px var(--glow)}
+.btn{background:var(--grad);color:#fff;border:0;border-radius:14px;padding:10px 18px;font-weight:800;cursor:pointer;transition:.2s;box-shadow:0 8px 20px -8px var(--glow);display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn:active{transform:scale(.94)}
 .btn.off{background:var(--card);color:var(--text);border:2px solid var(--line);box-shadow:none}
+.btn.ticket-btn{background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 8px 22px -6px rgba(245,158,11,.45)}
+.btn.ticket-btn:hover{filter:brightness(1.08)}
 .q{display:block;margin:4px 16px 8px;width:calc(100% - 32px);padding:13px 18px;border-radius:18px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;flex-shrink:0;transition:.2s}
 .q:focus,.sheet textarea:focus,.sheet select:focus,.inp input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 20%,transparent)}
 
@@ -127,7 +129,6 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:18px 18px 8px}
 .sw.on{box-shadow:0 0 0 2px var(--text),0 6px 14px -4px rgba(0,0,0,.25)}
 .fc.on{border-color:transparent;background:var(--grad);color:#fff}
 .mehead{padding:50px 18px 0}
-/* The banner and photo live together so they can move as one on desktop */
 .me-hero{position:relative}
 .me-hero .av{position:absolute;left:18px;bottom:-50px;z-index:3;width:100px;height:100px;font-size:42px;border-width:4px;border-color:var(--bg);box-shadow:0 0 0 3px var(--brand-dark),0 12px 28px -6px var(--glow)}
 .mcomp{display:none}
@@ -187,7 +188,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 .sw{width:34px;height:34px;border-radius:50%;border:3px solid var(--card);box-shadow:0 0 0 1.5px var(--line),0 6px 14px -4px rgba(0,0,0,.25);cursor:pointer;transition:.2s}
 .sw:active{transform:scale(.88)}
 
-#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(16px);background:var(--grad);color:#fff;padding:12px 24px;border-radius:50px;font-weight:700;opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:60;box-shadow:0 12px 28px -6px var(--glow)}
+#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(16px);background:var(--grad);color:#fff;padding:12px 24px;border-radius:50px;font-weight:700;opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:90;box-shadow:0 12px 28px -6px var(--glow)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 *{scrollbar-width:none}*::-webkit-scrollbar{display:none}
@@ -203,13 +204,98 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 
 @media(prefers-reduced-motion:reduce){*:not(.fab):not(.logo-spark):not(.mod):not(.sheet){transition:none!important;animation:none!important}}
 
-/* Selected pill: gradient fills the whole pill incl. the border area (no edge seam) */
 .fc.on{background:var(--grad) border-box}
-
-/* Wrappers are invisible on mobile */
 .me-body,.col-l,.col-r{display:contents}
 
-/* ════════════════ DESKTOP / LANDSCAPE ════════════════ */
+/* ════════════════ EVENTS OVERHAUL: SPACING, FULLSCREEN & TABS ════════════════ */
+.ev-container{padding-bottom:var(--nav-h)}
+.ev-hero-banner{margin:12px 16px 16px;padding:20px 18px;background:linear-gradient(145deg,color-mix(in srgb,var(--brand) 20%,var(--card)),var(--card));border:1px solid color-mix(in srgb,var(--brand) 30%,var(--line));border-radius:24px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.ev-hero-banner::after{content:"🗓️";position:absolute;right:12px;bottom:-10px;font-size:80px;opacity:.15;pointer-events:none}
+.ev-pill{display:inline-block;padding:3px 10px;border-radius:50px;background:var(--grad);color:#fff;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.ev-hero-content h2{margin:0 0 6px;font-size:22px;letter-spacing:-.5px}
+
+/* Generous spacing between event cards */
+#evs{display:flex;flex-direction:column;gap:16px;padding:0 16px}
+.event-card-item{margin:0!important;padding:20px;display:flex;flex-direction:column;gap:12px;background:var(--card);border:1.5px solid var(--line);border-radius:24px;box-shadow:0 8px 24px -10px rgba(0,0,0,.6);transition:transform .2s,border-color .2s,box-shadow .2s;cursor:pointer;position:relative}
+.event-card-item:hover{transform:translateY(-3px);border-color:var(--brand);box-shadow:0 14px 34px -12px var(--glow)}
+.event-card-item:active{transform:scale(.98)}
+.ev-card-top{display:flex;gap:14px;align-items:flex-start}
+.ev-card-tile{width:62px;height:62px;border-radius:20px;font-size:32px;display:grid;place-items:center;background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 22%,var(--card)),color-mix(in srgb,var(--brand-dark) 20%,var(--card)));border:1px solid color-mix(in srgb,var(--brand) 30%,transparent);flex:none;box-shadow:0 6px 16px -6px var(--glow)}
+.ev-card-meta{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.ev-card-date{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,var(--card));padding:3px 10px;border-radius:50px;width:fit-content}
+.ev-card-title{font-size:17px;font-weight:800;letter-spacing:-.3px;margin:2px 0 0;line-height:1.3;color:var(--text)}
+.ev-card-location{display:flex;align-items:center;gap:4px;color:var(--mute);font-size:13px;font-weight:600}
+.ev-card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--line);margin-top:2px}
+.ev-card-badge-wrap{display:flex;align-items:center;gap:6px}
+.ev-ticket-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:50px;font-size:11px;font-weight:800;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+
+/* Full-screen Event View Overlay */
+#ev-ov{z-index:42}
+.ev-top{padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;gap:10px}
+.ev-top-title-wrap{flex:1;min-width:0;text-align:center}
+#ev-top-title{font-size:17px;display:block}
+.ev-full-hero{position:relative;padding:26px 20px 22px;background:linear-gradient(180deg,color-mix(in srgb,var(--brand) 22%,var(--bg)),var(--bg));border-bottom:1px solid var(--line)}
+.ev-full-emoji-badge{width:80px;height:80px;border-radius:26px;display:grid;place-items:center;font-size:44px;background:var(--card);border:2px solid color-mix(in srgb,var(--brand) 40%,var(--line));box-shadow:0 12px 30px -10px var(--glow);margin-bottom:14px}
+.ev-full-title{font-size:26px;font-weight:800;letter-spacing:-.8px;line-height:1.25;margin:0 0 10px}
+.ev-full-metas{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.ev-meta-row{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:600;color:var(--mute)}
+.ev-meta-row svg{width:18px;height:18px;color:var(--brand);flex:none}
+.ev-meta-row b{color:var(--text)}
+
+/* Quick Actions in Event View */
+.ev-action-bar{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.ev-action-bar .btn{flex:1;min-width:130px;padding:12px 18px;font-size:14px}
+
+/* Subtabs in Fullscreen Event */
+.ev-nav-tabs{display:flex;gap:6px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4;overflow-x:auto}
+.ev-tab-btn{background:none;border:0;color:var(--mute);padding:8px 16px;border-radius:50px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;transition:all .2s;flex:1;text-align:center}
+.ev-tab-btn.on{background:var(--grad);color:#fff;box-shadow:0 6px 16px -4px var(--glow)}
+
+/* Tab contents */
+.ev-tab-content{padding:16px}
+.ev-desc-box{line-height:1.65;font-size:15px;white-space:pre-wrap;word-break:break-word;margin:12px 0 20px}
+.ev-section-title{font-size:13px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--mute);margin:20px 0 8px}
+
+/* Event Live Chat */
+.ev-chat-container{display:flex;flex-direction:column;height:calc(100vh - 280px);min-height:360px}
+.ev-chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:10px 4px}
+.ev-chat-msg{display:flex;gap:9px;align-items:flex-end}
+.ev-chat-msg.me{justify-content:flex-end}
+.ev-chat-bubble{max-width:80%;padding:10px 14px;border-radius:18px 18px 18px 4px;background:var(--card);border:1px solid var(--line);box-shadow:0 4px 14px -6px var(--glow);font-size:14px;overflow-wrap:anywhere}
+.ev-chat-msg.me .ev-chat-bubble{background:var(--grad);color:#fff;border-color:transparent;border-radius:18px 18px 4px 18px}
+.ev-chat-author{font-size:11px;font-weight:800;display:block;margin-bottom:2px}
+.ev-chat-time{font-size:10px;color:var(--mute);display:block;text-align:right;margin-top:4px}
+.ev-chat-msg.me .ev-chat-time{color:rgba(255,255,255,.8)}
+.ev-chat-input-bar{display:flex;gap:8px;padding:10px 0 4px;margin-top:auto}
+.ev-chat-input-bar input{flex:1;min-width:0;padding:11px 16px;border-radius:50px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit}
+.ev-chat-input-bar input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 20%,transparent)}
+
+/* Event Gallery */
+.ev-gallery-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ev-gallery-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.ev-gallery-item{position:relative;aspect-ratio:1;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--card);cursor:zoom-in}
+.ev-gallery-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.ev-gallery-item:hover img{transform:scale(1.05)}
+.ev-gallery-del{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;font-size:13px;display:grid;place-items:center;cursor:pointer}
+.ev-gallery-uploader{border:2px dashed var(--line);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--mute);font-weight:700;font-size:13px;cursor:pointer;aspect-ratio:1;background:color-mix(in srgb,var(--brand) 4%,transparent);transition:.2s}
+.ev-gallery-uploader:hover{border-color:var(--brand);color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,transparent)}
+
+/* Buy Tickets Modal Styles */
+.ticket-head{padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.ticket-tiers-box{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.ticket-tier-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:18px;background:var(--bg);border:1px solid var(--line);transition:border-color .2s}
+.ticket-tier-row.active{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 8%,var(--bg))}
+.ticket-tier-info b{display:block;font-size:15px}
+.ticket-tier-info small{color:var(--mute);font-size:12px}
+.ticket-tier-price{font-size:16px;font-weight:800;color:var(--brand);margin-top:2px}
+.ticket-counter{display:flex;align-items:center;gap:10px}
+.ticket-counter button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-weight:800;font-size:16px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+.ticket-counter button:hover{background:var(--brand);color:#fff;border-color:transparent}
+.ticket-counter button:active{transform:scale(.9)}
+.ticket-counter span{font-size:16px;font-weight:800;min-width:20px;text-align:center}
+.ticket-summary{background:var(--bg);padding:14px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+
+/* ════════════════ DESKTOP ADJUSTMENTS ════════════════ */
 @media(min-width:1024px){
   :root{--nav-h:36px}
   #app{max-width:1360px;padding-left:72px;background:transparent;box-shadow:none}
@@ -218,7 +304,6 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   #s-home .logo-wrap{display:none}
   #s-home .top::before{content:"Home";font-family:'Bricolage Grotesque','Manrope',system-ui,sans-serif;font-size:32px;font-weight:800;letter-spacing:-1.2px;padding-right:2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 
-  /* Bottom nav -> left sidebar */
   nav{top:0;bottom:0;left:max(0px,calc(50% - 680px));transform:none;width:72px;max-width:none;overflow:hidden;white-space:nowrap;flex-direction:column;justify-content:flex-start;gap:6px;padding:24px 14px;border-top:0;border-right:1px solid var(--line);box-shadow:none;background:color-mix(in srgb,var(--card) 70%,transparent);transition:width .25s var(--ease),box-shadow .25s,background .25s}
   nav:hover,nav:has(:focus-visible){width:240px;background:var(--card);box-shadow:20px 0 50px -20px var(--glow)}
   nav::before{content:"✦";display:block;padding:4px 11px 26px;font-size:32px;font-weight:800;letter-spacing:-1.2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
@@ -229,14 +314,12 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   nav button.on{background:color-mix(in srgb,var(--brand) 14%,var(--card))}
   nav button.on::before{top:12px;bottom:12px;left:0;width:4px;height:auto;border-radius:0 6px 6px 0;animation:none}
 
-  /* Home: single centred feed, scrolls downward like the rest of the app */
   .fl{flex-wrap:nowrap;overflow-x:auto;padding:16px 28px 16px}
   #feed{padding:10px 12px var(--nav-h);max-width:640px;margin:0 auto}
   #feed .card{margin:0 0 10px}
   .fab{bottom:32px;right:max(32px,calc(50% - 648px))}
   #toast{bottom:40px;left:calc(50% + 36px)}
 
-  /* Discover */
   .tabs{max-width:none;margin:6px 28px 8px}
   .q{max-width:none;width:calc(100% - 56px);margin:4px 28px 8px}
   #ppl{display:block;columns:2;column-gap:0;padding:10px 12px 0}
@@ -247,15 +330,15 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .gt:hover,.room:hover{transform:translateY(-3px)}
   .gt,.room{transition:transform .2s}
 
-  /* Meet */
-  #evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));align-items:start;padding:0 12px}
-  #evs .card:hover{transform:translateY(-3px)}
-  #evs .card{transition:transform .2s}
+  /* Events on Desktop: elegant multi-column grid with spacious gaps */
+  .ev-container{padding:0 28px}
+  .ev-hero-banner{margin:12px 0 20px}
+  #evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;padding:0}
+  .event-card-item:hover{transform:translateY(-4px)}
+  #ev-ov{max-width:760px;right:auto;left:50%;transform:translateX(-50%);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .ev-gallery-grid{grid-template-columns:repeat(3,1fr);gap:14px}
 
-  /* You: two panes. Profile on the left, posts on the right. Each pane scrolls on its own, with no
-     visible scrollbar. One scroll position (see meSync in app.js) drives the header: as you scroll
-     the banner shrinks and slides to the left, the photo and name float up into it, and the posts
-     side rises to fill the space. */
+  /* You */
   #s-me.on{overflow:hidden;padding-bottom:0;overscroll-behavior-y:auto}
   #me{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
   .me-body{position:relative;flex:1 1 auto;min-height:0;display:grid;grid-template-columns:440px minmax(0,1fr);grid-template-rows:minmax(0,1fr);column-gap:24px;padding:0 12px;overflow:hidden}
@@ -275,23 +358,21 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .mehead{padding:0 18px}
   .mehead h1{font-size:30px}
 
-  /* Chats: right-hand drawer */
-  .ov{left:auto;right:0;max-width:440px;transform:none;border-left:1px solid var(--line);box-shadow:-30px 0 60px -30px var(--glow)}
-  .ov.on{animation:slideRd .3s cubic-bezier(.16,1,.3,1)}
+  .ov:not(#ev-ov){left:auto;right:0;max-width:440px;transform:none;border-left:1px solid var(--line);box-shadow:-30px 0 60px -30px var(--glow)}
+  .ov:not(#ev-ov).on{animation:slideRd .3s cubic-bezier(.16,1,.3,1)}
   @keyframes slideRd{from{transform:translateX(100%)}to{transform:translateX(0)}}
 
-  /* Sheets -> centred dialogs */
   .mod{left:0;right:0;width:auto;max-width:none;transform:none;align-items:center;justify-content:center}
   .mod .sheet{width:min(520px,calc(100% - 48px));border-radius:28px;border:1px solid var(--line);padding-bottom:24px;box-shadow:0 30px 80px -20px var(--glow);transform:translateY(24px) scale(.97)}
   .mod.on .sheet{transform:none}
   .sheet::before{display:none}
-  #pv .sheet,#th .sheet,#pf .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  #pv .sheet,#th .sheet,#pf .sheet,#ticket-mod .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
   .thsheet{padding-bottom:16px}
   .btn:hover,.ghost:hover,.fc:hover,.ib:hover{filter:brightness(1.08)}
   .ghost:hover{color:var(--brand)}
 }
 
-/* ════════════════ MONO THEME: black + gray (dark) / white + gray (light) ════════════════ */
+/* ════════════════ MONO THEME ════════════════ */
 :root[data-palette="mono"]{
   --bg:#0a0a0a;--card:#141414;--line:#262626;--text:#fafafa;--mute:#8c8c8c;
   --brand:#f2f2f2;--brand-dark:#bdbdbd;
@@ -320,9 +401,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 }
 :root[data-palette="mono"] body{background:var(--bg)}
 :root[data-palette="mono"] .banner{background:var(--banner)}
-/* neutralise per-category colours */
 :root[data-palette="mono"] :is(.chip,.av,.gt,.fc,.tg){--c:var(--mono-c)!important}
-/* readable text on the gradient surfaces */
 :root[data-palette="mono"] :is(.same.on,.imin-btn.on,.fc.on,.btn:not(.off),.tabs button.on,.b.me,#toast,.fab){color:var(--on-grad)}
 :root[data-palette="mono"] .av{color:#fff}
 .fi{display:block;width:100%;margin:0 0 10px;padding:13px 18px;border-radius:18px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
@@ -335,7 +414,6 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 body.noapp nav,body.noapp .fab{display:none}
 @media(min-width:1024px){body.noapp #app{padding-left:0}}
 
-/* ── P0: profile, settings, post menu, replies ── */
 .err.ok{color:var(--brand)}
 .lab{display:block;font-size:13px;font-weight:700;color:var(--mute);margin:14px 4px 6px}
 .sheet .lab:first-of-type{margin-top:12px}
@@ -358,7 +436,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .rbar input{flex:1;min-width:0;padding:12px 16px;border-radius:50px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
 .rbar input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 20%,transparent)}
 
-/* ── P1: photos, avatars, Same list, chats, notifications ── */
 .grow{min-width:0}
 .ib{position:relative}
 .badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--grad);color:#fff;font:800 11px/18px var(--font);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--bg)}
@@ -397,7 +474,6 @@ body.noapp nav,body.noapp .fab{display:none}
 @media(hover:hover){.lbn{display:grid;place-items:center}}
 [data-zoom]:not([data-zoom=""]){cursor:zoom-in}
 
-/* ---- Posts: batch 6a ---- */
 .tm{cursor:pointer}
 .ph .phs{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);color:#fff;font-size:12px;font-weight:800}
 .ph button.phs{width:100%;height:100%;border-radius:0;background:rgba(185,28,28,.82);cursor:pointer}
@@ -413,7 +489,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .nitem.new{border-color:var(--brand)}
 .nitem .mute.sm:last-child{flex:none}
 
-/* ── P2: profiles, follow, artists, events, circle chat, achievements ── */
 :root{color-scheme:dark}
 :root[data-theme="light"]{color-scheme:light}
 @media(prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light}}
@@ -429,7 +504,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .tg.lock{opacity:.5}
 .cnt-line{margin:0 4px 6px}
 
-/* person profile sheet */
 .pfh{padding:22px 20px 4px}
 .pfh .av.big{width:84px;height:84px;font-size:34px}
 .pfh.pfov{padding-top:0}
@@ -440,7 +514,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .pfs{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--mute);margin:18px 18px 4px}
 .pfc{padding:0 14px}
 
-/* circle chat */
 .crow{display:flex;gap:8px;align-items:flex-end;align-self:flex-start;max-width:86%}
 .crow .av{width:30px;height:30px;font-size:12px;border-width:1px;margin:0}
 .crow .b{max-width:none;min-width:0}
@@ -448,7 +521,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .cn{display:block;font-size:12px;font-weight:800;margin-bottom:2px}
 .room small{display:block;font-size:12px;font-weight:600;color:var(--mute);margin-top:2px}
 
-/* events */
 .evp{padding:0 24px 8px}
 .evbn{height:150px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:64px;margin:0 0 20px}
 .evt{margin:0 0 14px!important;font-size:22px;line-height:1.3}
@@ -466,20 +538,18 @@ body.noapp nav,body.noapp .fab{display:none}
 .evc .who2{margin:0}
 .event-card{width:100%;border:1px solid var(--line);background:var(--card);color:var(--text);text-align:left;font:inherit;cursor:pointer}
 .event-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-.event-comments{margin-top:24px;padding-top:4px;border-top:1px solid var(--line)}
+.event-comments{margin-top:14px}
 .event-comment-list{display:flex;flex-direction:column;gap:12px;margin:10px 0 14px}
-.event-comment{display:flex;align-items:flex-start;gap:9px;line-height:1.45;overflow-wrap:anywhere}
-.event-comment .av{width:30px;height:30px;font-size:12px;border-width:1px;flex:none}
+.event-comment{display:flex;align-items:flex-start;gap:9px;line-height:1.45;overflow-wrap:anywhere;padding:10px 14px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.event-comment .av{width:32px;height:32px;font-size:13px;border-width:1px;flex:none}
 .event-comment b{margin-right:7px}
-.event-comment-form{display:flex;gap:8px;align-items:center}
-.event-comment-form input{flex:1;min-width:0;padding:11px 14px;border:1px solid var(--line);border-radius:18px;background:var(--bg);color:var(--text);font:inherit}
+.event-comment-form{display:flex;gap:8px;align-items:center;margin-top:12px}
+.event-comment-form input{flex:1;min-width:0;padding:11px 16px;border:1px solid var(--line);border-radius:50px;background:var(--card);color:var(--text);font:inherit}
 .event-comment-form input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 20%,transparent)}
 .event-comment-form .btn{margin:0;white-space:nowrap}
 
-/* ════════════════ P3: skeletons, pull to refresh, banner, drafts ════════════════ */
 [hidden]{display:none!important}
 
-/* Loading skeletons */
 .sk-b,.sk-l,.av.sk-b,.gt.sk-b{
   background:linear-gradient(100deg,var(--line) 30%,color-mix(in srgb,var(--line) 35%,var(--card)) 50%,var(--line) 70%) 0 0/200% 100%;
   border:0;box-shadow:none;opacity:.5;animation:skim 1.3s linear infinite
@@ -493,7 +563,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .sk-tile{width:52px;height:52px;border-radius:16px;flex:none}
 .pfh.sk .av.big{margin-bottom:10px}
 
-/* Pull to refresh */
 #ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);left:50%;width:42px;height:42px;border-radius:50%;background:var(--card);border:1px solid var(--line);box-shadow:0 8px 20px -6px var(--glow);display:grid;place-items:center;z-index:45;opacity:0;pointer-events:none;transform:translate(-50%,-48px);color:var(--brand)}
 #ptr.anim{transition:transform .25s var(--ease),opacity .25s}
 #ptr svg{width:20px}
@@ -502,14 +571,11 @@ body.noapp nav,body.noapp .fab{display:none}
 @media(min-width:1024px){#ptr{left:calc(50% + 36px)}}
 #s-events.on,#s-me.on{overscroll-behavior-y:contain}
 
-/* Banner image (edit profile preview + other people's profiles) */
 .pebn{aspect-ratio:3/1;border-radius:16px;background:var(--grad);margin-bottom:8px}
 .banner.pfbn{margin:-8px 0 0;width:auto;border-radius:0}
 
-/* Draft link in the new post sheet */
 .pdis{width:auto;margin-right:auto;padding:0 4px;font-size:13px}
 
-/* ---- Chats: batch 1 ---- */
 #mwrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
 #mwrap #msgs{min-height:0}
 .jump{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);border:0;border-radius:50px;padding:9px 16px;background:var(--grad);color:#fff;font:inherit;font-weight:800;font-size:13px;box-shadow:0 10px 22px -8px var(--glow);cursor:pointer;z-index:2}
@@ -525,13 +591,11 @@ body.noapp nav,body.noapp .fab{display:none}
 .empty.mid .eico{font-size:48px}
 .empty.mid .btn{margin-top:14px}
 
-/* ---- Roles: batch 2 ---- */
 .rbadge{display:inline-block;vertical-align:middle;margin-left:4px;padding:2px 7px;border-radius:50px;font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;line-height:1.3;color:var(--brand);background:color-mix(in srgb,var(--brand) 16%,transparent);border:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
 .rbadge.ad{color:#fff;background:var(--grad);border-color:transparent}
 :root[data-palette="mono"] .rbadge.ad{color:var(--on-grad)}
 .b:not(.me) small.t.f{justify-content:space-between}
 
-/* ---- Safety: batch 3 ---- */
 #mo{overflow:hidden}
 #mob{flex:1;min-height:0;overflow-y:auto;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .rquote{margin:8px 0;padding:10px 12px;border-left:3px solid var(--brand);background:var(--bg);border-radius:10px;overflow-wrap:anywhere}
@@ -539,7 +603,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .rpa .btn{margin:0}
 .rpc{display:block}
 
-/* Batch 4a: legal sheet + auth footer */
 .legalnote{text-align:center;margin:10px 4px 0}
 .inl{background:none;border:0;padding:0;color:var(--brand);font:inherit;text-decoration:underline;cursor:pointer}
 .legalfoot{display:flex;justify-content:center;gap:14px;margin-top:4px}
@@ -548,11 +611,9 @@ body.noapp nav,body.noapp .fab{display:none}
 .legal p{margin:0 0 6px;line-height:1.5;font-size:14px}
 .legal a{color:var(--brand)}
 
-/* Batch 4b: onboarding */
 .obp{font-size:12px;font-weight:800;color:var(--mute);margin:16px 4px 0;letter-spacing:.06em;text-transform:uppercase}
 .obav{display:flex;align-items:center;gap:14px;margin:14px 0 4px}
 
-/* Batch 5: profile + circles */
 .emp{display:block;width:100%;margin-bottom:8px}
 .phgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:0 16px 16px;border-radius:20px;overflow:hidden}
 .phgrid img{width:100%;aspect-ratio:1;object-fit:cover;display:block;cursor:zoom-in;background:var(--card)}
@@ -560,7 +621,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .cstrip[hidden]{display:none}
 .cmem{background:none;border:0;font:inherit;font-weight:800;font-size:14px;color:var(--text);cursor:pointer;padding:6px 0}
 
-/* Crop editor */
 .crsheet{max-height:92vh;overflow-y:auto;text-align:center}
 .crst{position:relative;margin:0 auto;width:min(320px,calc(100vw - 76px));overflow:hidden;border-radius:18px;background:#000;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 .crst.avatar{aspect-ratio:1}
@@ -570,7 +630,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .crst.avatar .crmask{border-radius:50%;box-shadow:0 0 0 999px rgba(0,0,0,.6);border:2px solid #fff}
 #crz{accent-color:var(--brand)}
 
-/* ---- Batch 6b: notifications, settings, feedback, delete account ---- */
 .sethd{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:22px 4px 2px;padding-top:16px;border-top:1px solid var(--line)}
 .sethd.first{border:0;padding-top:0;margin-top:12px}
 .sethd[hidden]{display:none}
@@ -586,7 +645,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .nmr[hidden]{display:none}
 .fbk .fc,#fbk .fc{flex:1}
 
-/* 7a: retry bars and crash fallback */
 .rtbar{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--card);font-size:13px;font-weight:700;color:var(--mute)}
 .rtbar[hidden]{display:none}
 .rtbar span{flex:1}
@@ -597,15 +655,13 @@ body.noapp nav,body.noapp .fab{display:none}
 #crash button{border:0;border-radius:50px;padding:8px 14px;font:inherit;font-weight:800;background:#fff;color:#b42318;cursor:pointer}
 #crash button.x{background:none;color:#fff;padding:8px}
 
-/* 7b: cancelled and past events */
-#pevs{padding:4px 12px 90px}
-.pastbtn{display:block;margin:8px auto 12px;font-weight:800}
+#pevs{padding:14px 16px 90px}
+.pastbtn{display:block;margin:12px auto 16px;font-weight:800}
 .evx,.evpast{opacity:.65}
 .evbadge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:50px;background:#b42318;color:#fff}
 .evcx{margin:10px 0;padding:10px 14px;border-radius:12px;font-weight:800;background:#b42318;color:#fff}
 .evcx.soft{background:var(--card);color:var(--mute)}
 
-/* 7c: admin stats */
 #mot .tabs button{padding:10px 2px;font-size:13px}
 .stgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 10px}
 .stat{text-align:center}
@@ -616,7 +672,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .sbv{font-size:10px;font-weight:800;color:var(--mute);height:14px}
 .sbl{font-size:10px;color:var(--mute);height:14px;white-space:nowrap;overflow:visible}
 
-/* ── Post actions: like, reply, share ── */
 .acts{display:flex;align-items:center;gap:8px;margin-top:4px}
 .like-btn,.ghost.ic{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:0;border-radius:50px;cursor:pointer;font-weight:800;font-size:14px;color:var(--mute);background:color-mix(in srgb,var(--brand) 9%,transparent);-webkit-tap-highlight-color:transparent;transition:background .2s,color .2s,transform .15s}
 .like-btn:active,.ghost.ic:active{transform:scale(.9)}
@@ -639,13 +694,11 @@ body.noapp nav,body.noapp .fab{display:none}
 @keyframes heartFill{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
 @keyframes heartRing{0%{transform:scale(.4);opacity:.9}100%{transform:scale(2.1);opacity:0}}
 
-/* ── Chat button (where the + used to be) ── */
 .fab.chat svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .fab.chat:hover{transform:scale(1.08)}
 .fab.chat:active{transform:scale(.92)}
 .fab.chat .badge{top:-6px;right:-6px}
 
-/* ── Raised add button in the bottom bar ── */
 nav .navadd{flex:none;align-self:flex-start;width:58px;height:58px;margin:-26px 6px 0;padding:0;border-radius:50%;background:var(--grad);border:5px solid var(--bg);color:#fff;display:grid;place-items:center;box-shadow:0 10px 22px -6px var(--glow);transition:transform .25s var(--ease,ease)}
 nav .navadd svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;transition:transform .25s}
 nav .navadd:active{transform:scale(.9)}
@@ -653,7 +706,6 @@ nav .navadd.spin svg{transform:rotate(135deg)}
 nav .navadd::before{display:none!important}
 :root[data-palette="mono"] nav .navadd svg,:root[data-palette="mono"] .fab.chat svg{stroke:var(--on-grad)}
 @media(min-width:1024px){
-  /* Sidebar order: Home, Discover, Events, + Add, then You pinned to the bottom */
   nav .navadd{order:1;align-self:stretch;flex-direction:row;justify-content:flex-start;gap:14px;width:100%;height:auto;margin:0;padding:13px 11px;border-radius:16px;border:0;background:none;color:var(--mute);font-size:15px;font-weight:800;box-shadow:none;display:flex;align-items:center}
   nav .navadd:hover{background:color-mix(in srgb,var(--brand) 10%,transparent);color:var(--text)}
   nav .navadd svg{width:22px;height:22px;stroke:currentColor;stroke-width:2}
@@ -662,9 +714,6 @@ nav .navadd::before{display:none!important}
   nav button[data-s="me"]{order:2;margin-top:auto}
 }
 
-/* ── Theme choices with icons ── */
 .fc.th{display:inline-flex;align-items:center;gap:7px}
 .ti{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-
-/* Chat button sits a little lower on phones */
 @media(max-width:1023px){.fab.chat{bottom:calc(74px + env(safe-area-inset-bottom,0px))}}

@@ -12,6 +12,13 @@ const $=s=>document.querySelector(s);
 const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
 S.eventAuthorized=false;
 S.eventComments=new Map();
+S.evTab='about';
+S.evActiveId=null;
+S.evChats=new Map();
+S.evGallery=new Map();
+S.ticketQuantities={ga:1,vip:0,early:0};
+S.ticketPrices={ga:15,vip:35,early:10};
+
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=d=>{const m=Math.floor((Date.now()-new Date(d))/60000);return m<1?'just now':m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'};
 const tm=d=>{const x=new Date(d),t=x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return x.toDateString()==new Date().toDateString()?t:x.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t};
@@ -19,12 +26,12 @@ const iname=n=>S.im.get(n)?.name||'';
 const col=n=>esc(S.im.get(n)?.color||'var(--brand)');
 const em=n=>esc(S.im.get(n)?.emoji||(S.im.get(n)?.kind=='artist'?'🎤':'✦'));
 const cat=n=>S.im.get(n)?.category;
-// Role badge shown next to names (roles come from profiles.role)
+
 const rb=id=>{const r=S.roles[id];return r=='admin'?' <span class="rbadge ad">Admin</span>':r=='mod'?' <span class="rbadge">Mod</span>':''};
 const isMod=()=>S.role=='mod'||S.role=='admin',isAdmin=()=>S.role=='admin';
 const nm=id=>S.names[id]||(id==S.user?.id?S.name:'Member');
 const PAL=['#8B5CF6','#EC4899','#22C55E','#F59E0B','#14B8A6','#3B82F6','#EF4444'];
-// Developer-managed menu. Add categories and choices here; the app syncs them to Supabase on login.
+
 const INTEREST_CATALOG=[
   {category:'Creative',color:'#EC3996',items:[['Photography','📷'],['Reading','📚']]},
   {category:'Food',color:'#F59E0B',items:[['Coffee','☕'],['Kottu','🍲']]},
@@ -35,10 +42,11 @@ const INTEREST_CATALOG=[
 ];
 const CATALOG_INTERESTS=INTEREST_CATALOG.flatMap(group=>group.items.map(([name,emoji])=>({name,emoji,color:group.color,category:group.category})));
 const ac=id=>id==S.user?.id?'var(--brand)':PAL[[...String(id)].reduce((a,c)=>a+c.charCodeAt(0),0)%PAL.length];
-// Avatar: profile photo if the person has one, otherwise their first letter
+
 const av=(id,z='')=>{const u=S.avs[id];return `<span class="av ${z}" style="--c:${ac(id)}${u?`;background-image:url('${esc(u)}');background-size:cover;background-position:center`:''}">${u?'':esc((nm(id)||'?')[0].toUpperCase())}</span>`};
 function setMyAv(el){
-  const u=S.avs[S.user.id];
+  if(!el)return;
+  const u=S.avs[S.user?.id];
   el.textContent=u?'':(S.name||'?')[0].toUpperCase();
   el.style.backgroundImage=u?`url('${u}')`:'';el.style.backgroundSize='cover';el.style.backgroundPosition='center';
 }
@@ -48,12 +56,11 @@ const say=l=>!l.length?'':l.length==1?l[0]+' liked this':l.length==2?l.join(' & 
 const so=p=>{const a=p.sames.filter(x=>x!=S.user.id&&!bl(x));return p.sames.includes(S.user.id)?[S.user.id,...a]:a};
 const sm=p=>{const o=so(p);return (o.length?`<span class="stk">${o.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'')+esc(say(o.map(x=>x==S.user.id?'You':nm(x))))};
 const findPost=id=>S.pm.get(String(id));
-// Time: shows "2h ago"; tap it to see the exact date and time, tap again to go back
+
 const tmx=d=>new Date(d).toLocaleString([],{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
 const tmk=d=>`<span class="tm" data-t="${d}" onclick="tmTap(this)">${ago(d)}</span>`;
 function tmTap(el){const x=el.dataset.x=='1';el.dataset.x=x?'':'1';el.textContent=x?ago(el.dataset.t):tmx(el.dataset.t)}
-// ---- 7a helpers ----
-// Supabase returns at most 1000 rows per request. This keeps asking until the list is complete.
+
 async function fetchAll(build,cap=5000){
   let out=[],from=0;
   while(from<cap){
@@ -65,7 +72,7 @@ async function fetchAll(build,cap=5000){
   }
   return{data:out,error:null};
 }
-// Retry safety: if a send looked like it failed but reached the server, find that row instead of posting twice
+
 async function alreadySent(table,col,extra,body){
   const since=new Date(Date.now()-120000).toISOString();
   let q=sb.from(table).select('*').eq(col,S.user.id).eq('body',body).gte('created_at',since).order('created_at',{ascending:false}).limit(1);
@@ -73,14 +80,14 @@ async function alreadySent(table,col,extra,body){
   const r=await q;
   return r.data&&r.data[0]||null;
 }
-// Chat "Couldn't send" bar (shown only in the conversation where the send failed)
+
 function failSync(){
   const el=$('#rtbar');if(!el)return;
   const k=S.room!=null?'r'+S.room:'d'+S.dm;
   el.hidden=!(S.fail&&S.fail.k==k);
 }
 function failDismiss(){S.fail=null;failSync()}
-// Paged people list (Same lists, members, followers, going)
+
 const SL_PAGE=30;
 function slDraw(){
   const L=S.sl;if(!L)return;
@@ -88,15 +95,26 @@ function slDraw(){
 }
 function slMore(){S.sl.n+=SL_PAGE;slDraw()}
 let toastT;
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
+function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
 
-// Share a post link (or the app link)
 const postUrl=id=>location.origin+location.pathname+'#post='+id;
+const eventUrl=id=>location.origin+location.pathname+'#event='+id;
+
 function share(id){
   const url=id?postUrl(id):location.href;
   if(navigator.share){navigator.share({title:'iLike',url}).catch(()=>{});return}
   if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('Link copied'),()=>toast("Couldn't copy link"));
-  else toast("Couldn't copy link")
+  else toast("Couldn't copy link");
+}
+
+function shareCurrentEvent(){
+  if(!S.evActiveId)return;
+  const url=eventUrl(S.evActiveId);
+  const e=S.evm.get(S.evActiveId);
+  const title=e?e.title:'iLike Event';
+  if(navigator.share){navigator.share({title,url}).catch(()=>{});return}
+  if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('Event link copied!'),()=>toast("Couldn't copy link"));
+  else toast("Couldn't copy link");
 }
 
 function show(id){
@@ -106,8 +124,6 @@ function show(id){
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x.dataset.s==id));
 }
 
-// Keep one in-app history entry ahead of the page. A mobile Back gesture first
-// returns a signed-in person to Home; a second Back from Home leaves the app.
 let backGuardReady=false;
 function setupBackGuard(){
   if(backGuardReady||!S.user||!S.loaded)return;
@@ -117,6 +133,11 @@ function setupBackGuard(){
 }
 addEventListener('popstate',()=>{
   if(!backGuardReady||!S.user||!S.loaded)return;
+  if($('#ev-ov')?.classList.contains('on')){
+    closeEventView();
+    history.pushState({ilikeApp:'guard'},'',location.href);
+    return;
+  }
   if(S.tab==='home'){
     backGuardReady=false;
     history.back();
@@ -128,11 +149,9 @@ addEventListener('popstate',()=>{
   history.pushState({ilikeApp:'guard'},'',location.href);
 });
 
-// confirm dialog used everywhere (remove interest, delete post, delete reply)
 function confirmBox(title,yes,fn){S.cfFn=fn;$('#cft').textContent=title;$('#cfy').textContent=yes;$('#cf').classList.add('on')}
 function cfyes(){$('#cf').classList.remove('on');const f=S.cfFn;S.cfFn=null;if(f)f()}
 
-// ---------- Photos: resize in the browser, upload to Supabase Storage ----------
 function prep(file,max,square,ratio){
   return new Promise((res,rej)=>{
     const url=URL.createObjectURL(file),im=new Image();
@@ -161,7 +180,7 @@ async function rmFiles(bucket,urls){
   const p=urls.map(u=>pathOf(u,bucket)).filter(Boolean);
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
-// ---------- Photo viewer: swipe between photos, pinch or double-tap to zoom, swipe down to close ----------
+
 const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,ptrs:new Map()};
 function openLb(u,list,i){
   LB.list=list&&list.length?list:[u];LB.i=Math.max(0,i||0);
@@ -181,7 +200,6 @@ function lbClamp(){
   const im=$('#lbi'),mx=im.clientWidth*(LB.z-1)/2,my=im.clientHeight*(LB.z-1)/2;
   LB.x=Math.max(-mx,Math.min(mx,LB.x));LB.y=Math.max(-my,Math.min(my,LB.y));
 }
-// fx, fy: the point being zoomed around, measured from the centre of the screen
 function lbZoom(z,fx,fy){
   z=Math.min(4,Math.max(1,z));const k=z/LB.z;
   LB.x=fx-(fx-LB.x)*k;LB.y=fy-(fy-LB.y)*k;LB.z=z;
@@ -189,7 +207,8 @@ function lbZoom(z,fx,fy){
   lbPaint();
 }
 (()=>{
-  const st=$('#lbst'),ctr=()=>{const r=st.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}};
+  const st=$('#lbst');if(!st)return;
+  const ctr=()=>{const r=st.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}};
   st.addEventListener('pointerdown',e=>{
     st.setPointerCapture(e.pointerId);LB.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(LB.ptrs.size==1){LB.sx=e.clientX;LB.sy=e.clientY;LB.moved=false}
@@ -229,13 +248,14 @@ function lbZoom(z,fx,fy){
   st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
   st.addEventListener('wheel',e=>{e.preventDefault();const c=ctr();lbZoom(LB.z*(e.deltaY<0?1.12:.9),e.clientX-c.x,e.clientY-c.y)},{passive:false});
   document.addEventListener('keydown',e=>{
-    if(!$('#lb').classList.contains('on'))return;
+    if(!$('#lb')||!$('#lb').classList.contains('on'))return;
     if(e.key=='Escape')closeLb();else if(e.key=='ArrowRight')lbGo(1);else if(e.key=='ArrowLeft')lbGo(-1);
   });
 })();
+
 document.addEventListener('click',e=>{
-  const i=e.target.closest('.pimgs img,.phgrid img');
-  if(i){const g=[...i.parentElement.querySelectorAll('img')];openLb(i.src,g.map(x=>x.src),g.indexOf(i));return}
+  const i=e.target.closest('.pimgs img,.phgrid img,.ev-gallery-item img');
+  if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')];openLb(i.src,g.map(x=>x.src),g.indexOf(i));return}
   const z=e.target.closest('[data-zoom]');if(z&&z.dataset.zoom)openLb(z.dataset.zoom);
 });
 
@@ -298,10 +318,10 @@ async function forgot(){
 }
 async function logout(){try{await pushDrop()}catch(e){}await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
-// ---------- Onboarding (first login): interests, profile, follow, first post ----------
+// ---------- Onboarding ----------
 const obHead=n=>`<div class="obp">Step ${n} of 4</div>`;
 function renderOb(){
-  const st=S.obStep||0,el=$('#ob');
+  const st=S.obStep||0,el=$('#ob');if(!el)return;
   if(st==0)obInterests(el);else if(st==1)obProfileUi(el);else if(st==2)obPeopleUi(el);else obPostUi(el);
 }
 function obInterests(el){
@@ -396,12 +416,14 @@ async function finishOb(){
   await load();toast('Welcome to iLike ✦');
 }
 
-// ---------- Data ----------
+// ---------- Data Boot ----------
 async function boot(){
   if(location.hash.includes('type=recovery'))S.rec=true;
   const iv=location.hash.match(/^#invite=([A-Za-z0-9_-]{3,40})/i);if(iv){S.invite=iv[1].toUpperCase();S.mode='signup';history.replaceState(null,'',location.pathname)}
   const dl=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(dl)S.deep=dl[1];
   const dm=location.hash.match(/^#dm=([0-9a-f-]{36})/i);if(dm)S.deepDm=dm[1];
+  const evLink=location.hash.match(/^#event=([0-9a-f-]{36})/i);if(evLink)S.deepEvent=evLink[1];
+
   const{data:{session}}=await sb.auth.getSession();
   S.user=session?.user||null;
   sb.auth.onAuthStateChange((e,s)=>{
@@ -410,6 +432,7 @@ async function boot(){
     if(S.user?.id!==was)setTimeout(load,0)});
   load();
 }
+
 async function load(){
   if(!S.user){
     backGuardReady=false;
@@ -441,7 +464,7 @@ async function load(){
   if(isMod())loadRepCount();
   S.mine=new Set((u.data||[]).map(r=>r.interest_id));S.snap=new Set(S.mine);
   S.names[S.user.id]=S.name;
-  S.obLegacy=!!oa.error; // column missing (SQL not run): fall back to the old interests-only check
+  S.obLegacy=!!oa.error;
   const needOb=oa.error?!S.mine.size:!oa.data?.onboarded_at;
   if(needOb){S.pick=new Set();S.obStep=S.mine.size?1:0;renderOb();show('onb');return}
   subscribe();
@@ -452,10 +475,10 @@ async function load(){
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
   if(S.deepDm){const d=S.deepDm;S.deepDm=null;openDm(d)}
+  if(S.deepEvent){const dev=S.deepEvent;S.deepEvent=null;openEvent(dev)}
   pushSync();
 }
 
-// Keep curated entries and their developer-assigned categories in sync without changing their IDs.
 async function syncInterestCatalog(){
   const{data,error}=await sb.from('interests').select('id,name,emoji,color,category,kind');
   if(error)return error;
@@ -477,14 +500,12 @@ async function syncInterestCatalog(){
   return null;
 }
 
-// Names + profile photos for a list of people
 async function getProfiles(ids){
   ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
   const a=await sb.from('profiles').select('id,display_name,avatar_url,role').in('id',ids);
   (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;S.roles[x.id]=x.role||'user';if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
 }
 
-// One query for the feed, one for my own posts, then fill in tags / photos / sames / reply counts / names
 const COLS='id,body,created_at,edited_at,author_id';
 async function hydrate(rows){
   if(!rows.length)return[];
@@ -526,7 +547,6 @@ async function loadPeople(){
   });
   S.people=Object.values(m).filter(p=>!bl(p.id));S.cnt=c;S.people.forEach(p=>S.names[p.id]=p.name);
 }
-// Open a post by id (used by share links and notifications)
 async function ensurePost(id){
   if(findPost(id))return true;
   const r=await sb.from('posts').select(COLS).eq('id',id).maybeSingle();
@@ -534,9 +554,13 @@ async function ensurePost(id){
   await hydrate([r.data]);return true;
 }
 async function openPostId(id){if(await ensurePost(id))openPost(id)}
-addEventListener('hashchange',()=>{const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1]);const d=location.hash.match(/^#dm=([0-9a-f-]{36})/i);if(d&&S.loaded)openDm(d[1])});
+addEventListener('hashchange',()=>{
+  const m=location.hash.match(/^#post=([0-9a-f-]{36})/i);if(m&&S.loaded)openPostId(m[1]);
+  const d=location.hash.match(/^#dm=([0-9a-f-]{36})/i);if(d&&S.loaded)openDm(d[1]);
+  const ev=location.hash.match(/^#event=([0-9a-f-]{36})/i);if(ev&&S.loaded)openEvent(ev[1]);
+});
 
-// ---------- Home ----------
+// ---------- Home Feed ----------
 const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
 function post(p,o){
   o=o||{};
@@ -545,19 +569,19 @@ function post(p,o){
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
   return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
-// Post action icons (like heart, reply bubble, share arrow)
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
 const ICO_REPLY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle class="dot" cx="8.5" cy="12" r="1.15"/><circle class="dot" cx="12" cy="12" r="1.15"/><circle class="dot" cx="15.5" cy="12" r="1.15"/></svg>';
 const ICO_SHARE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>';
+
 async function same(id,btn){
   const p=findPost(id),u=S.user.id,on=!p.sames.includes(u);
   const set=v=>{p.sames=v?[...p.sames,u]:p.sames.filter(x=>x!==u);document.querySelectorAll(`.card[data-pi="${id}"]`).forEach(c=>{c.querySelector('.like-btn').className='like-btn'+(v?' on pop':'');c.querySelector('.who2').innerHTML=sm(p)})};
   set(on);
   const r=on?await sb.from('sames').insert({post_id:p.id,user_id:u}):await sb.from('sames').delete().match({post_id:p.id,user_id:u});
-  if(r.error){set(!on);toast("Couldn't save that")}else if(on)checkAch()
+  if(r.error){set(!on);toast("Couldn't save that")}else if(on)checkAch();
 }
-// Who liked a post
+
 function openSames(id){
   const p=findPost(id);if(!p||!p.sames.length)return;
   const l=so(p);
@@ -575,7 +599,7 @@ function home(){
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 
-// ---------- Compose ----------
+// ---------- Compose Post ----------
 function tapFab(){
   const pa=$('#sel').value,pb=$('#sel2').value;
   const o=[...S.mine].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
@@ -587,7 +611,7 @@ function tapFab(){
 }
 function closePost(){
   if($('#mod').classList.contains('on')&&$('#txt').value.trim())toast('Draft saved');
-  $('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on')
+  $('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on');
 }
 function renderPhotos(){
   $('#pph').innerHTML=S.photos.map((ph,i)=>{
@@ -617,7 +641,6 @@ async function publish(){
   if(!a){toast('Add something you like first');return}
   const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
   const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos()};
-  // 1. Photos first, one by one, each showing its own state. A failed photo stops the post so nothing is half-made.
   let bad=0;
   for(const ph of S.photos){
     if(ph.url)continue;
@@ -626,7 +649,6 @@ async function publish(){
     renderPhotos();
   }
   if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
-  // 2. The post itself
   btn.textContent='Posting...';
   let data=S.pfail?await alreadySent('posts','author_id',{},v):null,error=null;
   if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();data=r.data;error=r.error}
@@ -646,10 +668,10 @@ async function publish(){
   toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
 }
 
-// ---------- My post menu: edit / delete ----------
+// ---------- Post Menu / Edit / Delete ----------
 function openPm(id){
   S.pmId=id;const p=findPost(id);
-  $('#pmEdit').style.display=p&&p.author_id==S.user.id?'':'none';  // only the author edits; mods can only remove
+  $('#pmEdit').style.display=p&&p.author_id==S.user.id?'':'none';
   $('#pm').classList.add('on');
 }
 function closePm(){$('#pm').classList.remove('on')}
@@ -709,7 +731,6 @@ function renderThread(){
   $('#thr').innerHTML=S.reps===null?skRep().repeat(2):S.reps.length?S.reps.map(rep).join('')+(S.repMore?'<button class="btn off" style="width:100%;margin:8px 0" onclick="moreReplies()">Show more replies</button>':''):'<div class="empty">No replies yet.<br>Say something.</div>';
 }
 const REP_PAGE=30;
-// First page, or the next page when more=true. n = how many to load on a refresh.
 async function loadReplies(id,more,n){
   if(more&&S.repBusy)return;
   if(!more){S.reps=null;S.repOff=0;S.repMore=false;renderThread()}
@@ -780,7 +801,7 @@ function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
 function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
 function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
 
-// ---------- You + interests ----------
+// ---------- You + Profile ----------
 function meTab(){
   const pr=S.prof||{},mine=[...S.mine];
   setMyAv($('#mav'));setBanner($('#mbn'),pr.banner_url);$('#mav').dataset.zoom=S.avs[S.user.id]||'';$('#mbn').dataset.zoom=pr.banner_url||'';$('#mn').innerHTML=esc(S.name)+rb(S.user.id);
@@ -808,10 +829,7 @@ function mineBody(){
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }
 function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();meTop()}
-// ---- Desktop profile header (screens 1024px and wider) ----
-// One scroll position P (0 to D) drives everything: the banner shrinks and slides to the left, the
-// photo and name float up into it, and the posts side rises into the freed space. Both panes keep
-// the same P so they always line up. A pane that scrolls past D keeps the rest for its own content.
+
 var meDesk=matchMedia('(min-width:1024px)');
 var ME={W:0,H:0,D:0,TH:52,exp:{l:null,r:null}};
 const ME_LW=440,ME_H1=60;
@@ -829,7 +847,6 @@ function meLayout(){
   ME.D=ME.H-2;
   ME.TH=e.tabs.offsetHeight||52;
   const me=$('#me');me.style.setProperty('--H',ME.H+'px');me.style.setProperty('--th',ME.TH+'px');
-  // Each pane must be able to scroll at least D, so the header can always finish its animation
   [e.L,e.R].forEach(el=>{
     el.style.setProperty('--fill','0px');
     const need=ME.D+el.clientHeight-el.scrollHeight;
@@ -839,19 +856,14 @@ function meLayout(){
 }
 function mePaint(P){
   const e=meEl(),{W,H,D,TH}=ME;
-  const Dh=H-ME_H1,                       // distance over which the banner gets shorter
-        q=Math.min(1,P/Dh),               // 0 to 1: banner height, photo and name
-        w0=Math.min(1,P/(Dh*.8)),         // 0 to 1: banner slides to the left
-        w=w0*w0*(3-2*w0),
-        hh=H-Math.min(P,Dh),
-        o=Math.max(0,Math.min(1,(q-.55)/.45));
+  const Dh=H-ME_H1,q=Math.min(1,P/Dh),w0=Math.min(1,P/(Dh*.8)),w=w0*w0*(3-2*w0),hh=H-Math.min(P,Dh),o=Math.max(0,Math.min(1,(q-.55)/.45));
   e.hero.style.width=(W-(W-ME_LW)*w)+'px';
   e.hero.style.height=hh+'px';
   e.av.style.transform='translateY('+(-68*q)+'px) scale('+(1-.633*q)+')';
   e.pill.style.opacity=o;
   e.pill.style.transform='translateY(calc(-50% + '+((1-o)*24)+'px))';
   e.L.style.clipPath='inset('+(hh+10*q)+'px 0 0 0)';
-  const T=H+8-Math.min(P,D);              // top edge of the Posts / Liked / Photos tabs
+  const T=H+8-Math.min(P,D);
   e.tabs.style.transform='translateY('+T+'px)';
   e.R.style.clipPath='inset('+(T+TH+8)+'px 0 0 0)';
 }
@@ -871,28 +883,26 @@ function meScrolled(key){
   if(ME.exp[key]!==null){const same=Math.abs(el.scrollTop-ME.exp[key])<2;ME.exp[key]=null;if(same)return}
   const y=el.scrollTop,D=ME.D;
   let P;
-  if(y<D-1&&ot.scrollTop>D+2){P=D;meSet(key,D)}   // the other pane is scrolled deeper, so the header stays small
+  if(y<D-1&&ot.scrollTop>D+2){P=D;meSet(key,D)}
   else{P=Math.min(y,D);if(ot.scrollTop<=D+2)meSet(ok,P)}
   mePaint(P);
 }
-// Posts / Liked / Photos switch: start the list from its top but keep the header where it is
 function meTop(){
   if(!meDesk.matches||!ME.D)return;
   const e=meEl();
   meSet('r',Math.min(ME.D,Math.max(e.L.scrollTop,e.R.scrollTop)));
 }
-$('#me .col-l').addEventListener('scroll',()=>meScrolled('l'),{passive:true});
-$('#mine').addEventListener('scroll',()=>meScrolled('r'),{passive:true});
-// The banner sits on top of the panes, so forward the mouse wheel to the pane underneath it
-$('.me-hero').addEventListener('wheel',ev=>{
+$('#me .col-l')?.addEventListener('scroll',()=>meScrolled('l'),{passive:true});
+$('#mine')?.addEventListener('scroll',()=>meScrolled('r'),{passive:true});
+$('.me-hero')?.addEventListener('wheel',ev=>{
   if(!meDesk.matches)return;
   const e=meEl(),t=ev.clientX<e.R.getBoundingClientRect().left?e.L:e.R;
   t.scrollTop+=ev.deltaY*(ev.deltaMode==1?16:1);ev.preventDefault();
 },{passive:false});
 meDesk.addEventListener('change',()=>meSync());
 addEventListener('resize',()=>meSync());
-new ResizeObserver(()=>meSync()).observe($('#me .me-body'));
-// Posts you liked (newest posts first; we do not store when you liked them)
+if($('#me .me-body'))new ResizeObserver(()=>meSync()).observe($('#me .me-body'));
+
 async function loadLiked(){
   const r=await sb.from('sames').select('post_id').eq('user_id',S.user.id).limit(100);
   if(r.error){if(S.liked===null)S.liked=[];toast('Could not load your liked posts');meTab();return}
@@ -904,7 +914,7 @@ async function loadLiked(){
   S.liked=pr.data.map(x=>x.id);
   meTab();
 }
-// Share one searchable picker for profile interests and artists.
+
 function drawPk(){
   const art=S.pkm=='art',raw=$('#pks').value.trim().replace(/\s+/g,' '),q=raw.toLowerCase();
   $('#pkt').textContent=art?'Your artists':'Your interests';
@@ -932,7 +942,6 @@ function ask(n){
   confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+(isArt(n)?' your artists?':' your interests?'),on?'Remove':'Add',()=>toggleInt(n));
 }
 async function toggleInt(n){
-  // A profile adds or removes its own membership; the shared interest stays available to everyone.
   const on=S.mine.has(n);
   const r=on?await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n}):await sb.from('user_interests').insert({user_id:S.user.id,interest_id:n});
   if(r.error){toast(r.error.message);return}
@@ -962,7 +971,6 @@ async function createArtistPk(name){
   S.ints.push(r.data);S.im.set(r.data.id,r.data);
   $('#pks').value='';await toggleInt(r.data.id);
 }
-// Create a shared hobby interest, then add it to this user's profile.
 async function newInterest(){
   if(!isAdmin()){toast('Only admins can add new interests');return}
   const name=$('#pks').value.trim().replace(/\s+/g,' ');
@@ -978,9 +986,15 @@ async function newInterest(){
   }
   S.ints.push(data);S.im.set(data.id,data);$('#pks').value='';await toggleInt(data.id);
 }
-function draw(){home();findTab();eventsTab();meTab();refreshPv();if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();if(S.pf&&$('#pf').classList.contains('on'))drawPf()}
 
-// ---------- Edit profile ----------
+function draw(){
+  home();findTab();eventsTab();meTab();refreshPv();
+  if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();
+  if(S.pf&&$('#pf').classList.contains('on'))drawPf();
+  if(S.evActiveId&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+}
+
+// ---------- Edit Profile ----------
 function openPe(){
   const p=S.prof||{};
   $('#pen').value=S.name||'';$('#peu').value=p.username||'';$('#peb').value=p.bio||'';$('#pec').value=p.city||'';
@@ -1017,7 +1031,6 @@ function pickAvatar(inp){
     catch(e){toast(e.message||"Couldn't upload that photo")}
   });
 }
-// Banner: cropped to 3:1, stored in the avatars bucket (your folder), URL in profiles.banner_url
 function setBanner(el,u){
   if(!el)return;
   el.style.backgroundImage=u?"url('"+u+"')":'';
@@ -1051,7 +1064,7 @@ async function removeAvatar(){
   setMyAv($('#peav'));$('#perm').hidden=true;draw();toast('Photo removed');
 }
 
-// ---------- Crop editor: move, zoom and see the circle before saving a photo or banner ----------
+// ---------- Crop Editor ----------
 const CR={ptrs:new Map()};
 function cropFile(file,kind,cb){
   const url=URL.createObjectURL(file),im=new Image();
@@ -1097,7 +1110,7 @@ function crSave(){
   cv.toBlob(b=>{crClose();if(b&&cb)cb(b);else toast('Could not read that photo')},'image/jpeg',.85);
 }
 (()=>{
-  const st=$('#crst');
+  const st=$('#crst');if(!st)return;
   const rect=()=>st.getBoundingClientRect();
   st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);CR.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});CR.d0=0});
   st.addEventListener('pointermove',e=>{
@@ -1137,7 +1150,6 @@ function paintCustomize(){
   document.querySelectorAll('#thm .fc').forEach((x,i)=>x.classList.toggle('on',THEMES[i][0]==curTheme));
   updateThemeColor();
 }
-// Remember choices on this device and on the account, so they follow you to other devices
 function savePrefs(){
   const p={theme:curTheme,acc:curAcc,font:curFont};
   try{localStorage.setItem('il-prefs',JSON.stringify(p))}catch(e){}
@@ -1169,7 +1181,8 @@ function applyPrefs(p){
   if(p.acc!=null)accent(+p.acc,1);
   if(p.font!=null)fnt(+p.font,1);
 }
-// ---------- Push notifications ----------
+
+// ---------- Push Notifications ----------
 const pushOK=()=>!!VAPID_PUBLIC&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
 const NP_KEYS=[['messages','Messages'],['same','Likes'],['replies','Replies'],['follows','New followers']];
 const b64u=s=>{const p='='.repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
@@ -1184,7 +1197,6 @@ async function pushSave(sub){
   const r=await sb.rpc('register_push',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
   return !r.error;
 }
-// On every start: if this device had notifications on, make sure the server still has its address
 async function pushSync(){
   try{
     if(!pushOK()||Notification.permission!=='granted'||localStorage.getItem('il-push')!=='1')return;
@@ -1225,12 +1237,11 @@ async function paintPush(){
     ?`<button class="btn off wide" onclick="disablePush()">Turn off on this phone</button><p class="lab">Tell me about</p><div class="row" style="flex-wrap:wrap;gap:6px">${NP_KEYS.map(([k,t])=>`<button class="fc ${S.np[k]?'on':''}" onclick="togglePref('${k}')">${t}</button>`).join('')}</div>`
     :`<button class="btn off wide" onclick="enablePush()">🔔 Turn on notifications</button><p class="mute sm" style="margin:6px 4px 10px">Get a ping for messages, likes, replies and new followers. This applies to this phone only.</p>`);
 }
-// A tapped notification asks the open app to go to the right place
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
   if(!e.data||e.data.type!=='open'||!S.loaded)return;
   const u=String(e.data.url||'');
-  const p=u.match(/#post=([0-9a-f-]{36})/i),d=u.match(/#dm=([0-9a-f-]{36})/i);
-  if(p)openPostId(p[1]);else if(d)openDm(d[1]);
+  const p=u.match(/#post=([0-9a-f-]{36})/i),d=u.match(/#dm=([0-9a-f-]{36})/i),ev=u.match(/#event=([0-9a-f-]{36})/i);
+  if(p)openPostId(p[1]);else if(d)openDm(d[1]);else if(ev)openEvent(ev[1]);
 });
 function openSet(){
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';
@@ -1246,7 +1257,7 @@ async function changePw(){
 function recoverUi(){
   S.rec=false;history.replaceState(null,'',location.pathname);
   openSet();toast('Choose a new password');
-  setTimeout(()=>$('#npw').focus(),400);
+  setTimeout(()=>$('#npw')?.focus(),400);
 }
 const THEME_ICO={
   auto:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/>',
@@ -1257,7 +1268,7 @@ $('#thm').innerHTML=THEMES.map(t=>`<button class="fc th" onclick="setTheme('${t[
 $('#sws').innerHTML=ACCENTS.map((a,i)=>`<button class="sw" style="background:${a.mono?'#0a0a0a':`linear-gradient(135deg,hsl(${a.h} 83% 58%),hsl(${a.h2} 84% 61%))`}" onclick="accent(${i})" aria-label="${a.n}"></button>`).join('');
 $('#fcs').innerHTML=FONTS.map((f,i)=>`<button class="fc" style="font-family:${f.f}" onclick="fnt(${i})">${f.n}</button>`).join('');
 
-// ---------- Live updates: new messages + notifications ----------
+// ---------- Realtime Subscriptions ----------
 function subscribe(){
   if(S.ch)return;
   const id=S.user.id;
@@ -1271,27 +1282,25 @@ function subscribe(){
 }
 function updateBadges(){
   const me=S.user?.id,m=S.msgs.filter(x=>x.to_user==me&&!x.read_at).length,n=S.notifs.filter(x=>!x.read_at).length;
-  const set=(id,v)=>{const e=$(id);e.hidden=!v;e.textContent=v>9?'9+':v};
+  const set=(id,v)=>{const e=$(id);if(e){e.hidden=!v;e.textContent=v>9?'9+':v}};
   set('#chb',m);set('#nb',n);
 }
-// Catch up when the app comes back to the foreground (in case a live update was missed)
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch();syncStatus()}});
 
-// ---------- Messages (1-to-1) ----------
+// ---------- Direct Messages ----------
 let conv=false,ctab=0;
 async function loadMsgs(){
   const r=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(1000);
   if(r.error)return;
   S.msgs=r.data.reverse().filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));updateBadges();
-  if($('#ov').classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
+  if($('#ov')?.classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
 }
 const convoOf=id=>S.msgs.filter(m=>(m.sender_id==id&&m.to_user==S.user.id)||(m.sender_id==S.user.id&&m.to_user==id));
 function leaveRoom(){
   if(S.cch){sb.removeChannel(S.cch);S.cch=null}
   S.room=null;S.cm=null;resetEdit();
 }
-function closeOv(){$('#ov').classList.remove('on');leaveRoom();conv=false;S.dm=null}
-// Bottom bar: normal input for DMs and for circles I am in, a Join bar otherwise
+function closeOv(){$('#ov')?.classList.remove('on');leaveRoom();conv=false;S.dm=null}
 function setBar(){
   const room=S.room!=null,can=!room||S.mine.has(S.room);
   $('#inp').style.display=can?'':'none';$('#jbar').style.display=can?'none':'flex';
@@ -1356,7 +1365,6 @@ function drawDm(snap){
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">👋</div><b>Say hi to ${esc(nm(S.dm))}</b></div>`;
   settle(el,near,snap,l.length,!l.length||l[l.length-1].sender_id==me);
 }
-// Scroll helpers: stay put if the reader scrolled up, offer a jump button instead
 let mcount=0;
 const nearEnd=el=>el.scrollHeight-el.scrollTop-el.clientHeight<140;
 function settle(el,near,snap,n,lastMine){
@@ -1365,21 +1373,19 @@ function settle(el,near,snap,n,lastMine){
   mcount=n;
 }
 function jumpNew(){const el=$('#msgs');el.scrollTo({top:el.scrollHeight,behavior:'smooth'});$('#jump').hidden=true}
-$('#msgs').addEventListener('scroll',()=>{if(nearEnd($('#msgs')))$('#jump').hidden=true});
-// Send button + character counter
+$('#msgs')?.addEventListener('scroll',()=>{if(nearEnd($('#msgs')))$('#jump').hidden=true});
 function syncSend(){
   const v=$('#mi').value;
   $('#sbtn').disabled=!v.trim();
   const c=$('#mcnt');c.hidden=v.length<400;c.textContent=v.length+'/500';
 }
-// ⋯ menu on my own messages: edit or delete
 const moreBtn=(k,id)=>`<button class="mmore" onclick="event.stopPropagation();msgMenu('${k}','${id}')" aria-label="Message options">⋯</button>`;
 let mmSel=null;
 const msgTable=k=>k=='dm'?'messages':'circle_messages';
 const getMsg=s=>s&&(s.k=='dm'?S.msgs:(S.cm||[])).find(x=>String(x.id)===String(s.id));
 function msgMenu(k,id){
   mmSel={k,id};const m=getMsg(mmSel);
-  $('#mmEdit').style.display=m&&m.sender_id==S.user.id?'':'none';  // mods can remove others' messages, not edit them
+  $('#mmEdit').style.display=m&&m.sender_id==S.user.id?'':'none';
   $('#mm').classList.add('on');
 }
 function closeMm(){mmSel=null;$('#mm').classList.remove('on')}
@@ -1405,7 +1411,7 @@ function delMsg(){
   const sel=mmSel,m=getMsg(sel);closeMm();if(!m)return;
   confirmBox('Delete this message?','Delete',async()=>{
     let q=sb.from(msgTable(sel.k)).delete().eq('id',m.id);
-    if(sel.k=='dm'||m.sender_id==S.user.id)q=q.eq('sender_id',S.user.id);  // mods may only remove circle messages of others
+    if(sel.k=='dm'||m.sender_id==S.user.id)q=q.eq('sender_id',S.user.id);
     const{data,error}=await q.select();
     if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the message");return}
     if(S.edit&&String(S.edit.id)===String(m.id))resetEdit();
@@ -1413,23 +1419,22 @@ function delMsg(){
     else if(S.cm){S.cm=S.cm.filter(x=>x.id!==m.id);if(S.room!=null)drawCircle()}
   });
 }
-// Live changes from the other person (edit, seen, delete)
 function onMsgUpd(m){
   const x=S.msgs.find(y=>y.id===m.id);if(!x)return;
   Object.assign(x,m);updateBadges();
-  if($('#ov').classList.contains('on')&&conv&&S.dm)drawDm();
+  if($('#ov')?.classList.contains('on')&&conv&&S.dm)drawDm();
 }
 function onMsgDel(o){
   const i=S.msgs.findIndex(y=>y.id===o.id);if(i<0)return;
   S.msgs.splice(i,1);updateBadges();
-  if($('#ov').classList.contains('on')){if(conv&&S.dm)drawDm();else if(!conv)openChats()}
+  if($('#ov')?.classList.contains('on')){if(conv&&S.dm)drawDm();else if(!conv)openChats()}
 }
-// Empty-state shortcuts: jump from Chats to Discover
 function goDiscover(i){
   closeOv();show('find');ftab(i);
   loadPeople().then(findTab);
 }
-// ---------- Circle chat (one live room per interest / artist) ----------
+
+// ---------- Circles (Group Chats) ----------
 function openChat(k){
   k=+k;leaveRoom();S.dm=null;S.room=k;S.cm=null;conv=true;setBar();
   $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
@@ -1485,9 +1490,8 @@ async function joinRoom(){
   await toggleInt(k);
   if(S.room===k&&S.mine.has(k)){setBar();drawCircle()}
 }
-// "Say hi" from Discover and from the Same list
 function sayHi(id){
-  $('#sl').classList.remove('on');$('#pv').classList.remove('on');closeThread();closePf();
+  $('#sl')?.classList.remove('on');$('#pv')?.classList.remove('on');closeThread();closePf();
   openDm(id);
 }
 function markRead(id){
@@ -1525,7 +1529,7 @@ async function onMsg(m){
   if(S.msgs.some(x=>x.id===m.id)||bl(m.sender_id))return;
   S.msgs.push(m);
   if(!S.names[m.sender_id])await getProfiles([m.sender_id]);
-  const open=$('#ov').classList.contains('on');
+  const open=$('#ov')?.classList.contains('on');
   if(open&&conv&&S.dm==m.sender_id){drawDm();markRead(m.sender_id);return}
   updateBadges();
   toast(nm(m.sender_id)+': '+(m.body.length>40?m.body.slice(0,40)+'…':m.body));
@@ -1545,10 +1549,8 @@ async function loadNotifs(){
   const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(40);
   if(r.error)return;
   await notifMeta(r.data);S.notifs=r.data;updateBadges();
-  if($('#nv').classList.contains('on'))drawNotifs();
+  if($('#nv')?.classList.contains('on'))drawNotifs();
 }
-// Notifications are grouped: "Sam, Priya and 3 others liked your post" is one row.
-// Same / reply rows group per post; follow rows group per day.
 function ngroups(){
   const g=[],idx=new Map();
   for(const n of S.notifs){
@@ -1573,7 +1575,7 @@ function markIds(ids){
   if(!ids.length)return;
   const now=new Date().toISOString(),set=new Set(ids);
   S.notifs.forEach(n=>{if(set.has(n.id))n.read_at=now});
-  updateBadges();if($('#nv').classList.contains('on'))drawNotifs();
+  updateBadges();if($('#nv')?.classList.contains('on'))drawNotifs();
   sb.from('notifications').update({read_at:now}).in('id',ids).eq('user_id',S.user.id).then(r=>{if(r.error)loadNotifs()});
 }
 function readNg(i){const g=S.ng&&S.ng[i];if(g)markIds(g.items.filter(n=>!n.read_at).map(n=>n.id))}
@@ -1592,13 +1594,12 @@ async function onNotif(n){
   S.notifs.unshift(n);
   toast(nm(n.actor_id)+' '+ntext(n));
   if(n.type=='follow'){S.folrs.add(n.actor_id);draw()}else checkAch();
-  if($('#nv').classList.contains('on'))drawNotifs();
+  if($('#nv')?.classList.contains('on'))drawNotifs();
   updateBadges();
 }
 
-// ---------- Interests / artists ----------
+// ---------- Interests / Artists ----------
 const isArt=n=>S.im.get(n)?.kind=='artist';
-// Artists can be added by anyone, so fetch any interest we have not seen yet
 async function ensureInts(ids){
   const miss=[...new Set(ids)].filter(n=>n&&!S.im.has(n));
   if(!miss.length)return;
@@ -1611,7 +1612,7 @@ async function loadInts(){
   S.ints=r.data;S.im=new Map(S.ints.map(x=>[x.id,x]));
 }
 
-// ---------- Follow ----------
+// ---------- Follows ----------
 async function loadFollows(){
   const[a,b]=await Promise.all([
     sb.from('follows').select('following_id').eq('follower_id',S.user.id),
@@ -1647,16 +1648,16 @@ async function openFollows(id,k){
   peopleSheet(k=='ers'?'Followers':'Following',ids);
 }
 
-// ---------- Other people's profiles ----------
-function closePf(){$('#pf').classList.remove('on');S.pf=null}
+// ---------- Member Profiles ----------
+function closePf(){$('#pf')?.classList.remove('on');S.pf=null}
 function closeAll(){
-  ['#pv','#pf','#th','#sl','#nv','#info'].forEach(x=>$(x).classList.remove('on'));
-  S.th=null;S.pf=null;closeOv();
+  ['#pv','#pf','#th','#sl','#nv','#info','#ev-ov','#ticket-mod'].forEach(x=>$(x)?.classList.remove('on'));
+  S.th=null;S.pf=null;S.evActiveId=null;closeOv();
 }
 async function openProfile(id){
   id=String(id);
   if(id==S.user.id){closeAll();show('me');draw();checkAch();return}
-  closeThread();$('#sl').classList.remove('on');
+  closeThread();$('#sl')?.classList.remove('on');
   S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
   const[p,ui,ua,po,c1,c2]=await Promise.all([
     sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url,role').eq('id',id).maybeSingle(),
@@ -1729,94 +1730,338 @@ function showAch(code,d){
   $('#info').classList.add('on');
 }
 
-// ---------- Events + "I'm in" ----------
+// ══════════════════════════════════════════════════════════
+// ---------- EVENTS: SPACING, FULLSCREEN & FEATURES --------
+// ══════════════════════════════════════════════════════════
 const EVEM=['📍','🎉','☕','🍜','🎮','🎬','🎵','🥾','⚽','📚','🎨','🏖️','🍕','🎤','🎲','🏃'];
 const EVCOLS='id,organizer_id,title,emoji,starts_at,place,venue,description,cancelled_at';
 const evd=d=>{const x=new Date(d);return x.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'})+' · '+x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
 const toLocalInput=d=>{const x=new Date(d),p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate())+'T'+p(x.getHours())+':'+p(x.getMinutes())};
 const ord=l=>l.includes(S.user.id)?[S.user.id,...l.filter(x=>x!=S.user.id)]:l;
 const stack=l=>l.length?`<span class="stk">${l.slice(0,3).map(x=>av(x,'sm')).join('')}</span>`:'';
-const goTxt=l=>{
-  const n=ord(l).map(x=>x==S.user.id?'You':nm(x));
-  if(!n.length)return 'Be the first to join';
-  const v=n.length==1&&n[0]!='You'?'is':'are';
-  return (n.length==1?n[0]:n.length==2?n.join(' & '):n[0]+', '+n[1]+' & '+(n.length-2)+(n.length==3?' other':' others'))+' '+v+' going';
-};
-const goHtml=e=>stack(ord(e.goers))+esc(goTxt(e.goers));
-const goRow=e=>stack(ord(e.goers))+`<span class="mute sm">${e.goers.length} going</span>`;
 const iminHTML=on=>`<span>${on?"You're in ✓":"I'm in"}</span>`;
+const canManageEvents=()=>isMod()||S.eventAuthorized;
 
 async function loadEvents(){
   const since=new Date(Date.now()-3*36e5).toISOString();
-  const[r,ea]=await Promise.all([
+  const[r,ea,goers]=await Promise.all([
     sb.from('events').select(EVCOLS).gte('starts_at',since).order('starts_at').limit(60),
-    sb.from('event_authorizations').select('user_id').eq('user_id',S.user.id).maybeSingle()]);
+    sb.from('event_authorizations').select('user_id').eq('user_id',S.user.id).maybeSingle(),
+    fetchAll(()=>sb.from('event_goers').select('event_id,user_id').order('event_id'))]);
   if(!ea.error)S.eventAuthorized=!!ea.data;
   if(r.error){if(!S.evs)S.evs=[];toast("Couldn't load events");eventsTab();return}
-  await getProfiles(r.data.map(e=>e.organizer_id));
-  S.evs=r.data;
+  const goerMap=new Map();
+  (goers.data||[]).forEach(g=>{
+    if(!goerMap.has(g.event_id))goerMap.set(g.event_id,[]);
+    goerMap.get(g.event_id).push(g.user_id);
+  });
+  await getProfiles([...r.data.map(e=>e.organizer_id),...(goers.data||[]).map(g=>g.user_id)]);
+  S.evs=r.data.map(e=>({...e,goers:goerMap.get(e.id)||[]}));
   S.evm=new Map(S.evs.map(e=>[e.id,e]));
-  eventsTab();refreshPv();
+  eventsTab();
+  if(S.evActiveId&&$('#ev-ov')?.classList.contains('on'))renderEventFullscreen();
 }
-function evCard(e){
-  const me=S.user.id,on=e.goers.includes(me),host=e.organizer_id==me;
-  return `<div class="card tapc evc${e.cancelled_at?' evx':''}${e.past?' evpast':''}" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">📍 ${esc(e.place)}</div></div></div><div class="row" style="margin-top:12px"><div class="grow who2" data-evg="${e.id}">${goHtml(e)}</div>${e.cancelled_at?'<span class="evbadge">Cancelled</span>':e.past?'<span class="mute sm">Ended</span>':host?'<span class="date">You are hosting</span>':`<button class="imin-btn ${on?'on':''}" data-evb="${e.id}" onclick="event.stopPropagation();imin('${e.id}',this)">${iminHTML(on)}</button>`}</div></div>`;
-}
-function meet(){
-  pastDraw();
-  const el=$('#evs');
-  if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
-  el.innerHTML=S.evs.length?S.evs.map(evCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No plans yet</b><div class="sm" style="margin:6px 0 16px">Hangouts and meetups with people who like what you like.</div><button class="btn" onclick="openEv()">Plan the first one</button></div>`;
-}
-const canManageEvents=()=>isMod()||S.eventAuthorized;
 
 function eventsTab(){
   const el=$('#evs'),newBtn=$('#newEventBtn');
   if(!el||!newBtn)return;
   newBtn.hidden=!canManageEvents();
   if(!S.evs){el.innerHTML=skEvent().repeat(3);return}
-  el.innerHTML=S.evs.length?S.evs.map(eventCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">Events</div><b>No upcoming events</b><div class="sm" style="margin:6px 0 16px">Check back soon for new things to do.</div>${canManageEvents()?'<button class="btn" onclick="openEv()">Create the first event</button>':''}</div>`;
+  el.innerHTML=S.evs.length?S.evs.map(eventCard).join(''):`<div class="empty" style="grid-column:1/-1;padding:60px 16px"><div style="font-size:48px;margin-bottom:10px">🗓️</div><b>No upcoming events</b><div class="sm" style="margin:6px 0 16px">Check back soon for new hangouts and gatherings.</div>${canManageEvents()?'<button class="btn" onclick="openEv()">Create the first event</button>':''}</div>`;
   pastDraw();
 }
+
+// Event Card in the list - with spacious padding, date pill, attendees, and tickets badge
 function eventCard(e){
+  const me=S.user.id,on=e.goers.includes(me);
   const cancelled=e.cancelled_at?'<span class="evbadge">Cancelled</span>':'';
-  return `<button class="card tapc evc event-card" onclick="openEvent('${e.id}')"><div class="row"><div class="tile">${esc(e.emoji)}</div><div class="grow"><span class="date">${evd(e.starts_at)}</span><div><b>${esc(e.title)}</b></div><div class="mute sm clip">${esc(e.place)}</div></div></div><div class="event-card-foot"><span class="mute sm">View details and comments</span>${cancelled}</div></button>`;
+  const past=e.past?'<span class="mute sm">Ended</span>':'';
+  const attendeeCount=e.goers.length;
+  return `<div class="event-card-item tapc${e.cancelled_at?' evx':''}" onclick="openEvent('${e.id}')">
+    <div class="ev-card-top">
+      <div class="ev-card-tile">${esc(e.emoji||'📍')}</div>
+      <div class="ev-card-meta">
+        <span class="ev-card-date">${evd(e.starts_at)}</span>
+        <h3 class="ev-card-title">${esc(e.title)}</h3>
+        <div class="ev-card-location">📍 ${esc(e.place)}${e.venue?` · <span class="mute sm">${esc(e.venue)}</span>`:''}</div>
+      </div>
+    </div>
+    <div class="ev-card-footer">
+      <div class="row" style="gap:6px">
+        ${stack(ord(e.goers))}
+        <span class="mute sm">${attendeeCount?`${attendeeCount} ${attendeeCount===1?'going':'going'}`:'Be the first to join'}</span>
+      </div>
+      <div class="ev-card-badge-wrap">
+        <span class="ev-ticket-badge">🎟️ Tickets</span>
+        ${cancelled||past||`<button class="imin-btn ${on?'on':''}" onclick="event.stopPropagation();imin('${e.id}',this)">${iminHTML(on)}</button>`}
+      </div>
+    </div>
+  </div>`;
 }
+
+// Fullscreen Event View
 function openEvent(id){
-  showPv(()=>eventDetail(id));
+  const e=S.evm.get(id);if(!e)return;
+  S.evActiveId=id;
+  S.evTab='about';
+  $('#ev-top-title').textContent=e.title;
+  $('#ev-ov').classList.add('on');
+  renderEventFullscreen();
   loadEventComments(id);
+  loadEventChat(id);
 }
-function eventDetail(id){
-  const e=S.evm.get(id);if(!e)return '';
-  const mine=e.organizer_id==S.user.id;
-  const gone=!!e.cancelled_at,past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
+
+function closeEventView(){
+  $('#ev-ov').classList.remove('on');
+  S.evActiveId=null;
+}
+
+function setEvTab(tab){
+  S.evTab=tab;
+  renderEventFullscreen();
+}
+
+function renderEventFullscreen(){
+  const id=S.evActiveId;if(!id)return;
+  const e=S.evm.get(id);if(!e)return;
+  const me=S.user.id;
+  const host=e.organizer_id==me;
+  const on=e.goers.includes(me);
+  const gone=!!e.cancelled_at;
+  const past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
+
   const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
-  return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
-${gone?'<div class="evcx">This event was cancelled.</div>':past?'<div class="evcx soft">This event has passed.</div>':''}
-<div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
-<div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
-<div class="ev-row">${usr}<span>Posted by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(mine?'you':nm(e.organizer_id))}</b></span></div>
-${e.description?`<p class="evdesc">${esc(e.description)}</p>`:'<p class="evdesc mute">No description was added.</p>'}
-${mine||isMod()?`<div class="evact">${mine&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel event</button>`:''}${mine?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete</button>`:''}</div>`:''}
-${eventCommentsHTML(e.id)}</div>`;
+  const tkt='<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2zM13 5v2M13 11v2M13 17v2"/></svg>';
+
+  const chats=S.evChats.get(id)||[];
+  const comments=S.eventComments.get(id)||[];
+  const photos=S.evGallery.get(id)||[];
+
+  let tabBody='';
+  if(S.evTab==='about'){
+    tabBody=`<div class="ev-tab-content">
+      <div class="ev-section-title">ABOUT THIS EVENT</div>
+      <p class="ev-desc-box">${e.description?esc(e.description):'<span class="mute">No description was added for this event.</span>'}</p>
+      
+      <div class="ev-section-title">WHO'S GOING (${e.goers.length})</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
+        ${e.goers.length?e.goers.map(u=>`<div class="tapc" onclick="openProfile('${u}')" style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:50px">${av(u,'sm')}<span style="font-weight:700;font-size:13px">${esc(u==me?'You':nm(u))}</span></div>`).join(''):'<div class="mute sm">No attendees yet. Be the first to join!</div>'}
+      </div>
+
+      <div class="card" style="margin:16px 0;padding:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--brand) 10%,var(--card)),var(--card))">
+        <div class="row" style="gap:10px;margin-bottom:8px">${tkt}<b>Event Admission &amp; Passes</b></div>
+        <p class="mute sm">Official tickets available. Instant mobile reservation with passes saved to your account.</p>
+        <button class="btn ticket-btn wide" onclick="openTickets('${e.id}')">🎟️ Buy / Reserve Tickets</button>
+      </div>
+
+      ${host||isMod()?`<div class="evact" style="margin-top:24px">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit Event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel Event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete Event</button>`:''}</div>`:''}
+    </div>`;
+  } else if(S.evTab==='chat'){
+    tabBody=`<div class="ev-tab-content ev-chat-container">
+      <div class="ev-chat-messages" id="ev-chat-list">
+        ${chats.length?chats.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${esc(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join(''):`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`}
+      </div>
+      <div class="ev-chat-input-bar">
+        <input id="ev-chat-in" maxlength="400" placeholder="Chat with attendees..." aria-label="Event chat input" onkeydown="if(event.key==='Enter')sendEventChat('${id}')">
+        <button class="btn" onclick="sendEventChat('${id}')">Send</button>
+      </div>
+    </div>`;
+  } else if(S.evTab==='comments'){
+    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${esc(c.body)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
+    tabBody=`<div class="ev-tab-content">
+      <div class="event-comment-list">${rows}</div>
+      <div class="event-comment-form">
+        <input id="ecin" maxlength="500" placeholder="Write a comment or question..." aria-label="Comment" onkeydown="if(event.key==='Enter')sendEventComment('${id}')">
+        <button class="btn" onclick="sendEventComment('${id}')">Post</button>
+      </div>
+    </div>`;
+  } else if(S.evTab==='gallery'){
+    tabBody=`<div class="ev-tab-content">
+      <div class="ev-gallery-header">
+        <div><b>Event Photos &amp; Highlights</b> <span class="mute sm">(${photos.length})</span></div>
+        ${host||isMod()?`<button class="btn sbtn" onclick="$('#ev-pic-in').click()">📷 Add Photo</button>`:''}
+      </div>
+      <input type="file" id="ev-pic-in" accept="image/*" hidden onchange="uploadEventGallery(this,'${id}')">
+      <div class="ev-gallery-grid">
+        ${photos.map((url,idx)=>`<div class="ev-gallery-item"><img src="${esc(url)}" alt="Event Photo" loading="lazy">${host||isMod()?`<button class="ev-gallery-del" onclick="event.stopPropagation();delGalleryPhoto('${id}',${idx})">✕</button>`:''}</div>`).join('')}
+        ${!photos.length&&!host?'<div class="empty" style="grid-column:1/-1">No photos uploaded to this event gallery yet.</div>':''}
+        ${host?`<div class="ev-gallery-uploader" onclick="$('#ev-pic-in').click()"><span style="font-size:26px">📷</span><span>Add Photos</span></div>`:''}
+      </div>
+    </div>`;
+  }
+
+  $('#ev-view-body').innerHTML=`
+    <div class="ev-full-hero">
+      <div class="ev-full-emoji-badge">${esc(e.emoji||'📍')}</div>
+      <span class="date" style="margin-bottom:8px">${evd(e.starts_at)}</span>
+      <h1 class="ev-full-title">${esc(e.title)}</h1>
+      ${gone?'<div class="evcx">This event was cancelled.</div>':past?'<div class="evcx soft">This event has passed.</div>':''}
+      <div class="ev-full-metas">
+        <div class="ev-meta-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
+        <div class="ev-meta-row">${usr}<span>Hosted by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(host?'you':nm(e.organizer_id))}${rb(e.organizer_id)}</b></span></div>
+      </div>
+      <div class="ev-action-bar">
+        <button class="btn ticket-btn" onclick="openTickets('${e.id}')">🎟️ Buy Tickets</button>
+        ${gone||past?'':`<button class="imin-btn imin-full ${on?'on':''}" onclick="imin('${e.id}',this)">${iminHTML(on)}</button>`}
+      </div>
+    </div>
+    
+    <div class="ev-nav-tabs">
+      <button class="ev-tab-btn ${S.evTab==='about'?'on':''}" onclick="setEvTab('about')">About</button>
+      <button class="ev-tab-btn ${S.evTab==='chat'?'on':''}" onclick="setEvTab('chat')">Live Chat${chats.length?` (${chats.length})`:''}</button>
+      <button class="ev-tab-btn ${S.evTab==='comments'?'on':''}" onclick="setEvTab('comments')">Comments${comments.length?` (${comments.length})`:''}</button>
+      <button class="ev-tab-btn ${S.evTab==='gallery'?'on':''}" onclick="setEvTab('gallery')">Gallery${photos.length?` (${photos.length})`:''}</button>
+    </div>
+    
+    ${tabBody}
+  `;
 }
-function eventCommentsHTML(id){
-  const comments=S.eventComments.get(id)?.filter(c=>!S.blocked.has(c.user_id));
-  const rows=comments===undefined?'<div class="mute sm">Loading comments...</div>':comments.length?comments.map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span>${c.user_id==S.user.id||isMod()?`<button class="link sm" style="margin-left:8px" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}<div>${esc(c.body)}</div></div></div>`).join(''):'<div class="mute sm">Be the first to comment.</div>';
-  return `<div class="event-comments"><div class="evh">COMMENTS</div><div class="event-comment-list">${rows}</div><div class="event-comment-form"><input id="ecin" maxlength="500" placeholder="Share your thoughts" aria-label="Comment on this event" onkeydown="if(event.key==='Enter')sendEventComment('${id}')"><button class="btn" onclick="sendEventComment('${id}')">Comment</button></div></div>`;
+
+// Event Chat Handling
+async function loadEventChat(id){
+  if(!S.evChats.has(id)){
+    try{
+      const local=JSON.parse(localStorage.getItem('il-evchat-'+id)||'[]');
+      S.evChats.set(id,local);
+    }catch(e){S.evChats.set(id,[])}
+  }
 }
+
+async function sendEventChat(id){
+  const inEl=$('#ev-chat-in'),text=inEl?.value.trim();
+  if(!text||!id)return;
+  if(muted())return;
+  inEl.value='';
+  const list=S.evChats.get(id)||[];
+  const newMsg={
+    id:Date.now()+'',
+    user_id:S.user.id,
+    body:text,
+    created_at:new Date().toISOString()
+  };
+  list.push(newMsg);
+  S.evChats.set(id,list);
+  try{localStorage.setItem('il-evchat-'+id,JSON.stringify(list.slice(-100)))}catch(e){}
+  renderEventFullscreen();
+  const sc=$('#ev-chat-list');if(sc)sc.scrollTop=sc.scrollHeight;
+}
+
+// Event Gallery Handling
+async function uploadEventGallery(input,id){
+  const file=input.files?.[0];input.value='';if(!file||!id)return;
+  if(file.size>25*1024*1024){toast('Photo is too big (25 MB max)');return}
+  toast('Uploading gallery photo...');
+  try{
+    const blob=await prep(file,1600,false);
+    const url=await upload('post-images',blob);
+    const list=S.evGallery.get(id)||[];
+    list.push(url);
+    S.evGallery.set(id,list);
+    try{localStorage.setItem('il-evgal-'+id,JSON.stringify(list))}catch(e){}
+    renderEventFullscreen();
+    toast('Photo added to event gallery!');
+  }catch(e){
+    toast(e.message||"Couldn't upload photo");
+  }
+}
+
+function delGalleryPhoto(id,idx){
+  confirmBox('Remove this photo from event gallery?','Remove',()=>{
+    const list=S.evGallery.get(id)||[];
+    list.splice(idx,1);
+    S.evGallery.set(id,list);
+    try{localStorage.setItem('il-evgal-'+id,JSON.stringify(list))}catch(e){}
+    renderEventFullscreen();
+    toast('Photo removed');
+  });
+}
+
+// ---------- Buy Tickets Modal ----------
+function openTickets(id){
+  const e=S.evm.get(id);if(!e)return;
+  S.ticketEvId=id;
+  S.ticketQuantities={ga:1,vip:0,early:0};
+  $('#ticket-ev-title').textContent=e.title;
+  $('#ticket-ev-sub').textContent=evd(e.starts_at)+' · '+e.place;
+  $('#ticket-err').textContent='';
+  $('#ticket-mod').classList.add('on');
+  renderTicketTiers();
+}
+
+function closeTickets(){
+  $('#ticket-mod')?.classList.remove('on');
+}
+
+function renderTicketTiers(){
+  const tiers=[
+    {id:'ga',name:'General Admission',desc:'Full event access and open seating',price:S.ticketPrices.ga},
+    {id:'early',name:'Early Bird Pass',desc:'Discounted entry for early participants',price:S.ticketPrices.early},
+    {id:'vip',name:'VIP Pass',desc:'Front row seating, VIP lounge access & souvenir badge',price:S.ticketPrices.vip}
+  ];
+  let totalQty=0,subtotal=0;
+  $('#ticket-tiers').innerHTML=tiers.map(t=>{
+    const qty=S.ticketQuantities[t.id]||0;
+    totalQty+=qty;
+    subtotal+=qty*t.price;
+    return `<div class="ticket-tier-row ${qty>0?'active':''}">
+      <div class="ticket-tier-info">
+        <b>${esc(t.name)}</b>
+        <small>${esc(t.desc)}</small>
+        <div class="ticket-tier-price">$${t.price}.00</div>
+      </div>
+      <div class="ticket-counter">
+        <button type="button" onclick="adjustTicketQty('${t.id}',-1)" aria-label="Decrease">−</button>
+        <span>${qty}</span>
+        <button type="button" onclick="adjustTicketQty('${t.id}',1)" aria-label="Increase">＋</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const fee=totalQty>0?2.50:0;
+  const total=subtotal+fee;
+  $('#t-qty-label').textContent=totalQty;
+  $('#t-subtotal').textContent='$'+subtotal.toFixed(2);
+  $('#t-fee').textContent=fee>0?'$'+fee.toFixed(2):'Free';
+  $('#t-total').textContent='$'+total.toFixed(2);
+  $('#ticket-confirm-btn').disabled=totalQty<=0;
+}
+
+function adjustTicketQty(tier,delta){
+  const cur=S.ticketQuantities[tier]||0;
+  S.ticketQuantities[tier]=Math.max(0,Math.min(10,cur+delta));
+  renderTicketTiers();
+}
+
+async function confirmTickets(){
+  const id=S.ticketEvId;if(!id)return;
+  const e=S.evm.get(id);
+  const totalQty=(S.ticketQuantities.ga||0)+(S.ticketQuantities.vip||0)+(S.ticketQuantities.early||0);
+  if(totalQty<=0)return;
+  closeTickets();
+  // Automatically RSVP the user if not already in
+  if(e&&!e.goers.includes(S.user.id)){
+    e.goers.push(S.user.id);
+    await sb.from('event_goers').insert({event_id:id,user_id:S.user.id});
+  }
+  toast(`🎉 ${totalQty} Ticket(s) Reserved for ${e?e.title:'Event'}!`);
+  checkAch();
+  if($('#ev-ov').classList.contains('on'))renderEventFullscreen();
+}
+
 const eventCommentsError=e=>e&&(e.code==='PGRST205'||/event_comments|relation .*does not exist/i.test(e.message||''))
   ?'Comments need database setup. Run event-tab.sql in Supabase first.'
   :errMsg(e);
+
 async function loadEventComments(id){
-  S.eventComments.delete(id);refreshPv();
   const r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at').limit(100);
-  if(r.error){S.eventComments.set(id,[]);toast(eventCommentsError(r.error));refreshPv();return}
+  if(r.error){S.eventComments.set(id,[]);toast(eventCommentsError(r.error));return}
   await getProfiles((r.data||[]).map(c=>c.user_id));
-  S.eventComments.set(id,r.data||[]);refreshPv();
+  S.eventComments.set(id,r.data||[]);
+  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
 }
+
 async function sendEventComment(id){
   const input=$('#ecin'),body=input?.value.trim();
   if(!body||input.disabled)return;
@@ -1825,52 +2070,43 @@ async function sendEventComment(id){
   const r=await sb.from('event_comments').insert({event_id:id,user_id:S.user.id,body}).select().single();
   input.disabled=false;
   if(r.error){toast(eventCommentsError(r.error));input.focus();return}
-  const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);refreshPv();
+  const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);
+  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
 }
+
 function delEventComment(eid,cid){
   confirmBox('Delete this comment?','Delete',async()=>{
     const r=await sb.from('event_comments').delete().eq('id',cid).select('id');
     if(r.error){toast(errMsg(r.error));return}
     if(!r.data?.length){toast("Couldn't delete that comment");return}
-    S.eventComments.set(eid,(S.eventComments.get(eid)||[]).filter(c=>c.id!==cid));refreshPv();toast('Comment deleted');
+    S.eventComments.set(eid,(S.eventComments.get(eid)||[]).filter(c=>c.id!==cid));
+    if(S.evActiveId===eid&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+    toast('Comment deleted');
   });
 }
-function eventHTML(id){
-  const e=S.evm.get(id);if(!e)return '';
-  const me=S.user.id,host=e.organizer_id==me,on=e.goers.includes(me);
-  const gone=!!e.cancelled_at,past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
-  const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
-  const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
-  const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
-  return `<div class="evp"><div class="evbn">${esc(e.emoji)}</div><h2 class="evt">${esc(e.title)}</h2>
-${gone?'<div class="evcx">This event was cancelled.</div>':past?'<div class="evcx soft">This event has passed.</div>':''}
-<div class="ev-row">${cal}<span>${evd(e.starts_at)}</span></div>
-<div class="ev-row">${pin}<span>${esc(e.place)}${e.venue?`<br><small>${esc(e.venue)}</small>`:''}</span></div>
-<div class="ev-row">${usr}<span>Planned by <b class="lk" onclick="openProfile('${e.organizer_id}')">${esc(host?'you':nm(e.organizer_id))}</b></span></div>
-${e.description?`<p class="evdesc">${esc(e.description)}</p>`:''}
-<div class="evh">WHO'S GOING</div><div class="row evgo lk" data-evg="${e.id}" data-d="1" onclick="openGoers('${e.id}')">${goRow(e)}</div>
-${host||isMod()?`<div class="evact">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete</button>`:''}</div>`
-:gone||past?'':`<button class="imin-btn imin-full ${on?'on':''}" data-evb="${e.id}" onclick="imin('${e.id}',this)">${iminHTML(on)}</button>`}</div>`;
-}
+
 function openGoers(id){const e=S.evm.get(id);if(e)peopleSheet('Going ('+e.goers.length+')',ord(e.goers))}
-// Update buttons and "who's going" in place so the wipe animation plays
+
 function paintEv(e){
   const on=e.goers.includes(S.user.id);
   document.querySelectorAll(`[data-evb="${e.id}"]`).forEach(b=>{b.className='imin-btn'+(b.classList.contains('imin-full')?' imin-full':'')+(on?' on':'');b.innerHTML=iminHTML(on)});
-  document.querySelectorAll(`[data-evg="${e.id}"]`).forEach(x=>x.innerHTML=x.dataset.d?goRow(e):goHtml(e));
 }
+
 async function imin(id,btn){
   const e=S.evm.get(id),u=S.user.id;if(!e||e.organizer_id==u||e.cancelled_at||e.past)return;
   const on=!e.goers.includes(u);
   const set=v=>{e.goers=v?[...e.goers,u]:e.goers.filter(x=>x!==u);paintEv(e)};
-  set(on);btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180);
+  set(on);if(btn){btn.style.transform='scale(.88)';setTimeout(()=>btn.style.transform='',180)}
   const r=on?await sb.from('event_goers').insert({event_id:id,user_id:u}):await sb.from('event_goers').delete().match({event_id:id,user_id:u});
   if(r.error){set(!on);toast("Couldn't save that");return}
   if(on)checkAch();
+  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
 }
+
 function drawEvEm(){
   $('#evEm').innerHTML=[...new Set([S.evEm,...EVEM])].map(x=>`<button type="button" class="${x==S.evEm?'on':''}" onclick="S.evEm='${x}';drawEvEm()">${x}</button>`).join('');
 }
+
 function openEv(id){
   if(!canManageEvents()){toast('Only admins, moderators, and approved event publishers can create events');return}
   const e=id?S.evm.get(id):null;
@@ -1884,6 +2120,7 @@ function openEv(id){
   $('#evErr').textContent='';$('#evSave').disabled=false;
   $('#ev').classList.add('on');
 }
+
 async function saveEv(){
   const title=$('#evTitle').value.trim(),w=$('#evWhen').value,place=$('#evPlace').value.trim(),venue=$('#evVenue').value.trim(),desc=$('#evDesc').value.trim(),err=$('#evErr');
   err.textContent='';
@@ -1908,33 +2145,36 @@ async function saveEv(){
   await loadEvents();draw();toast(wasNew?'Event published':'Event updated');
   if(wasNew)checkAch();
 }
+
 function cancelEv(id){
   confirmBox('Cancel this event? It stays listed as cancelled so people who joined can see it.','Yes, cancel it',async()=>{
     const{error}=await sb.rpc('cancel_event',{ev:id});
     if(error){toast(errMsg(error));return}
-    $('#pv').classList.remove('on');await loadEvents();draw();toast('Event cancelled');
+    closeEventView();await loadEvents();draw();toast('Event cancelled');
   });
 }
-// Past events: loaded only when someone opens the section
+
 async function loadPast(){
   const since=new Date(Date.now()-3*36e5).toISOString();
   const r=await sb.from('events').select(EVCOLS).lt('starts_at',since).order('starts_at',{ascending:false}).limit(20);
   if(r.error){toast('Could not load past events');S.pev=[];return}
   await getProfiles(r.data.map(e=>e.organizer_id));
-  S.pev=r.data.map(e=>({...e,past:true}));
+  S.pev=r.data.map(e=>({...e,past:true,goers:[]}));
   S.pev.forEach(e=>S.evm.set(e.id,e));
 }
+
 async function togglePast(){S.pevOpen=!S.pevOpen;if(S.pevOpen)S.pev=null;pastDraw();if(S.pevOpen){await loadPast();pastDraw()}}
 function pastDraw(){
   const el=$('#pevs');if(!el)return;
   el.innerHTML=`<button class="link pastbtn" onclick="togglePast()">${S.pevOpen?'Hide past events':'Show past events'}</button>`+(S.pevOpen?(S.pev==null?'<div class="mute sm" style="padding:8px 4px">Loading...</div>':S.pev.length?S.pev.map(eventCard).join(''):'<div class="mute sm" style="padding:8px 4px">No past events yet.</div>'):'');
 }
+
 function delEv(id){
   confirmBox('Delete this event?','Delete',async()=>{
     const{data,error}=await sb.from('events').delete().eq('id',id).eq('organizer_id',S.user.id).select('id');
     if(error){toast(errMsg(error));return}
     if(!data?.length){toast("Couldn't delete that event");return}
-    $('#pv').classList.remove('on');S.evm.delete(id);
+    closeEventView();S.evm.delete(id);
     await loadEvents();draw();toast('Event deleted');
   });
 }
@@ -1945,10 +2185,8 @@ document.querySelectorAll('#nav button[data-s]').forEach(b=>b.onclick=async()=>{
   if(s=='me')checkAch();
   draw();
 });
-$('#fl').addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});
+$('#fl')?.addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});
 
-// ---------- Theme toggle (top bar) ----------
-// Dark is the CSS default, so only an explicit light preference counts as light
 function isDark(){
   const t=document.documentElement.dataset.theme;
   return t?t==='dark':!matchMedia('(prefers-color-scheme:light)').matches;
@@ -1956,7 +2194,7 @@ function isDark(){
 function updateThemeIcon(){updateThemeColor()}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
-// ---------- Loading skeletons ----------
+// ---------- Skeletons ----------
 const skL=w=>`<i class="sk-l" style="width:${w}%"></i>`;
 const skPost=()=>`<div class="card sk" aria-hidden="true"><div class="who"><span class="av sk-b"></span><div class="grow">${skL(40)}${skL(22)}</div></div>${skL(94)}${skL(68)}<div class="sk-pills"><i class="sk-b"></i><i class="sk-b"></i></div></div>`;
 const skPerson=()=>`<div class="card row sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(45)}${skL(30)}</div><i class="sk-b sk-btn"></i></div>`;
@@ -1964,7 +2202,7 @@ const skEvent=()=>`<div class="card sk" aria-hidden="true"><div class="row"><i c
 const skRep=()=>`<div class="rep sk" aria-hidden="true"><span class="av sk-b"></span><div class="grow">${skL(30)}${skL(80)}</div></div>`;
 const skProf=()=>`<div class="pfh sk" aria-hidden="true"><span class="av big sk-b"></span>${skL(40)}${skL(25)}${skL(80)}</div>`;
 
-// ---------- Drafts (saved on this device, per account) ----------
+// ---------- Drafts ----------
 const dKey=()=>'il-draft-'+(S.user?.id||'');
 const rdKey=()=>'il-rdraft-'+(S.user?.id||'');
 function setSel(el,v){if(v&&[...el.options].some(o=>o.value==v))el.value=v}
@@ -1985,10 +2223,9 @@ function restoreDraft(){
 }
 function clearDraft(){try{localStorage.removeItem(dKey())}catch(e){}$('#pdis').hidden=true}
 function discardDraft(){confirmBox('Discard this draft?','Discard',()=>{$('#txt').value='';clearDraft();toast('Draft discarded')})}
-$('#txt').addEventListener('input',saveDraft);
-$('#sel').addEventListener('change',saveDraft);
-$('#sel2').addEventListener('change',saveDraft);
-// Reply drafts, one per post (last 20 kept)
+$('#txt')?.addEventListener('input',saveDraft);
+$('#sel')?.addEventListener('change',saveDraft);
+$('#sel2')?.addEventListener('change',saveDraft);
 function rdGet(){try{return JSON.parse(localStorage.getItem(rdKey())||'{}')||{}}catch(e){return{}}}
 function rdSet(id,v){
   try{
@@ -2000,7 +2237,6 @@ function rdSet(id,v){
 }
 function saveRD(){if(S.th)rdSet(S.th,$('#rin').value)}
 
-// ---------- Refresh (used by pull to refresh and when the connection returns) ----------
 async function refreshAll(){
   const t=S.tab;
   if(t=='find')await loadPeople();
@@ -2010,7 +2246,7 @@ async function refreshAll(){
   draw();
 }
 
-// ---------- Pull to refresh (touch screens) ----------
+// ---------- Pull to Refresh ----------
 const PT={y:0,d:0,on:false,busy:false,box:null};
 const ptrEl=document.createElement('div');
 ptrEl.id='ptr';ptrEl.setAttribute('aria-hidden','true');
@@ -2057,7 +2293,7 @@ async function ptrEnd(){
 document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
-// ---------- Install as app (PWA) ----------
+// ---------- PWA Install ----------
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
@@ -2081,7 +2317,6 @@ async function installApp(){
 addEventListener('offline',()=>toast("You're offline"));
 addEventListener('online',()=>{toast('Back online');if(S.user&&S.loaded)refreshAll().catch(()=>{})});
 
-// Browser bar / status bar colour follows the current theme + accent
 function updateThemeColor(){
   const p=document.createElement('i');p.style.cssText='display:none;color:var(--bg)';
   document.body.appendChild(p);const c=getComputedStyle(p).color;p.remove();
@@ -2089,7 +2324,7 @@ function updateThemeColor(){
   if(m&&c)m.setAttribute('content',c);
 }
 
-// ---------- Reporting, blocking, moderation, admin lists ----------
+// ---------- Safety, Reporting, Moderation ----------
 const bl=id=>S.blocked.has(id);
 const errMsg=e=>(e&&(e.code=='42501'||/row-level security/i.test(e.message||'')))?"You can't do that right now. You may be muted.":(e&&e.message)||'Something went wrong';
 const mutedNow=u=>!!(u&&u.muted_until&&new Date(u.muted_until)>new Date());
@@ -2097,7 +2332,6 @@ function muted(){
   if(mutedNow(S.prof)){toast('You are muted until '+tm(S.prof.muted_until));return true}
   return false;
 }
-// Hide everything from people I blocked
 function applyBlocks(){
   if(!S.user)return;
   S.posts=S.posts.filter(p=>!bl(p.author_id));
@@ -2106,13 +2340,12 @@ function applyBlocks(){
   if(S.cm)S.cm=S.cm.filter(m=>!bl(m.sender_id));
   S.msgs=S.msgs.filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));
   updateBadges();
-  if($('#ov').classList.contains('on')){
+  if($('#ov')?.classList.contains('on')){
     if(conv&&S.dm&&bl(S.dm))openChats();
     else if(conv&&S.room!=null)drawCircle();
     else if(!conv)openChats();
   }
 }
-// Pick up role / mute / ban changes made while the app was open
 async function syncStatus(){
   if(!S.user||!S.loaded)return;
   const r=await sb.from('profiles').select('role,muted_until,banned').eq('id',S.user.id).single();
@@ -2122,20 +2355,18 @@ async function syncStatus(){
   if(isMod())loadRepCount();else{S.nrep=0;paintRepBadge()}
 }
 
-// ---------- Blocking ----------
 function blockUser(id){
   id=String(id);
   confirmBox('Block '+nm(id)+'?','Block',async()=>{
     const{error}=await sb.rpc('block_user',{target:id});
     if(error){toast(errMsg(error));return}
     S.blocked.add(id);S.fol.delete(id);S.folrs.delete(id);
-    ['#pv','#pf','#sl'].forEach(x=>$(x).classList.remove('on'));S.pf=null;
+    ['#pv','#pf','#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));S.pf=null;
     applyBlocks();draw();if(S.th)renderThread();
     toast('Blocked '+nm(id));
   });
 }
-// ---------- Send feedback ----------
-const APP_VER='6b',FBK=[['bug','🐞 Bug'],['idea','💡 Idea'],['other','Other']];
+const APP_VER='7c',FBK=[['bug','🐞 Bug'],['idea','💡 Idea'],['other','Other']];
 function paintFbk(){$('#fbk').innerHTML=FBK.map(k=>`<button class="fc ${S.fbk==k[0]?'on':''}" onclick="S.fbk='${k[0]}';paintFbk()">${k[1]}</button>`).join('')}
 function openFb(){
   $('#set').classList.remove('on');S.fbk='idea';paintFbk();
@@ -2152,7 +2383,6 @@ async function sendFb(){
   if(error){e.textContent=error.message||'Could not send. Try again.';return}
   closeFb();toast('Thanks, we got it');
 }
-// ---------- Admin: stats (counts only, no per-person data) ----------
 async function drawStats(){
   if(!S.st)$('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.rpc('admin_stats',{days:S.stN||14});
@@ -2198,7 +2428,6 @@ async function fbDone(id){
   drawFeedback();
 }
 
-// ---------- Delete my account ----------
 function openDa(){$('#set').classList.remove('on');$('#dat').value='';$('#dae').textContent='';$('#dab').disabled=true;$('#dab').textContent='Delete forever';$('#da').classList.add('on')}
 function closeDa(){if(S.deleting)return;$('#da').classList.remove('on')}
 function daCheck(){$('#dab').disabled=$('#dat').value.trim().toUpperCase()!=='DELETE'}
@@ -2207,10 +2436,8 @@ async function doDelete(){
   const b=$('#dab'),e=$('#dae'),uid=S.user.id;
   S.deleting=true;b.disabled=true;b.textContent='Deleting...';e.textContent='';
   const fail=m=>{S.deleting=false;b.disabled=false;b.textContent='Delete forever';e.textContent=m||'Could not delete your account. Nothing was changed.'};
-  // 1. Check first (e.g. the only admin can't leave), so nothing is removed if it will be refused
   const chk=await sb.rpc('delete_my_account',{dry:true});
   if(chk.error){fail(chk.error.message);return}
-  // 2. Remove this person's uploaded files
   try{
     for(const bk of ['avatars','post-images']){
       for(let k=0;k<20;k++){
@@ -2221,7 +2448,6 @@ async function doDelete(){
       }
     }
   }catch(x){}
-  // 3. Remove the account and everything in the database
   const{error}=await sb.rpc('delete_my_account',{dry:false});
   if(error){fail(error.message);return}
   try{localStorage.removeItem('il-draft-'+uid);localStorage.removeItem('il-rdraft-'+uid)}catch(x){}
@@ -2245,7 +2471,6 @@ async function unblock(id){
   draw();openBlocked();toast('Unblocked');
 }
 
-// ---------- ⋯ menu on other people's content ----------
 const axLabel={post:'post',reply:'reply',cm:'message',user:'user'};
 function axGet(t,id){
   if(t=='user')return{};
@@ -2271,7 +2496,7 @@ function openAx(t,id){
   h+='<button class="btn off wide" onclick="closeAx()">Cancel</button>';
   $('#axb').innerHTML=h;$('#ax').classList.add('on');
 }
-function closeAx(){$('#ax').classList.remove('on')}
+function closeAx(){$('#ax')?.classList.remove('on')}
 function axBlock(){const a=S.ax;closeAx();if(a)blockUser(a.uid)}
 function axModerate(){const a=S.ax;closeAx();if(a)openUa(a.uid)}
 function axDelete(){
@@ -2285,7 +2510,6 @@ function axDelete(){
   });
 }
 
-// ---------- Reporting ----------
 const REASONS=['Spam','Harassment','Hate or unsafe','Inappropriate','Other'];
 function axReport(){
   const a=S.ax;closeAx();if(!a)return;
@@ -2297,7 +2521,7 @@ function drawRp(){
   $('#rpr').innerHTML=REASONS.map(r=>`<button class="fc ${S.rp.reason==r?'on':''}" onclick="S.rp.reason='${r}';drawRp()">${r}</button>`).join('');
   $('#rps').disabled=!S.rp.reason;
 }
-function closeRp(){$('#rp').classList.remove('on');S.rp=null}
+function closeRp(){$('#rp')?.classList.remove('on');S.rp=null}
 async function sendReport(){
   const r=S.rp;if(!r||!r.reason)return;
   $('#rps').disabled=true;
@@ -2310,7 +2534,6 @@ async function sendReport(){
   closeRp();toast('Report sent. Thank you.');
 }
 
-// ---------- Moderation screen (mods and admins) ----------
 let mtab=0,musrT;
 async function loadRepCount(){
   const r=await sb.from('reports').select('id',{count:'exact',head:true}).eq('status','open');
@@ -2318,13 +2541,11 @@ async function loadRepCount(){
   S.nrep=r.count||0;paintRepBadge();
 }
 function paintRepBadge(){
-  const b=$('#rpb');b.hidden=!(isMod()&&S.nrep);b.textContent=S.nrep>9?'9+':S.nrep;
-  $('#modlab').hidden=!isMod();
-  const m=$('#modb');m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'');
+  const b=$('#rpb');if(b){b.hidden=!(isMod()&&S.nrep);b.textContent=S.nrep>9?'9+':S.nrep}
+  const ml=$('#modlab');if(ml)ml.hidden=!isMod();
+  const m=$('#modb');if(m){m.hidden=!isMod();m.textContent='🛡 Moderation tools'+(S.nrep?' ('+S.nrep+')':'')}
 }
 function openMod(){$('#set').classList.remove('on');mtab=0;$('#mo').classList.add('on');drawMod()}
-// Tab numbers: 0 Reports, 1 Users, 2 Event publishers, 3 Lists, 4 Invites, 5 Feedback, 6 Stats.
-// Every draw function's "mtab!=N" guard must use its own tab's number. Insert a tab here and shift the later guards.
 function drawMod(){
   const tabs=['Reports','Users','Event publishers'].concat(isAdmin()?['Lists','Invites','Feedback','Stats']:[]);
   $('#mot').innerHTML=`<div class="tabs">${tabs.map((t,i)=>`<button class="${i==mtab?'on':''}" onclick="mtab=${i};drawMod()">${t}${i==0&&S.nrep?' ('+S.nrep+')':''}</button>`).join('')}</div>`;
@@ -2357,7 +2578,7 @@ async function repClose(rid,status){
   const{data,error}=await sb.from('reports').update({status,handled_by:S.user.id,handled_at:new Date().toISOString()}).eq('id',rid).select('id');
   if(error||!data||!data.length){toast(error?error.message:"Couldn't update the report");return false}
   S.reports=(S.reports||[]).filter(x=>x.id!==rid);S.nrep=Math.max(0,S.nrep-1);paintRepBadge();
-  if($('#mo').classList.contains('on')&&mtab==0)drawMod();
+  if($('#mo')?.classList.contains('on')&&mtab==0)drawMod();
   return true;
 }
 function repDelete(rid){
@@ -2370,7 +2591,6 @@ function repDelete(rid){
     await repClose(rid,'resolved');toast('Deleted and resolved');
   });
 }
-// People search
 function drawUsers(){
   $('#mob').innerHTML='<input class="fi" id="musr" placeholder="Search people by name or @username" maxlength="40" autocomplete="off" oninput="clearTimeout(musrT);musrT=setTimeout(searchUsers,250)" style="margin:6px 16px;width:calc(100% - 32px)"><div id="musl"></div>';
   searchUsers();
@@ -2413,7 +2633,6 @@ async function setEventPublisher(id,on){
   if(r.error){toast(r.error.message);return}
   toast(on?'Member approved to publish events':'Publishing access removed');drawEventPublishers();
 }
-// One person: mute (mods), role and ban (admins)
 async function openUa(id){
   id=String(id);S.ua=id;
   $('#uab').innerHTML='<div class="empty">Loading...</div>';$('#ua').classList.add('on');
@@ -2441,7 +2660,7 @@ function drawUa(u){
   $('#uab').innerHTML=h;
 }
 function closeUa(){S.ua=null;$('#ua').classList.remove('on')}
-async function uaDone(id,msg){toast(msg);await openUa(id);if($('#mo').classList.contains('on')&&mtab==1)searchUsers();draw()}
+async function uaDone(id,msg){toast(msg);await openUa(id);if($('#mo')?.classList.contains('on')&&mtab==1)searchUsers();draw()}
 async function uaMute(id,min){
   const{error}=await sb.rpc('mute_user',{target:id,minutes:min});
   if(error){toast(error.message);return}
@@ -2462,8 +2681,6 @@ function uaBan(id,flag){
   });
 }
 
-// ---------- Admin: artists list ----------
-// Same idea as norm_name() in batch7b.sql: ignore case, accents, spaces and punctuation. Other scripts (Sinhala, Tamil) are kept as they are.
 const nameKey=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đ]/g,'d').replace(/[øØ]/g,'o').replace(/[łŁ]/g,'l').replace(/ı/g,'i').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
 function lev(a,b){
   const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
@@ -2471,7 +2688,6 @@ function lev(a,b){
   for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]==b[j-1]?0:1));p=c}
   return p[n];
 }
-// Names that look like "name" but are not the same entry: typos, extra words, a missing letter. Max 4.
 function similarTo(name,kind,skipId,withExact){
   const k=nameKey(name);if(!k)return[];
   return S.ints.filter(i=>i.id!=skipId&&(i.kind=='artist')==(kind=='artist')).filter(i=>{
@@ -2484,7 +2700,6 @@ function similarTo(name,kind,skipId,withExact){
     return max>0&&l.length-s.length<=max&&lev(k,k2)<=max;
   }).slice(0,4);
 }
-// "Did you mean...?" sheet. onUse(id) is optional (null in the admin list, where the rows are just information).
 function dupAsk(name,sim,onUse,onAnyway){
   $('#slt').textContent='Did you mean...?';
   S.dupUse=id=>onUse&&onUse(id);S.dupGo=()=>{$('#sl').classList.remove('on');onAnyway()};
@@ -2503,7 +2718,6 @@ async function drawLists(){
     +arts.map(a=>`<div class="card row"><div class="tile">${esc(a.emoji||'🎤')}</div><div class="grow"><b>${esc(a.name)}</b><div class="mute sm">${S.cnt[a.id]||0} ${S.cnt[a.id]==1?'member':'members'}</div></div><button class="btn off sbtn" style="margin:0" onclick="admArt(${a.id})">Manage</button></div>`).join('')
     +`<div class="card"><b>Interests</b><div class="mute sm" style="margin-top:6px">${n} interests are managed in the app code (INTEREST_CATALOG in app.js). They sync to the database whenever an admin opens the app.</div></div>`;
 }
-// ---------- Admin: invite codes ----------
 async function drawInvites(){
   $('#mob').innerHTML='<div class="empty">Loading...</div>';
   const r=await sb.from('invite_codes').select('*').order('created_at',{ascending:false});
@@ -2531,7 +2745,6 @@ async function copyInvite(code){
   catch(e){toast('Code: '+code)}
 }
 
-// ---------- Terms, privacy, contact ----------
 const LEGAL={
   terms:['Terms',[
     ['What iLike is','iLike is a small community app for finding people who share your interests. It is in early testing, so things may change, break, or be reset.'],
@@ -2577,7 +2790,6 @@ async function admCreateArtist(name){
   if(r.error){toast(r.error.code=='23505'?'That artist is already listed':r.error.message);return}
   await loadInts();drawLists();toast('Added '+name);
 }
-// Scan the artist list for look-alikes; tap a pair to merge it (the one with fewer members is merged into the other)
 function admDupes(){
   const arts=S.ints.filter(i=>i.kind=='artist'),pairs=[];
   arts.forEach(x=>similarTo(x.name,'artist',x.id,true).forEach(y=>{if(y.id>x.id)pairs.push([x.id,y.id])}));
@@ -2634,7 +2846,6 @@ async function refreshInterests(){
   draw();
 }
 
-// Apply saved look on this device before login, then boot
 try{applyPrefs(JSON.parse(localStorage.getItem('il-prefs')||'null'))}catch(e){}
 updateThemeIcon();paintCustomize();
 boot();
