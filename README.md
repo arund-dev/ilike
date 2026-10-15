@@ -48,6 +48,14 @@ npx serve .
 
 On screens 1024 px wide and up, **You** is split into two panes. The left pane (photo, name, bio, Interests, Artists, Achievements) and the right pane (the My posts / Liked / Photos tabs and the list under them) scroll on their own, with no visible scrollbars, and the tab bar stays in place. The banner keeps its 3:1 shape (never taller than 46% of the window). When either pane is scrolled, the banner shrinks smoothly into a slim bar while the profile photo and name float up into it, and they grow back when both panes return to the top. The behavior lives in `meHeader()` in `app.js` and the `.me-hero`, `.col-l` and `#mine` rules in the desktop block of `style.css`; the animation speed is `--mv` on `#me`. Phones keep the original single-column layout. If a pane has too little content to scroll, the header stays expanded.
 
+## Event chat and gallery (shared, live)
+
+Run [`event-live.sql`](event-live.sql) in the Supabase SQL Editor (after `event-tab.sql`; safe to run again). It creates `event_messages` (Live Chat) and `event_photos` (Gallery) and turns on live updates for both. Chat is open to the event host, people who tapped **I'm in**, admins and moderators; everyone else sees a short "join to chat" note. Messages and photos appear on every phone while the event is open, and the app catches up when it returns from the background. Members can delete their own messages and admins and moderators can delete any. Only the host, admins and moderators add or remove gallery photos. Muted members cannot send chat messages, and everyone is limited to 30 messages a minute (admins and moderators are exempt). Older chat and gallery items that were saved only on a single phone are not carried over.
+
+## Profile page
+
+Tapping a person opens their profile as a full-screen page (a centred panel on desktop) with Posts and Photos tabs. Opening a profile from inside another profile and pressing Back returns to the previous one, step by step. On phones the top bar turns into a slim banner strip with the small photo and name once the header scrolls away, both here and on **You**. Settings shows the installed app version at the bottom, and a newly deployed version reloads the app by itself when nothing is open or being typed.
+
 ## Maintaining the interest menu
 
 Edit `INTEREST_CATALOG` near the top of `app.js` to add a category or interest. Each category has a display colour and an `items` list of name and emoji pairs. When a user signs in, the app creates missing catalog rows in Supabase and updates the category, colour, and emoji of matching rows without changing their IDs. Keep existing interest names stable when possible because user selections refer to their database IDs.

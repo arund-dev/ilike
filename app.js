@@ -29,7 +29,7 @@ S.eventComments=new Map();
 S.evTab='about';
 S.evActiveId=null;
 S.evChats=new Map();
-S.evGallery=new Map();
+S.evGallery=new Map();S.evChatErr=new Map();S.evUnread=new Map();S.evCh=null;S.evChId=null;
 S.ticketQuantities={ga:1,vip:0,early:0};
 S.ticketPrices={ga:15,vip:35,early:10};
 
@@ -499,7 +499,7 @@ async function load(){
     backGuardReady=false;
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
-    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
+    S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.evChats=new Map();S.evGallery=new Map();S.evChatErr=new Map();S.evUnread=new Map();evLiveStop();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
@@ -1369,6 +1369,7 @@ function togglePw(force){
   if(open)setTimeout(()=>$('#npw')?.focus(),50);
 }
 function openSet(){
+  const av0=$('#appver');if(av0)av0.textContent='iLike '+APP_VERSION;
   $('#setem').textContent=S.user?.email||'';$('#npw').value='';$('#npe').textContent='';togglePw(false);
   paintCustomize();refreshInstall();paintPush();paintRepBadge();if(isMod())loadRepCount();$('#set').classList.add('on');
 }
@@ -1781,7 +1782,7 @@ function closePf(all){
 }
 function closeAll(){
   ['#pv','#pf','#th','#sl','#nv','#info','#ev-ov','#ticket-mod'].forEach(x=>$(x)?.classList.remove('on'));
-  S.th=null;PF_STACK=[];S.pf=null;S.evActiveId=null;closeOv();
+  S.th=null;PF_STACK=[];S.pf=null;S.evActiveId=null;evLiveStop();closeOv();
 }
 async function openProfile(id,back){
   id=String(id);
@@ -1965,15 +1966,18 @@ function openEvent(id){
   renderEventFullscreen();
   loadEventComments(id);
   loadEventChat(id);
+  loadEventGallery(id);
+  evLive(id);
 }
 
 function closeEventView(){
   $('#ev-ov').classList.remove('on');
-  S.evActiveId=null;
+  S.evActiveId=null;evLiveStop();
 }
 
 function setEvTab(tab){
   S.evTab=tab;
+  if(tab==='chat'&&S.evActiveId)S.evUnread.delete(S.evActiveId);
   renderEventFullscreen();
 }
 
@@ -2006,15 +2010,19 @@ function renderEventFullscreen(){
       ${host||isMod()?`<div class="evact" style="margin-top:24px">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit Event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel Event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete Event</button>`:''}</div>`:''}
     </div>`;
   } else if(S.evTab==='chat'){
-    tabBody=`<div class="ev-tab-content ev-chat-container">
-      <div class="ev-chat-messages" id="ev-chat-list">
-        ${chats.length?chats.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${esc(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join(''):`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`}
-      </div>
+    if(S.evChatErr.get(id)){
+      tabBody=`<div class="ev-tab-content"><div class="empty"><b>Chat isn't available</b><div class="sm">${esc(S.evChatErr.get(id))}</div></div></div>`;
+    }else if(!canEvChat(id)){
+      tabBody=`<div class="ev-tab-content"><div class="empty"><b>Chat is for people who are going</b><div class="sm">${gone||past?'This event is no longer open for new people.':"Tap I'm in on this event to join the conversation."}</div></div></div>`;
+    }else{
+      tabBody=`<div class="ev-tab-content ev-chat-container">
+      <div class="ev-chat-messages" id="ev-chat-list">${evChatRows(id)}</div>
       <div class="ev-chat-input-bar">
         <input id="ev-chat-in" maxlength="400" placeholder="Chat with attendees..." aria-label="Event chat input" onkeydown="if(event.key==='Enter')sendEventChat('${id}')">
         <button class="btn" onclick="sendEventChat('${id}')">Send</button>
       </div>
     </div>`;
+    }
   } else if(S.evTab==='comments'){
     const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${esc(c.body)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
     tabBody=`<div class="ev-tab-content">
@@ -2032,7 +2040,7 @@ function renderEventFullscreen(){
       </div>
       <input type="file" id="ev-pic-in" accept="image/*" hidden onchange="uploadEventGallery(this,'${id}')">
       <div class="ev-gallery-grid">
-        ${photos.map((url,idx)=>`<div class="ev-gallery-item"><img src="${esc(url)}" alt="Event Photo" loading="lazy">${host||isMod()?`<button class="ev-gallery-del" onclick="event.stopPropagation();delGalleryPhoto('${id}',${idx})">✕</button>`:''}</div>`).join('')}
+        ${photos.map(ph=>`<div class="ev-gallery-item"><img src="${esc(ph.url)}" alt="Event Photo" loading="lazy">${host||isMod()?`<button class="ev-gallery-del" aria-label="Remove photo" onclick="event.stopPropagation();delGalleryPhoto('${id}','${ph.id}')">✕</button>`:''}</div>`).join('')}
         ${!photos.length&&!host?'<div class="empty" style="grid-column:1/-1">No photos uploaded to this event gallery yet.</div>':''}
         ${host?`<div class="ev-gallery-uploader" onclick="$('#ev-pic-in').click()">${UI_ICONS.camera}<span>Add Photos</span></div>`:''}
       </div>
@@ -2057,73 +2065,151 @@ function renderEventFullscreen(){
     
     <div class="ev-nav-tabs">
       <button class="ev-tab-btn ${S.evTab==='about'?'on':''}" onclick="setEvTab('about')">About</button>
-      <button class="ev-tab-btn ${S.evTab==='chat'?'on':''}" onclick="setEvTab('chat')">Live Chat${chats.length?` (${chats.length})`:''}</button>
+      <button class="ev-tab-btn ${S.evTab==='chat'?'on':''}" id="ev-tab-chat" onclick="setEvTab('chat')">${evChatLabel(id)}</button>
       <button class="ev-tab-btn ${S.evTab==='comments'?'on':''}" onclick="setEvTab('comments')">Comments${comments.length?` (${comments.length})`:''}</button>
       <button class="ev-tab-btn ${S.evTab==='gallery'?'on':''}" onclick="setEvTab('gallery')">Gallery${photos.length?` (${photos.length})`:''}</button>
     </div>
     
     ${tabBody}
   `;
+  if(S.evTab==='chat'){const sc=$('#ev-chat-list');if(sc)sc.scrollTop=sc.scrollHeight}
 }
 
-// Event Chat Handling
+// ---------- Event chat + gallery (shared through Supabase, live) ----------
+const evLiveError=e=>e&&(e.code==='PGRST205'||/event_messages|event_photos|relation .*does not exist/i.test(e.message||''))
+  ?'Event chat and gallery need database setup. Run event-live.sql in Supabase first.'
+  :errMsg(e);
+const canEvChat=id=>{const e=S.evm.get(id);return !!e&&(e.organizer_id==S.user.id||e.goers.includes(S.user.id)||isMod())};
+const evOpen=id=>S.evActiveId===id&&$('#ev-ov').classList.contains('on');
+const evChatLabel=id=>{const n=S.evUnread.get(id)||0,c=(S.evChats.get(id)||[]).length;return 'Live Chat'+(n?' · '+n+' new':c?' ('+c+')':'')};
+function evChatRows(id){
+  const me=S.user.id,list=(S.evChats.get(id)||[]).filter(m=>!S.blocked.has(m.user_id));
+  return list.length
+    ?list.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${esc(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join('')
+    :`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`;
+}
+// Updates only the message list, so a message arriving never wipes what you are typing.
+function paintEvChat(id,stick){
+  if(!evOpen(id)||S.evTab!=='chat')return;
+  const el=$('#ev-chat-list');if(!el)return;
+  const near=stick||el.scrollHeight-el.scrollTop-el.clientHeight<80;
+  el.innerHTML=evChatRows(id);
+  if(near)el.scrollTop=el.scrollHeight;
+}
 async function loadEventChat(id){
-  if(!S.evChats.has(id)){
-    try{
-      const local=JSON.parse(localStorage.getItem('il-evchat-'+id)||'[]');
-      S.evChats.set(id,local);
-    }catch(e){S.evChats.set(id,[])}
-  }
+  S.evChatErr.delete(id);
+  if(!canEvChat(id)){S.evChats.set(id,[]);if(evOpen(id)&&S.evTab==='chat')renderEventFullscreen();return}
+  const r=await sb.from('event_messages').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at',{ascending:false}).limit(100);
+  if(r.error){S.evChats.set(id,[]);S.evChatErr.set(id,evLiveError(r.error));if(evOpen(id))renderEventFullscreen();return}
+  const rows=(r.data||[]).reverse();
+  await getProfiles(rows.map(m=>m.user_id));
+  S.evChats.set(id,rows);
+  if(!evOpen(id))return;
+  if(S.evTab==='chat'&&$('#ev-chat-list'))paintEvChat(id,true);else renderEventFullscreen();
 }
-
 async function sendEventChat(id){
   const inEl=$('#ev-chat-in'),text=inEl?.value.trim();
-  if(!text||!id)return;
+  if(!text||!id||inEl.disabled)return;
   if(muted())return;
+  if(!canEvChat(id)){toast("Tap I'm in to join the chat");return}
+  inEl.disabled=true;
+  const r=await sb.from('event_messages').insert({event_id:id,user_id:S.user.id,body:text}).select('id,event_id,user_id,body,created_at').single();
+  inEl.disabled=false;
+  if(r.error){toast(evLiveError(r.error));inEl.focus();return}   // your text stays in the box
   inEl.value='';
   const list=S.evChats.get(id)||[];
-  const newMsg={
-    id:Date.now()+'',
-    user_id:S.user.id,
-    body:text,
-    created_at:new Date().toISOString()
-  };
-  list.push(newMsg);
+  if(!list.some(x=>x.id===r.data.id))list.push(r.data);
   S.evChats.set(id,list);
-  try{localStorage.setItem('il-evchat-'+id,JSON.stringify(list.slice(-100)))}catch(e){}
-  renderEventFullscreen();
-  const sc=$('#ev-chat-list');if(sc)sc.scrollTop=sc.scrollHeight;
+  paintEvChat(id,true);inEl.focus();
 }
-
-// Event Gallery Handling
+async function loadEventGallery(id){
+  const r=await sb.from('event_photos').select('id,event_id,user_id,url,created_at').eq('event_id',id).order('created_at').limit(200);
+  if(r.error){S.evGallery.set(id,[]);if(evLiveError(r.error).includes('setup'))toast(evLiveError(r.error));return}
+  S.evGallery.set(id,r.data||[]);
+  if(evOpen(id)&&S.evTab==='gallery')renderEventFullscreen();
+}
 async function uploadEventGallery(input,id){
   const file=input.files?.[0];input.value='';if(!file||!id)return;
   if(file.size>25*1024*1024){toast('Photo is too big (25 MB max)');return}
   toast('Uploading gallery photo...');
+  let url=null;
   try{
     const blob=await prep(file,1600,false);
-    const url=await upload('post-images',blob);
+    url=await upload('post-images',blob);
+    const r=await sb.from('event_photos').insert({event_id:id,user_id:S.user.id,url}).select('id,event_id,user_id,url,created_at').single();
+    if(r.error)throw r.error;
     const list=S.evGallery.get(id)||[];
-    list.push(url);
+    if(!list.some(x=>x.id===r.data.id))list.push(r.data);
     S.evGallery.set(id,list);
-    try{localStorage.setItem('il-evgal-'+id,JSON.stringify(list))}catch(e){}
-    renderEventFullscreen();
+    if(evOpen(id))renderEventFullscreen();
     toast('Photo added to event gallery!');
   }catch(e){
-    toast(e.message||"Couldn't upload photo");
+    if(url)rmFiles('post-images',[url]).catch(()=>{});   // don't leave an orphan file behind
+    toast(e.message&&!e.code?e.message:evLiveError(e));
   }
 }
-
-function delGalleryPhoto(id,idx){
-  confirmBox('Remove this photo from event gallery?','Remove',()=>{
-    const list=S.evGallery.get(id)||[];
-    list.splice(idx,1);
-    S.evGallery.set(id,list);
-    try{localStorage.setItem('il-evgal-'+id,JSON.stringify(list))}catch(e){}
-    renderEventFullscreen();
+function delGalleryPhoto(id,pid){
+  confirmBox('Remove this photo from event gallery?','Remove',async()=>{
+    const list=S.evGallery.get(id)||[],ph=list.find(x=>x.id===pid);
+    const r=await sb.from('event_photos').delete().eq('id',pid).select('id');
+    if(r.error){toast(evLiveError(r.error));return}
+    if(!r.data?.length){toast("Couldn't remove that photo");return}
+    S.evGallery.set(id,list.filter(x=>x.id!==pid));
+    if(ph)rmFiles('post-images',[ph.url]).catch(()=>{});
+    if(evOpen(id))renderEventFullscreen();
     toast('Photo removed');
   });
 }
+// Live updates while an event is open: new chat messages and gallery photos appear on every phone.
+function evLive(id){
+  if(S.evCh&&S.evChId===id)return;
+  evLiveStop();S.evChId=id;
+  S.evCh=sb.channel('evlive-'+id+'-'+Date.now())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'event_messages',filter:'event_id=eq.'+id},p=>onEvMsg(p.new))
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'event_messages'},p=>onEvMsgDel(p.old))
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'event_photos',filter:'event_id=eq.'+id},p=>onEvPhoto(p.new))
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'event_photos'},p=>onEvPhotoDel(p.old))
+    .subscribe();
+}
+function evLiveStop(){
+  if(S.evCh){try{sb.removeChannel(S.evCh)}catch(x){}}
+  S.evCh=null;S.evChId=null;
+}
+async function onEvMsg(m){
+  if(!m||S.blocked.has(m.user_id))return;
+  const id=m.event_id;
+  if((S.evChats.get(id)||[]).some(x=>x.id===m.id))return;
+  await getProfiles([m.user_id]);
+  const list=S.evChats.get(id)||[];
+  if(list.some(x=>x.id===m.id))return;
+  list.push(m);S.evChats.set(id,list);
+  if(m.user_id!==S.user.id&&!(evOpen(id)&&S.evTab==='chat')){
+    S.evUnread.set(id,(S.evUnread.get(id)||0)+1);
+    const b=$('#ev-tab-chat');if(b)b.textContent=evChatLabel(id);
+  }
+  paintEvChat(id);
+}
+function onEvMsgDel(old){
+  if(!old||!old.id)return;
+  S.evChats.forEach((list,id)=>{const i=list.findIndex(x=>x.id===old.id);if(i>=0){list.splice(i,1);paintEvChat(id)}});
+}
+function onEvPhoto(p){
+  if(!p)return;
+  const list=S.evGallery.get(p.event_id)||[];
+  if(list.some(x=>x.id===p.id))return;
+  list.push(p);S.evGallery.set(p.event_id,list);
+  if(evOpen(p.event_id)&&S.evTab==='gallery')renderEventFullscreen();
+}
+function onEvPhotoDel(old){
+  if(!old||!old.id)return;
+  S.evGallery.forEach((list,id)=>{const i=list.findIndex(x=>x.id===old.id);if(i>=0){list.splice(i,1);if(evOpen(id)&&S.evTab==='gallery')renderEventFullscreen()}});
+}
+// Coming back to the app (phone woke up): catch up on anything missed while the connection was asleep.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!S.user||!S.evActiveId||!evOpen(S.evActiveId))return;
+  const id=S.evActiveId;evLiveStop();evLive(id);loadEventChat(id);loadEventGallery(id);
+});
+try{Object.keys(localStorage).filter(k=>k.startsWith('il-evchat-')||k.startsWith('il-evgal-')).forEach(k=>localStorage.removeItem(k))}catch(x){}
 
 // ---------- Buy Tickets Modal ----------
 function openTickets(id){
@@ -2194,7 +2280,7 @@ async function confirmTickets(){
   }
   toast(`🎉 ${totalQty} Ticket(s) Reserved for ${e?e.title:'Event'}!`);
   checkAch();
-  if($('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if($('#ev-ov').classList.contains('on')){renderEventFullscreen();if(S.evActiveId===id)loadEventChat(id)}
 }
 
 const eventCommentsError=e=>e&&(e.code==='PGRST205'||/event_comments|relation .*does not exist/i.test(e.message||''))
@@ -2247,7 +2333,7 @@ async function imin(id,btn){
   const r=on?await sb.from('event_goers').insert({event_id:id,user_id:u}):await sb.from('event_goers').delete().match({event_id:id,user_id:u});
   if(r.error){set(!on);toast("Couldn't save that");return}
   if(on)checkAch();
-  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  if(S.evActiveId===id&&$('#ev-ov').classList.contains('on')){S.evChats.delete(id);renderEventFullscreen();loadEventChat(id)}
 }
 
 function drawEvEm(){
@@ -2453,8 +2539,19 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-if('serviceWorker' in navigator&&location.protocol.startsWith('http'))
+const APP_VERSION='v37';
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  // When a newer version takes over, reload once so a phone does not keep running the old app.
+  let hadCtl=!!navigator.serviceWorker.controller,reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadCtl){hadCtl=true;return}
+    if(reloaded)return;
+    const typing=[...document.querySelectorAll('textarea,input')].some(x=>x.value&&!['checkbox','radio','file','range','hidden'].includes(x.type)&&x.offsetParent!==null);
+    if(topOpenLayer()||typing){toast('Update ready. Close and reopen the app to get it.');return}
+    reloaded=true;location.reload();
+  });
+}
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 let instEv=null;
