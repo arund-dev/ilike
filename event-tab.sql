@@ -96,13 +96,17 @@ on public.event_comments (event_id, created_at);
 
 alter table public.event_comments enable row level security;
 
+drop policy if exists "Signed-in members can read event comments" on public.event_comments;
 create policy "Signed-in members can read event comments"
 on public.event_comments for select to authenticated using (true);
 
+drop policy if exists "Signed-in members can write their own event comments" on public.event_comments;
 create policy "Signed-in members can write their own event comments"
 on public.event_comments for insert to authenticated
-with check (user_id = auth.uid());
+with check (user_id = auth.uid() and public.can_post(auth.uid()));
 
-create policy "People can delete their own event comments"
+drop policy if exists "People can delete their own event comments" on public.event_comments;
+drop policy if exists "Authors and moderators can delete event comments" on public.event_comments;
+create policy "Authors and moderators can delete event comments"
 on public.event_comments for delete to authenticated
-using (user_id = auth.uid());
+using (user_id = auth.uid() or public.is_event_manager(auth.uid()));
