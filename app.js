@@ -498,7 +498,7 @@ async function load(){
   if(!S.user){
     backGuardReady=false;
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
-    S.posts=[];S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
+    S.posts=[];S.fCur=null;S.fEnd=false;S.fBusy=false;S.fErr=false;S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
     S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.evChats=new Map();S.evGallery=new Map();S.evChatErr=new Map();S.evUnread=new Map();evLiveStop();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
     renderAuth();show('auth');return;
   }
@@ -594,8 +594,37 @@ async function loadPosts(){
   const rows=[...f.data];
   m.data.forEach(r=>{if(!rows.some(x=>x.id===r.id))rows.push(r)});
   const by=new Map((await hydrate(rows)).map(p=>[p.id,p]));
-  S.posts=f.data.map(r=>by.get(r.id)).filter(p=>!bl(p.author_id));
+  const fresh=f.data.map(r=>by.get(r.id)).filter(p=>!bl(p.author_id));
+  const last=f.data.length?f.data[f.data.length-1].created_at:null;
+  // Keep older posts the person already scrolled to, so a refresh does not throw them away
+  const keep=(S.fCur&&last)?S.posts.filter(p=>p.created_at<last&&!bl(p.author_id)):[];
+  S.posts=[...fresh,...keep];
+  if(!keep.length){S.fCur=last;S.fEnd=f.data.length<50;S.fErr=false}
   S.myPosts=m.data.map(r=>by.get(r.id));
+}
+// Load the next 50 older posts (called by scrolling to the end of the feed or by the button)
+async function morePosts(){
+  if(S.fBusy||S.fEnd||!S.fCur)return;
+  S.fBusy=true;S.fErr=false;home();
+  try{
+    const f=await sb.from('posts').select(COLS).order('created_at',{ascending:false}).lt('created_at',S.fCur).limit(50);
+    if(f.error)throw f.error;
+    const rows=await hydrate(f.data);
+    if(f.data.length)S.fCur=f.data[f.data.length-1].created_at;
+    if(f.data.length<50)S.fEnd=true;
+    const have=new Set(S.posts.map(p=>p.id));
+    S.posts.push(...rows.filter(p=>!have.has(p.id)&&!bl(p.author_id)));
+  }catch(e){S.fErr=true}
+  S.fBusy=false;
+  draw();
+}
+let fmObs;
+function watchMore(){
+  if(fmObs){fmObs.disconnect();fmObs=null}
+  const el=$('#fmore'),root=$('#feed');
+  if(!el||!root||!('IntersectionObserver' in window))return;
+  fmObs=new IntersectionObserver(e=>{if(e.some(x=>x.isIntersecting)&&!S.fErr)morePosts()},{root,rootMargin:'500px'});
+  fmObs.observe(el);
 }
 async function loadPeople(){
   const{data}=await fetchAll(()=>sb.from('user_interests').select('user_id,interest_id,profiles(display_name,avatar_url,role)').order('user_id').order('interest_id'));
@@ -656,7 +685,12 @@ function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
   $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New to you'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
   const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
-  $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>';
+  $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||(S.fEnd?'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>':'');
+  if(!(S.skel&&!S.posts.length)){
+    $('#feed').insertAdjacentHTML('beforeend',S.fEnd?(S.posts.length>8?'<div class="mute sm" style="text-align:center;padding:18px 0 28px">You are all caught up</div>':''):
+      `<div id="fmore" style="text-align:center;padding:16px 0 28px">${S.fBusy?'<span class="mute sm">Loading older posts...</span>':`<button class="btn off sbtn" onclick="morePosts()">${S.fErr?'Could not load. Tap to retry':'Load older posts'}</button>`}</div>`);
+    watchMore();
+  }
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 
@@ -2539,7 +2573,7 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-const APP_VERSION='v38';
+const APP_VERSION='v39';
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   // When a newer version takes over, reload once so a phone does not keep running the old app.
