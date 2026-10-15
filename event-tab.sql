@@ -38,6 +38,23 @@ as $$
   );
 $$;
 
+create or replace function public.can_post(uid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = uid
+      and coalesce(banned, false) = false
+      and (muted_until is null or muted_until <= now())
+  );
+$$;
+
+revoke all on function public.can_post(uuid) from public;
+grant execute on function public.can_post(uuid) to authenticated;
 create policy "People can see their own event publishing access"
 on public.event_authorizations for select to authenticated
 using (user_id = auth.uid());
