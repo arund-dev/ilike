@@ -874,9 +874,11 @@ function meTab(){
   $('#shelf').innerHTML=(li.length?li.map(chip).join(''):'<span class="mute sm emp">No interests yet. Add some to shape your feed.</span>')+`<button class="chip addb" onclick="openPk()">＋ Add</button>`;
   $('#art').innerHTML=(la.length?la.map(chip).join(''):'<span class="mute sm emp">No artists yet. Add the ones you listen to.</span>')+`<button class="chip addb" onclick="openPk('art')">＋ Add</button>`;
   drawBadges();
+  $('#mpav').innerHTML=av(S.user.id);$('#mpn').textContent=S.name;
+  $('#s-me').style.setProperty('--bn',pr.banner_url?'url("'+String(pr.banner_url).replace(/"/g,'%22')+'")':'var(--grad)');
   $('#mt').innerHTML=['My posts','Liked','Photos'].map((t,i)=>`<button class="${i==S.mt?'on':''}" onclick="setMt(${i})">${t}</button>`).join('');
   $('#mine').innerHTML=mineBody();
-  meSync();
+  meSync();meCompact();
 }
 function mineBody(){
   if(S.mt==1){
@@ -892,6 +894,17 @@ function mineBody(){
 function setMt(i){S.mt=i;if(i==1)loadLiked();meTab();meTop()}
 
 var meDesk=matchMedia('(min-width:1024px)');
+// Phones: as the You header scrolls away, the top bar becomes a slim banner strip with photo and name.
+function meCompact(){
+  const s=$('#s-me');if(!s)return;
+  if(meDesk.matches){s.style.removeProperty('--q');return}
+  const bn=$('#mbn'),bh=bn?bn.offsetHeight:130;
+  const a=bh*.6,b=bh+50;
+  s.style.setProperty('--q',Math.max(0,Math.min(1,(s.scrollTop-a)/(b-a))).toFixed(3));
+}
+let meRaf=0;
+$('#s-me')?.addEventListener('scroll',()=>{if(meRaf)return;meRaf=requestAnimationFrame(()=>{meRaf=0;meCompact()})},{passive:true});
+addEventListener('resize',()=>meCompact());
 var ME={W:0,H:0,D:0,TH:52,exp:{l:null,r:null}};
 const ME_LW=440,ME_H1=60;
 const meEl=()=>({st:$('#me .me-body'),L:$('#me .col-l'),R:$('#mine'),hero:$('.me-hero'),av:$('#mav'),pill:$('.mcomp'),tabs:$('#mt')});
@@ -1602,7 +1615,7 @@ async function joinRoom(){
   if(S.room===k&&S.mine.has(k)){setBar();drawCircle()}
 }
 function sayHi(id){
-  $('#sl')?.classList.remove('on');$('#pv')?.classList.remove('on');closeThread();closePf();
+  $('#sl')?.classList.remove('on');$('#pv')?.classList.remove('on');closeThread();closePf(true);
   openDm(id);
 }
 function markRead(id){
@@ -1760,16 +1773,27 @@ async function openFollows(id,k){
 }
 
 // ---------- Member Profiles ----------
-function closePf(){$('#pf')?.classList.remove('on');S.pf=null}
+let PF_STACK=[];
+// closePf() steps back to the previous profile if there is one; closePf(true) closes the page completely.
+function closePf(all){
+  if(!all&&PF_STACK.length){openProfile(PF_STACK.pop(),true);return}
+  PF_STACK=[];$('#pf')?.classList.remove('on');S.pf=null;
+}
 function closeAll(){
   ['#pv','#pf','#th','#sl','#nv','#info','#ev-ov','#ticket-mod'].forEach(x=>$(x)?.classList.remove('on'));
-  S.th=null;S.pf=null;S.evActiveId=null;closeOv();
+  S.th=null;PF_STACK=[];S.pf=null;S.evActiveId=null;closeOv();
 }
-async function openProfile(id){
+async function openProfile(id,back){
   id=String(id);
   if(id==S.user.id){closeAll();show('me');draw();checkAch();return}
   closeThread();$('#sl')?.classList.remove('on');
-  S.pf={id,prof:null};$('#pf').classList.add('on');drawPf();
+  if(S.pf&&S.pf.id!==id&&!back)PF_STACK.push(S.pf.id);
+  else if(!S.pf)PF_STACK=[];
+  S.pf={id,prof:null,tab:0};
+  $('#pf').classList.add('on');
+  const sc=$('#pfs');if(sc)sc.scrollTop=0;
+  $('#pf').style.setProperty('--q','0');
+  drawPf();
   const[p,ui,ua,po,c1,c2]=await Promise.all([
     sb.from('profiles').select('id,username,display_name,bio,city,avatar_url,banner_url,role').eq('id',id).maybeSingle(),
     sb.from('user_interests').select('interest_id').eq('user_id',id),
@@ -1778,7 +1802,7 @@ async function openProfile(id){
     sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
     sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id)]);
   if(!S.pf||S.pf.id!==id)return;
-  if(!p.data){toast('That profile is gone');closePf();return}
+  if(!p.data){toast('That profile is gone');closePf(true);return}
   S.names[id]=p.data.display_name;
   if(p.data.avatar_url)S.avs[id]=p.data.avatar_url;else delete S.avs[id];
   const ints=(ui.data||[]).map(x=>x.interest_id);
@@ -1792,7 +1816,7 @@ async function openProfile(id){
 function drawPf(){
   const f=S.pf;if(!f)return;
   const id=f.id,p=f.prof;
-  if(!p){$('#pfb').innerHTML=skProf();return}
+  if(!p){$('#pfb').innerHTML='<div class="banner pfbn"></div>'+skProf();$('#pfpav').innerHTML='';$('#pfpn').textContent='';$('#pf').style.removeProperty('--bn');return}
   const known=f.ints.filter(n=>S.im.has(n)),likes=known.filter(n=>!isArt(n)),arts=known.filter(isArt);
   const fo=S.fol.has(id);
   const earned=f.ach.map(x=>({...x,a:S.achCat.find(c=>c.code==x.code)})).filter(x=>x.a).sort((a,b)=>a.a.sort-b.a.sort);
@@ -1804,9 +1828,30 @@ ${p.bio?`<p class="bio">${esc(p.bio)}</p>`:''}
 ${likes.length?`<div class="pfs">Likes</div><div class="pfc">${likes.map(chip).join('')}</div>`:''}
 ${arts.length?`<div class="pfs">Artists</div><div class="pfc">${arts.map(chip).join('')}</div>`:''}
 ${earned.length?`<div class="pfs">Achievements</div><div class="pfc">${earned.map(x=>`<button class="chip tg" style="--c:#64748B" onclick="showAch('${x.code}','${x.earned_at}')">${esc(x.a.emoji)} ${esc(x.a.title)}</button>`).join('')}</div>`:''}
-<div class="pfs">Posts</div>${f.posts.map(q=>post(q)).join('')||'<div class="empty">No posts yet.</div>'}`;
+<div class="tabs" id="pft">${['Posts','Photos'].map((t,i)=>`<button class="${i==(f.tab||0)?'on':''}" onclick="setPfTab(${i})">${t}</button>`).join('')}</div>${pfBody(f)}`;
+  $('#pfpav').innerHTML=av(id);$('#pfpn').textContent=p.display_name;
+  $('#pf').style.setProperty('--bn',p.banner_url?'url("'+String(p.banner_url).replace(/"/g,'%22')+'")':'var(--grad)');
+  requestAnimationFrame(pfScrolled);
   const pa=$('#pfb .pfh .av.big');if(pa&&S.avs[id])pa.dataset.zoom=S.avs[id];
 }
+
+function pfBody(f){
+  if((f.tab||0)==1){
+    const ph=f.posts.flatMap(q=>q.imgs||[]);
+    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')+'</div>':'<div class="empty">No photos yet.</div>';
+  }
+  return f.posts.map(q=>post(q)).join('')||'<div class="empty">No posts yet.</div>';
+}
+function setPfTab(i){if(!S.pf)return;S.pf.tab=i;drawPf()}
+// The top bar turns into a slim banner strip (photo + name) once the header has scrolled away.
+function pfScrolled(){
+  const s=$('#pfs'),bar=$('#pfbar'),pf=$('#pf');if(!s||!bar||!pf)return;
+  const bn=$('#pfb .banner'),bh=bn?bn.offsetHeight:130,th=bar.offsetHeight;
+  const a=Math.max(0,bh-th-70),b=Math.max(a+1,bh-th+10);
+  pf.style.setProperty('--q',Math.max(0,Math.min(1,(s.scrollTop-a)/(b-a))).toFixed(3));
+}
+let pfRaf=0;
+$('#pfs')?.addEventListener('scroll',()=>{if(pfRaf)return;pfRaf=requestAnimationFrame(()=>{pfRaf=0;pfScrolled()})},{passive:true});
 
 // ---------- Achievements ----------
 async function loadAch(){
@@ -2475,7 +2520,7 @@ function blockUser(id){
     const{error}=await sb.rpc('block_user',{target:id});
     if(error){toast(errMsg(error));return}
     S.blocked.add(id);S.fol.delete(id);S.folrs.delete(id);
-    ['#pv','#pf','#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));S.pf=null;
+    ['#pv','#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));closePf(true);
     applyBlocks();draw();if(S.th)renderThread();
     toast('Blocked '+nm(id));
   });

@@ -357,15 +357,15 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .mehead{padding:0 18px}
   .mehead h1{font-size:30px}
 
-  .ov:not(#ev-ov){left:auto;right:0;max-width:440px;transform:none;border-left:1px solid var(--line);box-shadow:-30px 0 60px -30px var(--glow)}
-  .ov:not(#ev-ov).on{animation:slideRd .3s cubic-bezier(.16,1,.3,1)}
+  .ov:not(#ev-ov):not(#pf){left:auto;right:0;max-width:440px;transform:none;border-left:1px solid var(--line);box-shadow:-30px 0 60px -30px var(--glow)}
+  .ov:not(#ev-ov):not(#pf).on{animation:slideRd .3s cubic-bezier(.16,1,.3,1)}
   @keyframes slideRd{from{transform:translateX(100%)}to{transform:translateX(0)}}
 
   .mod{left:0;right:0;width:auto;max-width:none;transform:none;align-items:center;justify-content:center}
   .mod .sheet{width:min(520px,calc(100% - 48px));border-radius:28px;border:1px solid var(--line);padding-bottom:24px;box-shadow:0 30px 80px -20px var(--glow);transform:translateY(24px) scale(.97)}
   .mod.on .sheet{transform:none}
   .sheet::before{display:none}
-  #pv .sheet,#th .sheet,#pf .sheet,#ticket-mod .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  #pv .sheet,#th .sheet,#ticket-mod .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
   .thsheet{padding-bottom:16px}
   .btn:hover,.ghost:hover,.fc:hover,.ib:hover{filter:brightness(1.08)}
   .ghost:hover{color:var(--brand)}
@@ -929,3 +929,58 @@ body:has(#ev-ov.on) #ev-bd{
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
 }
 .sxb svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round}
+
+
+/* ═══ Profile v2: full-screen profile page + compact header ═══ */
+#pf{z-index:44}
+#pf-bd{
+  position:fixed;inset:0;z-index:43;background:var(--scrim);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity var(--t) var(--ease),visibility 0s linear var(--t);
+}
+body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transition:opacity var(--t) var(--ease),visibility 0s}
+#pf .pscroll{margin-top:0;padding-bottom:calc(28px + env(safe-area-inset-bottom,0px));overflow-anchor:none}
+#pf .banner.pfbn{margin:0;border-radius:0 0 28px 28px}
+/* top bar floats over the banner, then turns into a slim banner strip with photo + name */
+#pf .pfbar{
+  position:absolute;left:0;right:0;top:0;isolation:isolate;
+  background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-bottom:0;
+  justify-content:flex-start;
+}
+#pf .pfbar::before,.pfbar::after{content:"";position:absolute;inset:0;pointer-events:none}
+#pf .pfbar::before{z-index:-2;background:var(--bn,var(--grad)) center/cover no-repeat;opacity:var(--q,0)}
+#pf .pfbar::after{z-index:-1;background:rgba(0,0,0,.4);opacity:var(--q,0)}
+#pf .pfbar .ib{
+  background:rgba(0,0,0,.42);border-color:rgba(255,255,255,.2);color:#fff;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+}
+#pf .pfbar .ib svg{stroke:#fff}
+.pfpill,.mpill{
+  position:absolute;top:env(safe-area-inset-top,0px);bottom:0;display:flex;align-items:center;gap:10px;min-width:0;
+  color:#fff;opacity:var(--q,0);transform:translateY(calc((1 - var(--q,0)) * 12px));pointer-events:none;
+}
+.pfpill{left:72px;right:18px}
+.pfpill .av,.mpill .av{width:32px;height:32px;font-size:14px;border:2px solid rgba(255,255,255,.85);flex:none}
+.pfpill b,.mpill b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pf .tabs{margin:14px 16px 6px}
+/* You tab on phones: the sticky top bar gets the same banner strip, photo and name */
+@media(max-width:1023px){
+  #s-me .top{isolation:isolate}
+  #s-me .top::before,#s-me .top::after{content:"";position:absolute;inset:0;pointer-events:none}
+  #s-me .top::before{z-index:-2;background:var(--bn,var(--grad)) center/cover no-repeat;opacity:var(--q,0)}
+  #s-me .top::after{z-index:-1;background:rgba(0,0,0,.4);opacity:var(--q,0)}
+  #s-me .top .logo-wrap{opacity:calc(1 - var(--q,0) * 1.8)}
+  .mpill{left:18px;right:112px}
+}
+@media(min-width:1024px){.mpill{display:none}}
+@media(min-width:700px){
+  #pf{
+    top:3vh;bottom:auto;height:calc(var(--app-vh,100dvh) - 6vh);
+    width:min(760px,calc(100% - 64px));max-width:none;
+    left:50%;right:auto;transform:translateX(-50%);
+    border:1px solid var(--line);border-radius:28px;overflow:hidden;
+    box-shadow:0 40px 100px -30px rgba(0,0,0,.6);
+  }
+  #pf.on{animation:evPop .3s cubic-bezier(.16,1,.3,1)}
+}
