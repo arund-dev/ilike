@@ -2007,7 +2007,7 @@ function renderEventFullscreen(){
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
         ${e.goers.length?e.goers.map(u=>`<div class="tapc" onclick="openProfile('${u}')" style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:50px">${av(u,'sm')}<span style="font-weight:700;font-size:13px">${esc(u==me?'You':nm(u))}</span></div>`).join(''):'<div class="mute sm">No attendees yet. Be the first to join!</div>'}
       </div>
-      ${host||isMod()?`<div class="evact" style="margin-top:24px">${host&&!gone&&!past?`<button class="btn off" onclick="openEv('${e.id}')">Edit Event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel Event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete Event</button>`:''}</div>`:''}
+      ${host||isMod()?`<div class="evact" style="margin-top:24px">${host&&!gone&&!past&&canManageEvents()?`<button class="btn off" onclick="openEv('${e.id}')">Edit Event</button>`:''}${!gone&&!past?`<button class="btn off" onclick="cancelEv('${e.id}')">Cancel Event</button>`:''}${host?`<button class="btn off danger" onclick="delEv('${e.id}')">Delete Event</button>`:''}</div>`:''}
     </div>`;
   } else if(S.evTab==='chat'){
     if(S.evChatErr.get(id)){
@@ -2539,7 +2539,7 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-const APP_VERSION='v37';
+const APP_VERSION='v38';
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   // When a newer version takes over, reload once so a phone does not keep running the old app.
