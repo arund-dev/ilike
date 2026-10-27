@@ -1,6 +1,6 @@
 // iLike service worker: lets the app install and open instantly.
 // Bump VERSION when you want every device to drop its old cache.
-const VERSION='ilike-v39';
+const VERSION='ilike-v40';
 const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
 const LIBS=['cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'];
 

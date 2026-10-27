@@ -812,8 +812,6 @@ nav button span{line-height:1.1}
 .set-action.danger .set-action-icon{
   color:#ef6b73;background:color-mix(in srgb,#ef4444 10%,var(--card));
 }
-.settings-title{display:block;font-size:23px;letter-spacing:-.5px;margin:2px 2px 8px}
-.settings-done{min-height:48px;margin-top:18px}
 .media-action{display:inline-flex;align-items:center;gap:9px}
 .ev-gallery-uploader .ui-icon{width:26px;height:26px;color:var(--brand)}
 .install-hero-icon{

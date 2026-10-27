@@ -15,13 +15,7 @@ const UI_ICONS={
   block:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>',
   report:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17.5h.01"/></svg>',
   shield:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.2 8.4-8 10-4.8-1.6-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/></svg>',
-  message:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-12.2 7.7L3 21l1.8-5.2A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 12h8M8 9h5"/></svg>',
   install:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>',
-  document:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v6h5M9 13h6M9 17h6"/></svg>',
-  key:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M13 10l2 2"/></svg>',
-  logout:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>',
-  trash:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
-  close:'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>'
 };
 const S={user:null,name:'',prof:null,ints:[],im:new Map(),mine:new Set(),snap:new Set(),posts:[],myPosts:[],pm:new Map(),people:[],cnt:{},names:{},avs:{},roles:{},role:'user',blocked:new Set(),reports:null,nrep:0,ax:null,rp:null,ua:null,am:null,mg:null,F:'All',tab:'home',mode:'login',err:'',good:false,pick:new Set(),cfFn:null,th:null,reps:null,pmId:null,edId:null,edRm:new Set(),photos:[],msgs:[],notifs:[],nposts:{},dm:null,ch:null,deep:null,rec:false,loaded:false,fol:new Set(),folrs:new Set(),evs:null,evm:new Map(),evId:null,evEm:'📍',room:null,cm:null,cch:null,pf:null,pkm:'int',achCat:[],achMine:new Map(),achReady:false,mt:0,liked:null};
 S.eventAuthorized=false;
@@ -464,7 +458,8 @@ async function obSendPost(b){
   b.disabled=true;
   const{data,error}=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();
   if(error){b.disabled=false;$('#oe').textContent=errMsg(error);return}
-  await sb.from('post_interests').insert({post_id:data.id,interest_id:a});
+  const tg=await sb.from('post_interests').insert({post_id:data.id,interest_id:a});
+  if(tg.error)toast('Posted, but tags failed');
   finishOb();
 }
 async function finishOb(){
@@ -568,13 +563,20 @@ async function getProfiles(ids){
 }
 
 const COLS='id,body,created_at,edited_at,author_id';
+async function replyCounts(ids){
+  const m=new Map(),c=await sb.from('posts').select('id,replies(count)').in('id',ids);
+  if(!c.error&&c.data){c.data.forEach(x=>m.set(x.id,x.replies?.[0]?.count||0));return m}
+  const f=await fetchAll(()=>sb.from('replies').select('post_id').in('post_id',ids).order('post_id').order('id'));
+  (f.data||[]).forEach(q=>m.set(q.post_id,(m.get(q.post_id)||0)+1));
+  return m;
+}
 async function hydrate(rows){
   if(!rows.length)return[];
   const ids=rows.map(x=>x.id);
   const[t,s,r,im]=await Promise.all([
     sb.from('post_interests').select('post_id,interest_id').in('post_id',ids),
     fetchAll(()=>sb.from('sames').select('post_id,user_id').in('post_id',ids).order('post_id').order('user_id')),
-    fetchAll(()=>sb.from('replies').select('post_id').in('post_id',ids).order('post_id').order('id')),
+    replyCounts(ids),
     sb.from('post_images').select('post_id,url,position').in('post_id',ids).order('position')]);
   await getProfiles([...rows.map(x=>x.author_id),...(s.data||[]).map(x=>x.user_id)]);
   await ensureInts((t.data||[]).map(q=>q.interest_id));
@@ -584,7 +586,7 @@ async function hydrate(rows){
       tags:(t.data||[]).filter(q=>q.post_id===x.id).map(q=>q.interest_id),
       sames:(s.data||[]).filter(q=>q.post_id===x.id).map(q=>q.user_id),
       imgs:(im.data||[]).filter(q=>q.post_id===x.id).map(q=>q.url),
-      rc:(r.data||[]).filter(q=>q.post_id===x.id).length})});
+      rc:r.get(x.id)||0})});
 }
 async function loadPosts(){
   const[f,m]=await Promise.all([
@@ -890,7 +892,6 @@ function ftab(i){
   ['fp','fg','fx'].forEach((id,k)=>$('#'+id).style.display=k==i?'block':'none');
   $('#q').placeholder=['Search people','Search circles','Search posts'][i];$('#q').value='';findTab();
 }
-function openCircle(id){ftab(2);$('#q').value=iname(id).toLowerCase();findTab()}
 let pvFn=null;
 function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
 function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
@@ -1444,12 +1445,16 @@ function updateBadges(){
   const set=(id,v)=>{const e=$(id);if(e){e.hidden=!v;e.textContent=v>9?'9+':v}};
   set('#chb',m);set('#nb',n);
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.loaded){loadMsgs();loadNotifs();checkAch();syncStatus()}});
+let hiddenAt=0;
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){hiddenAt=Date.now();return}
+  if(S.user&&S.loaded&&Date.now()-hiddenAt>10000){loadMsgs();loadNotifs();checkAch();syncStatus()}
+});
 
 // ---------- Direct Messages ----------
 let conv=false,ctab=0;
 async function loadMsgs(){
-  const r=await sb.from('messages').select('*').order('created_at',{ascending:false}).limit(1000);
+  const r=await sb.from('messages').select('id,sender_id,to_user,body,created_at,edited_at,read_at').order('created_at',{ascending:false}).limit(1000);
   if(r.error)return;
   S.msgs=r.data.reverse().filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));updateBadges();
   if($('#ov')?.classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
@@ -2466,10 +2471,6 @@ document.querySelectorAll('#nav button[data-s]').forEach(b=>b.onclick=async()=>{
 });
 $('#fl')?.addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();$('#fl').scrollLeft+=e.deltaY}},{passive:false});
 
-function isDark(){
-  const t=document.documentElement.dataset.theme;
-  return t?t==='dark':!matchMedia('(prefers-color-scheme:light)').matches;
-}
 function updateThemeIcon(){updateThemeColor()}
 matchMedia('(prefers-color-scheme:light)').addEventListener('change',updateThemeIcon);
 
@@ -2573,7 +2574,7 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-const APP_VERSION='v39';
+const APP_VERSION='v40';
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   // When a newer version takes over, reload once so a phone does not keep running the old app.
