@@ -315,7 +315,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   nav button.on::before{top:12px;bottom:12px;left:0;width:4px;height:auto;border-radius:0 6px 6px 0;animation:none}
 
   .fl{flex-wrap:nowrap;overflow-x:auto;padding:16px 28px 16px}
-  #feed{padding:10px 12px var(--nav-h);max-width:640px;margin:0 auto}
+  #feed{padding:10px max(12px,calc((100% - 640px)/2)) var(--nav-h);max-width:none;margin:0}
   #feed .card{margin:0 0 10px}
   .fab{bottom:32px;right:max(32px,calc(50% - 648px))}
   #toast{bottom:40px;left:calc(50% + 36px)}
@@ -982,3 +982,34 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
   }
   #pf.on{animation:evPop .3s cubic-bezier(.16,1,.3,1)}
 }
+
+
+/* ── Round 3 (v41) ── */
+/* D2: post pop-up, post on the left and replies on the right (desktop); one column on phones */
+#th .sheet{overflow:hidden;display:flex;flex-direction:column;padding:12px 0 0}
+.thcols{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
+.thl .card{margin:0 12px 6px;box-shadow:none}
+.thr2{flex:1 0 auto;display:flex;flex-direction:column}
+#th #thbody{flex:1 0 auto;overflow:visible;min-height:60px}
+.rfoot{position:sticky;bottom:0;z-index:2;background:var(--card);border-top:1px solid var(--line);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.rfoot .rbar{border-top:0}
+.rep.rflash{animation:rflash 2s ease}
+@keyframes rflash{0%,60%{background:color-mix(in srgb,var(--brand) 18%,transparent)}100%{background:transparent}}
+.card[data-pi]{cursor:pointer}
+#thp .card{cursor:default}
+.card[data-pi]:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media(min-width:900px){
+  #th .sheet{width:min(1060px,calc(100% - 48px));height:min(780px,calc(var(--app-vh,100dvh) - 72px));max-height:none!important;border-radius:28px!important}
+  .thcols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);overflow:hidden}
+  .thl{overflow-y:auto;overscroll-behavior:contain;border-right:1px solid var(--line);padding-top:4px}
+  .thr2{min-height:0;overflow:hidden}
+  #th #thbody{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .rfoot{position:static}
+}
+/* F1: layouts for 5 and 6 photos */
+.pimgs.n5{grid-template-columns:repeat(6,1fr)}
+.pimgs.n5 img{grid-column:span 2;aspect-ratio:1}
+.pimgs.n5 img:nth-child(-n+2){grid-column:span 3}
+.pimgs.n6{grid-template-columns:repeat(3,1fr)}
+.pimgs.n6 img{aspect-ratio:1}
+#pcnt{margin:2px 0 6px}

@@ -183,6 +183,15 @@ addEventListener('popstate',()=>{
   history.pushState({ilikeApp:'guard'},'',location.href);
   loadPosts().then(()=>{draw();if(feed)feed.scrollTop=scrollTop});
 });
+// Desktop: the mouse wheel scrolls the feed, Discover and Events even over the empty areas beside them.
+document.addEventListener('wheel',e=>{
+  if(e.ctrlKey||e.defaultPrevented||!matchMedia('(min-width:1024px)').matches||!S.user||!S.loaded)return;
+  if(document.querySelector('.mod.on,.ov.on'))return;
+  const t=e.target;
+  if(!(t===document.body||t===document.documentElement||t.id==='app'||(t.classList&&t.classList.contains('screen'))))return;
+  const el=S.tab==='home'?$('#feed'):S.tab==='find'?[...document.querySelectorAll('.pscroll')].find(x=>x.offsetParent):S.tab==='events'?$('#s-events'):null;
+  if(el){el.scrollTop+=e.deltaY;e.preventDefault()}
+},{passive:false});
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape'||!topOpenLayer())return;
   e.preventDefault();closeTopLayer();
@@ -653,13 +662,26 @@ addEventListener('hashchange',()=>{
 });
 
 // ---------- Home Feed ----------
+// Tapping a post card opens the post pop-up. Buttons, names, photos, tags and menus inside the card keep their own action.
+document.addEventListener('click',e=>{
+  const c=e.target.closest&&e.target.closest('article.card[data-pi]');
+  if(!c||c.closest('#th'))return;
+  const it=e.target.closest('button,a,input,textarea,select,img,[onclick],[data-zoom]');
+  if(it&&it!==c&&c.contains(it))return;
+  openThread(c.dataset.pi);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const c=e.target;if(!c.matches||!c.matches('article.card[data-pi]')||c.closest('#th'))return;
+  e.preventDefault();openThread(c.dataset.pi);
+});
 const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
-  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,4)}">${p.imgs.slice(0,4).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,6)}">${p.imgs.slice(0,6).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
+  return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
@@ -715,10 +737,11 @@ function renderPhotos(){
     const s=ph.st||'ready';
     return `<div class="ph ${s}"><img src="${ph.prev}" alt="Photo ${i+1}">${s=='up'?'<span class="phs"><i class="spn"></i></span>':s=='ok'?'<span class="phs ok">✓</span>':s=='fail'?'<button class="phs bad" onclick="publish()">↻ Retry</button>':''}${S.posting?'':`<button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button>`}</div>`;
   }).join('');
-  $('#padd').hidden=S.photos.length>=4||!!S.posting;
+  $('#padd').hidden=S.photos.length>=6||!!S.posting;
+  const pc=$('#pcnt');if(pc){pc.hidden=!S.photos.length;pc.textContent=S.photos.length+'/6 photos'}
 }
 async function pickPhotos(inp){
-  const files=[...inp.files].slice(0,4-S.photos.length);inp.value='';
+  const room=6-S.photos.length,files=[...inp.files].slice(0,room);if(inp.files.length>room)toast('Up to 6 photos per post');inp.value='';
   if(!files.length)return;
   toast('Preparing photos...');
   for(const f of files){
@@ -821,7 +844,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
+const rep=r=>`<div class="rep" data-rid="${r.id}"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -844,11 +867,20 @@ async function loadReplies(id,more,n){
     S.repOff=off+r.data.length;S.repMore=r.data.length==size;
     const p=findPost(id);if(p&&!S.repMore)p.rc=S.repOff;
   }
-  renderThread();
+  renderThread();focusReply();
+}
+function focusReply(){
+  const f=S.thFocus;if(!f||S.th!==f.th||!S.reps)return;
+  let best=null,bd=Infinity;
+  S.reps.forEach(r=>{if(r.author_id==f.actor){const d=Math.abs(new Date(r.created_at)-new Date(f.at));if(d<bd){bd=d;best=r}}});
+  if(!best){if(S.repMore&&f.tries++<5)loadReplies(S.th,true);else S.thFocus=null;return}
+  S.thFocus=null;
+  const el=document.querySelector('#thr .rep[data-rid="'+best.id+'"]');
+  if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('rflash');setTimeout(()=>el.classList.remove('rflash'),2000)}
 }
 function moreReplies(){if(S.th)loadReplies(S.th,true)}
-function openThread(id){S.th=String(id);S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');loadReplies(S.th)}
-function closeThread(){S.th=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
+function openThread(id,focus){S.th=String(id);S.thFocus=focus?{th:S.th,actor:focus.actor,at:focus.at,tries:0}:null;S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');['#thl','#thcols','#thbody'].forEach(x=>{const e=$(x);if(e)e.scrollTop=0});loadReplies(S.th)}
+function closeThread(){S.th=null;S.thFocus=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
   if(muted())return;
@@ -860,7 +892,7 @@ async function sendReply(){
   b.disabled=false;
   if(error){S.rfail={th:S.th,v};$('#rrt').hidden=false;toast(errMsg(error));return}
   S.rfail=null;$('#rrt').hidden=true;
-  $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th,false,S.repMore?200:S.repOff+1);draw();$('#thbody').scrollTop=1e5;checkAch();
+  $('#rin').value='';rdSet(S.th,'');await loadReplies(S.th,false,S.repMore?200:S.repOff+1);draw();$('#thbody').scrollTop=1e5;$('#thcols').scrollTop=1e5;checkAch();
 }
 function delReply(id){
   confirmBox('Delete this reply?','Delete',async()=>{
@@ -895,7 +927,7 @@ function ftab(i){
 let pvFn=null;
 function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
 function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
-function openPost(id){showPv(()=>{const p=findPost(id);return p?post(p):''})}
+function openPost(id){openThread(id)}
 
 // ---------- You + Profile ----------
 function meTab(){
@@ -1705,19 +1737,21 @@ function back(){conv?openChats():closeOv()}
 async function notifMeta(list){
   await getProfiles(list.map(n=>n.actor_id));
   const need=[...new Set(list.map(n=>n.post_id))].filter(id=>id&&!(id in S.nposts)&&!findPost(id));
-  if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);(r.data||[]).forEach(x=>S.nposts[x.id]=x.body)}
+  if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);const got=new Set((r.data||[]).map(x=>x.id));(r.data||[]).forEach(x=>S.nposts[x.id]=x.body);if(!r.error)need.forEach(id=>{if(!got.has(id))S.nposts[id]=null})}
 }
-const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id),b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
-const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':'started following you';
+const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id);if(!p&&S.nposts[n.post_id]===null)return 'This post was deleted';const b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
+const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':n.type=='mention'?'mentioned you':'started following you';
 async function loadNotifs(){
-  const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(40);
+  const lim=S.nLimit||40;
+  const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(lim);
   if(r.error)return;
-  await notifMeta(r.data);S.notifs=r.data;updateBadges();
+  S.nMore=r.data.length>=lim;
+  await notifMeta(r.data);S.notifs=r.data.filter(n=>!bl(n.actor_id));updateBadges();
   if($('#nv')?.classList.contains('on'))drawNotifs();
 }
 function ngroups(){
   const g=[],idx=new Map();
-  for(const n of S.notifs){
+  for(const n of (S.nf=='mentions'?S.notifs.filter(n=>n.type=='mention'):S.notifs)){
     const day=n.type=='follow'?new Date(n.created_at).toDateString():'';
     const k=n.type+'|'+(n.post_id||'')+'|'+day;
     let x=idx.get(k);
@@ -1732,9 +1766,12 @@ function drawNotifs(){
   $('#nl').innerHTML=S.ng.map((g,i)=>{
     const un=g.items.some(n=>!n.read_at),newest=g.items[0];
     return `<div class="card row nitem ${un?'new':''}" onclick="openNg(${i})"><span class="ngav">${av(g.actors[0])}${g.actors.length>1?`<i class="ngn">+${g.actors.length-1}</i>`:''}</span><div class="grow"><div>${gnames(g.actors)} ${ntext(newest)}</div><div class="mute sm clip">${g.type=='follow'?(g.actors.length>1?'Tap to see your followers':'Tap to see their profile'):esc(nsnip(newest))}</div></div><span class="mute sm ntm">${ago(newest.created_at)}</span>${un?`<button class="ghost nck" onclick="event.stopPropagation();readNg(${i})" aria-label="Mark as read">✓</button>`:''}</div>`;
-  }).join('')||'<div class="empty">Nothing yet.<br>When someone likes a post, replies or follows you, you will see it here.</div>';
+  }).join('')||(S.nf=='mentions'?'<div class="empty">No mentions yet.<br>When someone mentions you, you will see it here.</div>':'<div class="empty">Nothing yet.<br>When someone likes a post, replies or follows you, you will see it here.</div>');
+  if(S.nMore&&S.ng.length&&S.nf!='mentions')$('#nl').insertAdjacentHTML('beforeend','<button class="btn off" style="width:calc(100% - 32px);margin:8px 16px 16px" onclick="moreNotifs()">Load more</button>');
   $('#nmr').hidden=!S.notifs.some(n=>!n.read_at);
 }
+function setNF(k){S.nf=k;document.querySelectorAll('#ntabs button').forEach((b,i)=>b.classList.toggle('on',(i==1)==(k=='mentions')));drawNotifs()}
+async function moreNotifs(){S.nLimit=(S.nLimit||40)+40;await loadNotifs()}
 function markIds(ids){
   if(!ids.length)return;
   const now=new Date().toISOString(),set=new Set(ids);
@@ -1749,10 +1786,11 @@ async function openNg(i){
   const g=S.ng&&S.ng[i];if(!g)return;
   markIds(g.items.filter(n=>!n.read_at).map(n=>n.id));
   if(g.type=='follow'){g.actors.length>1?openFollows(S.user.id,'ers'):openProfile(g.actors[0]);return}
-  if(!(await ensurePost(g.post_id)))return;
-  g.type=='reply'?openThread(g.post_id):openPost(g.post_id);
+  if(!(await ensurePost(g.post_id))){toast('This post was deleted');return}
+  g.type=='reply'?openThread(g.post_id,{actor:g.items[0].actor_id,at:g.items[0].created_at}):openPost(g.post_id);
 }
 async function onNotif(n){
+  if(bl(n.actor_id))return;
   await notifMeta([n]);
   if(S.notifs.some(x=>x.id===n.id))return;
   S.notifs.unshift(n);
@@ -2020,6 +2058,26 @@ function setEvTab(tab){
   renderEventFullscreen();
 }
 
+// Keep what someone is typing when a box is redrawn (events finish loading, a new chat message arrives, the app comes back).
+function keepInputs(root,ctx){
+  if(!root)return null;
+  const same=root.dataset.kctx===String(ctx);root.dataset.kctx=String(ctx);
+  if(!same)return null;
+  const a=document.activeElement,items=[];
+  root.querySelectorAll('input[id],textarea[id]').forEach(el=>{
+    if(el.type==='file'||el.type==='checkbox'||el.type==='radio')return;
+    items.push({id:el.id,v:el.value,f:el===a,s:el.selectionStart,e:el.selectionEnd});
+  });
+  return{root,items};
+}
+function restoreInputs(k){
+  if(!k)return;
+  k.items.forEach(x=>{
+    const el=k.root.querySelector('#'+x.id);if(!el)return;
+    if(x.v&&!el.value)el.value=x.v;
+    if(x.f){try{el.focus({preventScroll:true});if(x.s!=null)el.setSelectionRange(x.s,x.e)}catch(e){}}
+  });
+}
 function renderEventFullscreen(){
   const id=S.evActiveId;if(!id)return;
   const e=S.evm.get(id);if(!e)return;
@@ -2086,6 +2144,7 @@ function renderEventFullscreen(){
     </div>`;
   }
 
+  const evKeep=keepInputs($('#ev-view-body'),id);
   $('#ev-view-body').innerHTML=`
     <div class="ev-full-hero">
       <div class="ev-full-emoji-badge">${esc(e.emoji||'📍')}</div>
@@ -2111,6 +2170,7 @@ function renderEventFullscreen(){
     
     ${tabBody}
   `;
+  restoreInputs(evKeep);
   if(S.evTab==='chat'){const sc=$('#ev-chat-list');if(sc)sc.scrollTop=sc.scrollHeight}
 }
 
@@ -2574,7 +2634,7 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-const APP_VERSION='v40';
+const APP_VERSION='v41';
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   // When a newer version takes over, reload once so a phone does not keep running the old app.
@@ -2653,6 +2713,7 @@ function blockUser(id){
     if(error){toast(errMsg(error));return}
     S.blocked.add(id);S.fol.delete(id);S.folrs.delete(id);
     ['#pv','#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));closePf(true);
+    S.notifs=S.notifs.filter(n=>!bl(n.actor_id));updateBadges();if($('#nv')?.classList.contains('on'))drawNotifs();
     applyBlocks();draw();if(S.th)renderThread();
     toast('Blocked '+nm(id));
   });
