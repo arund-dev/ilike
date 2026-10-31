@@ -1,18 +1,20 @@
-# iLike — Session 2 hotfix: profile photo missing in the circle
+# iLike: app.js split into js/ files (no behavior change)
 
-Replace only these two files, then commit and push as usual:
+`app.js` (3,295 lines) is now 18 smaller files in a new `js/` folder. The app does the same thing as before; only the file layout changed.
 
-- `app.js`
-- `sw.js` (cache version is now `ilike-v34`)
-
-`index.html` and `style.css` from the Session 2 bundle stay as they are. No SQL changes.
-
-## What was wrong
-On **You**, the profile circle's photo is stored as an inline style on the avatar element. `meClear()` (the desktop scroll-header reset that also runs on narrower screens) removed the whole inline style, so the photo disappeared. The photo link kept working, which is why tapping the circle still opened the image.
-
-## What changed
-`meClear()` now removes only the scroll animation's `transform` from the avatar, so the photo stays. Nothing else about the profile header changed.
+## Do this, in order
+1. **Add** the whole `js/` folder (18 files) to your repo.
+2. **Replace** `index.html` and `sw.js` (cache version is now `ilike-v43`).
+3. **Delete** the old `app.js` from the repo (nothing loads it any more).
+4. Add `MAP.md` (a guide for working with AI). `style.css`, `manifest.webmanifest`, `index.ts` and `assets/` stay as they are. No SQL changes.
+5. Commit and push as usual.
 
 ## Please check
-- Open **You** on your phone: the photo should show inside the circle, also after rotating the phone or switching tabs and back.
-- On desktop, scroll the profile: the photo should still shrink into the compact bar and grow back.
+- Open the app, sign in, and click through Home, Discover, Events, Chats, You, Settings.
+- Open an event (chat, gallery, comments) and a profile.
+- Phones that already have the app: close and reopen it once or twice so the new cache is picked up.
+- If anything is blank or stuck, check the browser console for "script failed", which means a file in `js/` is missing from the repo.
+
+## Notes
+- One visible text changed: the admin panel now says `INTEREST_CATALOG in js/catalog.js` instead of `app.js`.
+- `sw.js` in the repo you uploaded said v42; the old DEPLOY.md said v34. Now it is v43.
