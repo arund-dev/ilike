@@ -13,6 +13,7 @@ Give AI this file plus only the file(s) the task touches. All JS files in `js/` 
 1. **js/catalog.js** (99 lines): Interest catalog data (INTEREST_CATALOG). Loads BEFORE core.js.
 2. **js/core.js** (316 lines): Supabase connection, app state `S`, small helpers, toast, back-button layers, viewport/keyboard, lightbox, uploads.
    - setMyAv, tmTap, fetchAll, alreadySent, failSync, failDismiss, slDraw, slMore, toast, share, shareCurrentEvent, show, setupBackGuard, topOpenLayer, closeTopLayer, syncAppViewport, keepFieldVisible, confirmBox, cfyes, prep, upload, rmFiles, openLb, closeLb, lbShow, lbGo, lbPaint, lbClamp, lbZoom
+2b. **js/store.js** (~125 lines): On-device store (`Store`): saves feed, chats, profiles and settings in IndexedDB for an instant start, trims itself daily, wiped on sign-out. Photos are kept by `sw.js` in the `ilike-img` cache. Thumbnails: `thumb`, `timg`, `upload(bucket,blob,thumbBlob)` live in core.js (new photos are saved as `_f.jpg` + `_t.jpg`).
 3. **js/auth.js** (157 lines): Sign in / sign up, onboarding.
    - keep, renderAuth, swap, go, resendConfirm, forgot, logout, renderOb, obInterests, obPick, saveOb, obGo, obProfileUi, obAvatar, obProf, obCands, obPeopleUi, obTog, obPostUi, obSendPost, finishOb
 4. **js/data.js** (179 lines): Boot, loading and hydrating data, #post / #event links.

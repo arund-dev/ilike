@@ -64,7 +64,7 @@ ${earned.length?`<div class="pfs">Achievements</div><div class="pfc">${earned.ma
 function pfBody(f){
   if((f.tab||0)==1){
     const ph=f.posts.flatMap(q=>q.imgs||[]);
-    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')+'</div>':'<div class="empty">No photos yet.</div>';
+    return ph.length?'<div class="phgrid">'+ph.map(u=>timg(u)).join('')+'</div>':'<div class="empty">No photos yet.</div>';
   }
   return f.posts.map(q=>post(q)).join('')||'<div class="empty">No posts yet.</div>';
 }

@@ -23,7 +23,7 @@ function mineBody(){
   }
   if(S.mt==2){
     const ph=S.myPosts.flatMap(p=>p.imgs||[]);
-    return ph.length?'<div class="phgrid">'+ph.map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')+'</div>':'<div class="empty">No photos yet.<br>Add photos to a post and they will collect here.</div>';
+    return ph.length?'<div class="phgrid">'+ph.map(u=>timg(u)).join('')+'</div>':'<div class="empty">No photos yet.<br>Add photos to a post and they will collect here.</div>';
   }
   return S.skel&&!S.myPosts.length?skPost().repeat(2):S.myPosts.map(p=>post(p)).join('')||'<div class="empty">No posts yet.<br>Tap + on Home to write one.</div>';
 }

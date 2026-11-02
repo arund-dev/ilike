@@ -17,7 +17,7 @@ function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
-  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,6)}">${p.imgs.slice(0,6).map(u=>`<img src="${esc(u)}" loading="lazy" alt="Photo">`).join('')}</div>`:'';
+  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,6)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
   return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
@@ -84,7 +84,7 @@ async function pickPhotos(inp){
   for(const f of files){
     if(f.type&&!/^image\//.test(f.type)){toast('That file is not a photo');continue}
     if(f.size>25*1024*1024){toast('That photo is too big (25 MB max)');continue}
-    try{const blob=await prep(f,1600,false);S.photos.push({blob,prev:URL.createObjectURL(blob),st:'ready'})}
+    try{const blob=await prep(f,1600,false),tb=await prep(blob,THUMB_MAX,false);S.photos.push({blob,tb,prev:URL.createObjectURL(blob),st:'ready'})}
     catch(e){toast(e.message)}
   }
   renderPhotos();
@@ -102,7 +102,7 @@ async function publish(){
   for(const ph of S.photos){
     if(ph.url)continue;
     ph.st='up';renderPhotos();
-    try{ph.url=await upload('post-images',ph.blob);ph.st='ok'}catch(e){ph.st='fail';bad++}
+    try{ph.url=await upload('post-images',ph.blob,ph.tb);ph.st='ok'}catch(e){ph.st='fail';bad++}
     renderPhotos();
   }
   if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
@@ -134,7 +134,7 @@ function openPm(id){
 function closePm(){$('#pm').classList.remove('on')}
 function renderEdPh(){
   const p=findPost(S.edId);
-  $('#edph').innerHTML=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(u)}" alt="Photo"><button onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
+  $('#edph').innerHTML=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(thumb(u))}" alt="Photo" loading="lazy" decoding="async"><button onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
 }
 function toggleRm(i){const u=findPost(S.edId).imgs[i];S.edRm.has(u)?S.edRm.delete(u):S.edRm.add(u);renderEdPh()}
 function openEd(id){
@@ -254,7 +254,7 @@ function findTab(){
   const m=mix(q);
   $('#fx').innerHTML=S.skel&&!S.posts.length?'<div class="gridx">'+'<div class="gt sk-b"></div>'.repeat(6)+'</div>':m.length?'<div class="gridx">'+m.map(p=>{
     const img=p.imgs&&p.imgs[0];
-    return `<button class="gt ${img?'has-img':''}" style="--c:${col(p.tags[0])}${img?`;background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.7)),url('${esc(img)}')`:''}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`}).join('')+'</div>':'<div class="empty">Nothing found</div>';
+    return `<button class="gt ${img?'has-img':''}" style="--c:${col(p.tags[0])}${img?`;background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.7)),url('${esc(thumb(img))}')`:''}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`}).join('')+'</div>':'<div class="empty">Nothing found</div>';
 }
 function ftab(i){
   document.querySelectorAll('#ft button').forEach((b,k)=>b.classList.toggle('on',k==i));

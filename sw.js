@@ -1,14 +1,15 @@
 // iLike service worker: lets the app install and open instantly.
 // Bump VERSION when you want every device to drop its old cache.
-const VERSION='ilike-v43';
-const SHELL=['./','index.html','style.css','js/catalog.js','js/core.js','js/auth.js','js/data.js','js/feed.js','js/profile.js','js/settings.js','js/chat.js','js/notifs.js','js/members.js','js/events.js','js/tickets.js','js/extras.js','js/safety.js','js/moderation.js','js/legal.js','js/admin.js','js/main.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
+const VERSION='ilike-v45';
+const IMG='ilike-img',IMG_MAX=250;   // photo store (kept across updates; trimmed by js/store.js and below)
+const SHELL=['./','index.html','style.css','js/catalog.js','js/core.js','js/store.js','js/auth.js','js/data.js','js/feed.js','js/profile.js','js/settings.js','js/chat.js','js/notifs.js','js/members.js','js/events.js','js/tickets.js','js/extras.js','js/safety.js','js/moderation.js','js/legal.js','js/admin.js','js/main.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
 const LIBS=['cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==VERSION).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));
+  e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==VERSION&&x!==IMG).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch',e=>{
   const r=e.request,u=new URL(r.url);
@@ -37,8 +38,25 @@ self.addEventListener('fetch',e=>{
       return m||f;
     })));
   }
-  // Everything else (Supabase API, storage, realtime) goes straight to the network
+  // Photos from Supabase storage: kept on the device, most recently used last, so they open instantly
+  else if(u.hostname.endsWith('.supabase.co')&&u.pathname.startsWith('/storage/v1/object/public/')){
+    e.respondWith(photo(r));
+  }
+  // Everything else (Supabase API, realtime) goes straight to the network
 });
+let misses=0;
+async function photo(r){
+  try{
+    const c=await caches.open(IMG),hit=await c.match(r.url);
+    if(hit){c.put(r.url,hit.clone()).catch(()=>{});return hit}   // re-saving moves it to the end of the list
+    const res=await fetch(r.url,{mode:'cors',credentials:'omit'});
+    if(res.ok){
+      c.put(r.url,res.clone()).catch(()=>{});
+      if(++misses%20===0)c.keys().then(k=>k.slice(0,Math.max(0,k.length-IMG_MAX)).forEach(x=>c.delete(x)));
+    }
+    return res;
+  }catch(err){return fetch(r)}
+}
 
 // Push notifications: the server sends {title, body, url, tag}; we always show it.
 self.addEventListener('push',e=>{

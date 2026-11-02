@@ -223,15 +223,27 @@ function prep(file,max,square,ratio){
     im.src=url;
   });
 }
-async function upload(bucket,blob){
-  const path=`${S.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
-  const{error}=await sb.storage.from(bucket).upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});
-  if(error)throw error;
-  return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+// Thumbnails: a photo uploaded with a small copy is saved as <name>_f.jpg (full) + <name>_t.jpg (thumb).
+// Older photos (plain <name>.jpg) have no thumb and are shown as they are.
+const FULL='_f.jpg',THUMB='_t.jpg',THUMB_MAX=720;
+const thumb=u=>u&&u.endsWith(FULL)?u.slice(0,-FULL.length)+THUMB:u;
+// <img> that shows the thumbnail, keeps the full-size URL for the photo viewer, and falls back to full size if the thumb is missing
+const timg=u=>{const t=thumb(u);return `<img src="${esc(t)}" data-full="${esc(u)}" loading="lazy" decoding="async" alt="Photo"${t!==u?` onerror="this.onerror=null;this.src=this.dataset.full"`:''}>`};
+async function upload(bucket,blob,tb){
+  const base=`${S.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}`,opt={contentType:'image/jpeg',cacheControl:'31536000'},st=sb.storage.from(bucket);
+  let path=base+'.jpg';
+  if(tb){
+    // thumb first: only name the full file "_f" when its thumb really exists
+    try{const t=await st.upload(base+THUMB,tb,opt);if(!t.error)path=base+FULL}catch(e){}
+  }
+  const{error}=await st.upload(path,blob,opt);
+  if(error){if(path.endsWith(FULL))st.remove([base+THUMB]).catch(()=>{});throw error}
+  return st.getPublicUrl(path).data.publicUrl;
 }
 const pathOf=(url,bucket)=>{const i=url.indexOf('/'+bucket+'/');return i<0?null:decodeURIComponent(url.slice(i+bucket.length+2))};
 async function rmFiles(bucket,urls){
   const p=urls.map(u=>pathOf(u,bucket)).filter(Boolean);
+  p.slice().forEach(x=>{if(x.endsWith(FULL))p.push(x.slice(0,-FULL.length)+THUMB)});   // remove the thumbnail with its photo
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
 
@@ -311,6 +323,6 @@ function lbZoom(z,fx,fy){
 document.addEventListener('click',e=>{if(Date.now()-LB.closedAt<500){e.stopPropagation();e.preventDefault()}},true);
 document.addEventListener('click',e=>{
   const i=e.target.closest('.pimgs img,.phgrid img,.ev-gallery-item img');
-  if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')];openLb(i.src,g.map(x=>x.src),g.indexOf(i));return}
+  if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')],full=x=>x.dataset.full||x.src;openLb(full(i),g.map(full),g.indexOf(i));return}
   const z=e.target.closest('[data-zoom]');if(z&&z.dataset.zoom)openLb(z.dataset.zoom);
 });

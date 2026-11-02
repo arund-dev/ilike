@@ -170,7 +170,7 @@ function renderEventFullscreen(){
       </div>
       <input type="file" id="ev-pic-in" accept="image/*" hidden onchange="uploadEventGallery(this,'${id}')">
       <div class="ev-gallery-grid">
-        ${photos.map(ph=>`<div class="ev-gallery-item"><img src="${esc(ph.url)}" alt="Event Photo" loading="lazy">${host||isMod()?`<button class="ev-gallery-del" aria-label="Remove photo" onclick="event.stopPropagation();delGalleryPhoto('${id}','${ph.id}')">✕</button>`:''}</div>`).join('')}
+        ${photos.map(ph=>`<div class="ev-gallery-item"><img src="${esc(thumb(ph.url))}" data-full="${esc(ph.url)}" alt="Event Photo" loading="lazy" decoding="async"${thumb(ph.url)!==ph.url?` onerror="this.onerror=null;this.src=this.dataset.full"`:''}>${host||isMod()?`<button class="ev-gallery-del" aria-label="Remove photo" onclick="event.stopPropagation();delGalleryPhoto('${id}','${ph.id}')">✕</button>`:''}</div>`).join('')}
         ${!photos.length&&!host?'<div class="empty" style="grid-column:1/-1">No photos uploaded to this event gallery yet.</div>':''}
         ${host?`<div class="ev-gallery-uploader" onclick="$('#ev-pic-in').click()">${UI_ICONS.camera}<span>Add Photos</span></div>`:''}
       </div>
@@ -266,8 +266,8 @@ async function uploadEventGallery(input,id){
   toast('Uploading gallery photo...');
   let url=null;
   try{
-    const blob=await prep(file,1600,false);
-    url=await upload('post-images',blob);
+    const blob=await prep(file,1600,false),tb=await prep(blob,THUMB_MAX,false);
+    url=await upload('post-images',blob,tb);
     const r=await sb.from('event_photos').insert({event_id:id,user_id:S.user.id,url}).select('id,event_id,user_id,url,created_at').single();
     if(r.error)throw r.error;
     const list=S.evGallery.get(id)||[];

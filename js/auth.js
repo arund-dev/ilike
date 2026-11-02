@@ -55,7 +55,7 @@ async function forgot(){
   S.err=error?authMsg(error):'Check your email for a reset link.';S.good=!error;
   renderAuth();keep({ae:email});
 }
-async function logout(){try{await pushDrop()}catch(e){}await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
+async function logout(){try{await pushDrop()}catch(e){}Store.wipe();await sb.auth.signOut();S.tab='home';S.F='All';S.loaded=false}
 
 // ---------- Onboarding ----------
 const obHead=n=>`<div class="obp">Step ${n} of 4</div>`;

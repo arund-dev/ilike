@@ -21,9 +21,12 @@ async function load(){
     if(S.ch){sb.removeChannel(S.ch);S.ch=null}
     S.posts=[];S.fCur=null;S.fEnd=false;S.fBusy=false;S.fErr=false;S.myPosts=[];S.pm=new Map();S.mine=new Set();S.names={};S.avs={};S.roles={};S.role='user';S.blocked=new Set();S.reports=null;S.nrep=0;S.msgs=[];S.notifs=[];S.prof=null;S.loaded=false;
     S.mt=0;S.liked=null;S.fol=new Set();S.folrs=new Set();S.evs=null;S.evm=new Map();S.pev=null;S.pevOpen=false;S.eventAuthorized=false;S.eventComments=new Map();S.evChats=new Map();S.evGallery=new Map();S.evChatErr=new Map();S.evUnread=new Map();evLiveStop();S.achMine=new Map();S.achReady=false;S.pf=null;leaveRoom();
+    Store.wipe();   // signed out: nothing stays on the device
     renderAuth();show('auth');return;
   }
   S.name=S.user.user_metadata?.display_name||(S.user.email||'Me').split('@')[0];
+  // Instant start: draw the last saved feed, chats and settings now; the network load below refreshes them
+  if(!S.loaded){const snap=await Store.get('boot');if(snap&&S.user&&Store.restore(snap)){draw();show(S.tab)}}
   await sb.from('profiles').upsert({id:S.user.id,username:'user_'+S.user.id.replace(/-/g,'').slice(0,8),display_name:S.name},{onConflict:'id',ignoreDuplicates:true});
   const[pr,i,u,bk,oa]=await Promise.all([
     sb.from('profiles').select('username,display_name,bio,city,theme_prefs,avatar_url,banner_url,role,muted_until,banned').eq('id',S.user.id).single(),
@@ -54,6 +57,7 @@ async function load(){
   try{await Promise.all([loadPosts(),loadPeople(),loadMsgs(),loadNotifs(),loadFollows(),loadEvents(),loadAch()])}
   finally{S.skel=false}
   draw();show(S.tab);S.loaded=true;setupBackGuard();
+  Store.save();Store.maybeSweep();
   if(S.rec)recoverUi();
   if(S.deep){const d=S.deep;S.deep=null;openPostId(d)}
   if(S.deepDm){const d=S.deepDm;S.deepDm=null;openDm(d)}
@@ -89,6 +93,7 @@ async function getProfiles(ids){
 }
 
 const COLS='id,body,created_at,edited_at,author_id';
+const FEED_PAGE=20;   // posts loaded at start and on each "scroll to the end" (was 50)
 async function replyCounts(ids){
   const m=new Map(),c=await sb.from('posts').select('id,replies(count)').in('id',ids);
   if(!c.error&&c.data){c.data.forEach(x=>m.set(x.id,x.replies?.[0]?.count||0));return m}
@@ -116,7 +121,7 @@ async function hydrate(rows){
 }
 async function loadPosts(){
   const[f,m]=await Promise.all([
-    sb.from('posts').select(COLS).order('created_at',{ascending:false}).limit(50),
+    sb.from('posts').select(COLS).order('created_at',{ascending:false}).limit(FEED_PAGE),
     sb.from('posts').select(COLS).eq('author_id',S.user.id).order('created_at',{ascending:false}).limit(100)]);
   if(f.error||m.error){toast('Could not load posts');return}
   const rows=[...f.data];
@@ -127,7 +132,7 @@ async function loadPosts(){
   // Keep older posts the person already scrolled to, so a refresh does not throw them away
   const keep=(S.fCur&&last)?S.posts.filter(p=>p.created_at<last&&!bl(p.author_id)):[];
   S.posts=[...fresh,...keep];
-  if(!keep.length){S.fCur=last;S.fEnd=f.data.length<50;S.fErr=false}
+  if(!keep.length){S.fCur=last;S.fEnd=f.data.length<FEED_PAGE;S.fErr=false}
   S.myPosts=m.data.map(r=>by.get(r.id));
 }
 // Load the next 50 older posts (called by scrolling to the end of the feed or by the button)
@@ -135,11 +140,11 @@ async function morePosts(){
   if(S.fBusy||S.fEnd||!S.fCur)return;
   S.fBusy=true;S.fErr=false;home();
   try{
-    const f=await sb.from('posts').select(COLS).order('created_at',{ascending:false}).lt('created_at',S.fCur).limit(50);
+    const f=await sb.from('posts').select(COLS).order('created_at',{ascending:false}).lt('created_at',S.fCur).limit(FEED_PAGE);
     if(f.error)throw f.error;
     const rows=await hydrate(f.data);
     if(f.data.length)S.fCur=f.data[f.data.length-1].created_at;
-    if(f.data.length<50)S.fEnd=true;
+    if(f.data.length<FEED_PAGE)S.fEnd=true;
     const have=new Set(S.posts.map(p=>p.id));
     S.posts.push(...rows.filter(p=>!have.has(p.id)&&!bl(p.author_id)));
   }catch(e){S.fErr=true}
