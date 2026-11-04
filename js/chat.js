@@ -1,9 +1,14 @@
 // ---------- Direct Messages ----------
 let conv=false,ctab=0;
+// Chats open with only the latest messages; older ones load as you scroll up
+const MSG_PAGE=30,MSG_WIN=300,MCOLS='id,sender_id,to_user,body,created_at,edited_at,read_at',CCOLS='id,sender_id,body,created_at,edited_at';
+let dmTop='',dmMore=true,msgsFull=null,cmMore=true,olderBusy=false;
 async function loadMsgs(){
-  const r=await sb.from('messages').select('id,sender_id,to_user,body,created_at,edited_at,read_at').order('created_at',{ascending:false}).limit(1000);
+  const r=await sb.from('messages').select(MCOLS).order('created_at',{ascending:false}).limit(MSG_WIN);
   if(r.error)return;
-  S.msgs=r.data.reverse().filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));updateBadges();
+  const rows=r.data.reverse();msgsFull=rows.length>=MSG_WIN;
+  const keep=msgsFull?S.msgs.filter(m=>m.created_at<rows[0].created_at):[];   // keep older pages already scrolled in
+  S.msgs=[...keep,...rows].filter(m=>!bl(m.sender_id==S.user.id?m.to_user:m.sender_id));updateBadges();
   if($('#ov')?.classList.contains('on')){conv&&S.dm?drawDm():(!conv&&openChats())}
 }
 const convoOf=id=>S.msgs.filter(m=>(m.sender_id==id&&m.to_user==S.user.id)||(m.sender_id==S.user.id&&m.to_user==id));
@@ -65,15 +70,18 @@ function openChats(){
 function openDm(id){
   id=String(id);leaveRoom();S.dm=id;conv=true;setBar();
   $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
-  $('#ct').textContent=nm(id);drawDm(1);markRead(id);
+  $('#ct').textContent=nm(id);
+  const l=convoOf(id);dmTop=l.length>MSG_PAGE?l[l.length-MSG_PAGE].created_at:'';dmMore=msgsFull!==false;olderBusy=false;
+  drawDm(1);markRead(id);
 }
-function drawDm(snap){
-  const el=$('#msgs'),near=nearEnd(el),l=convoOf(S.dm),me=S.user.id;
+function drawDm(snap,keep){
+  const el=$('#msgs'),near=nearEnd(el),all=convoOf(S.dm),l=all.filter(m=>m.created_at>=dmTop),me=S.user.id;
   let seen=null;
-  for(let i=l.length-1;i>=0;i--){if(l[i].sender_id==me){if(l[i].read_at)seen=l[i].id;break}}
+  for(let i=all.length-1;i>=0;i--){if(all[i].sender_id==me){if(all[i].read_at)seen=all[i].id;break}}
   el.innerHTML=l.length
     ?l.map(m=>{const mine=m.sender_id==me;return `<div class="b ${mine?'me':''}">${esc(m.body)}<small class="t ${mine?'f':''}"><span>${tm(m.created_at)}${m.edited_at?' · edited':''}${m.id===seen?' · Seen':''}</span>${mine?moreBtn('dm',m.id):''}</small></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">👋</div><b>Say hi to ${esc(nm(S.dm))}</b></div>`;
+  if(keep){el.scrollTop=el.scrollHeight-keep.h+keep.t;mcount=l.length;return}   // older page added on top: stay where you were
   settle(el,near,snap,l.length,!l.length||l[l.length-1].sender_id==me);
 }
 let mcount=0;
@@ -84,7 +92,47 @@ function settle(el,near,snap,n,lastMine){
   mcount=n;
 }
 function jumpNew(){const el=$('#msgs');el.scrollTo({top:el.scrollHeight,behavior:'smooth'});$('#jump').hidden=true}
-$('#msgs')?.addEventListener('scroll',()=>{if(nearEnd($('#msgs')))$('#jump').hidden=true});
+$('#msgs')?.addEventListener('scroll',()=>{
+  const el=$('#msgs');
+  if(nearEnd(el))$('#jump').hidden=true;
+  if(conv&&el.scrollTop<80&&el.scrollHeight>el.clientHeight+80)S.dm!=null?olderDm():S.room!=null&&olderCircle();
+},{passive:true});
+async function olderDm(){
+  if(olderBusy)return;
+  const id=S.dm,el=$('#msgs'),me=S.user.id,l=convoOf(id),hid=l.filter(m=>m.created_at<dmTop);
+  if(hid.length){   // already in memory: just show the next page
+    dmTop=hid.length>MSG_PAGE?hid[hid.length-MSG_PAGE].created_at:'';
+    drawDm(0,{h:el.scrollHeight,t:el.scrollTop});return;
+  }
+  if(!dmMore||!l.length)return;
+  olderBusy=true;
+  try{
+    const r=await sb.from('messages').select(MCOLS).or(`and(sender_id.eq.${me},to_user.eq.${id}),and(sender_id.eq.${id},to_user.eq.${me})`).lt('created_at',l[0].created_at).order('created_at',{ascending:false}).limit(MSG_PAGE);
+    if(S.dm!==id||r.error)return;
+    if(r.data.length<MSG_PAGE)dmMore=false;
+    if(!r.data.length)return;
+    const have=new Set(S.msgs.map(m=>m.id));
+    S.msgs=S.msgs.concat(r.data.filter(m=>!have.has(m.id))).sort((a,b)=>a.created_at<b.created_at?-1:a.created_at>b.created_at?1:0);
+    dmTop=r.data[r.data.length-1].created_at;
+    drawDm(0,{h:el.scrollHeight,t:el.scrollTop});
+  }finally{olderBusy=false}
+}
+async function olderCircle(){
+  const k=S.room;
+  if(olderBusy||!cmMore||!S.cm||!S.cm.length)return;
+  olderBusy=true;
+  try{
+    const r=await sb.from('circle_messages').select(CCOLS).eq('interest_id',k).lt('created_at',S.cm[0].created_at).order('created_at',{ascending:false}).limit(MSG_PAGE);
+    if(S.room!==k||r.error)return;
+    if(r.data.length<MSG_PAGE)cmMore=false;
+    const rows=r.data.reverse().filter(m=>!bl(m.sender_id));
+    await getProfiles(rows.map(m=>m.sender_id));
+    if(S.room!==k)return;
+    const have=new Set(S.cm.map(m=>m.id)),el=$('#msgs');
+    S.cm=[...rows.filter(m=>!have.has(m.id)),...S.cm];
+    drawCircle(0,{h:el.scrollHeight,t:el.scrollTop});
+  }finally{olderBusy=false}
+}
 function syncSend(){
   const v=$('#mi').value;
   $('#sbtn').disabled=!v.trim();
@@ -150,7 +198,7 @@ function openChat(k){
   k=+k;leaveRoom();S.dm=null;S.room=k;S.cm=null;conv=true;setBar();
   $('#ov').classList.add('on');$('#cl').style.display='none';$('#cv').style.display='flex';
   $('#ct').textContent=(S.im.get(k)?.emoji||'✦')+' '+iname(k);
-  mcount=0;drawCircle(1);
+  mcount=0;cmMore=true;olderBusy=false;drawCircle(1);
   S.cch=sb.channel('circle-'+k+'-'+Date.now())
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'circle_messages',filter:'interest_id=eq.'+k},p=>onCircleMsg(p.new))
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'circle_messages',filter:'interest_id=eq.'+k},p=>onCircleUpd(p.new))
@@ -159,9 +207,10 @@ function openChat(k){
   loadCircle(k);
 }
 async function loadCircle(k){
-  const r=await sb.from('circle_messages').select('id,sender_id,body,created_at,edited_at').eq('interest_id',k).order('created_at',{ascending:false}).limit(100);
+  const r=await sb.from('circle_messages').select(CCOLS).eq('interest_id',k).order('created_at',{ascending:false}).limit(MSG_PAGE);
   if(S.room!==k)return;
   if(r.error){toast('Could not load the chat');S.cm=[];drawCircle(1);return}
+  cmMore=r.data.length>=MSG_PAGE;
   const rows=r.data.reverse().filter(m=>!bl(m.sender_id));
   await getProfiles(rows.map(m=>m.sender_id));
   if(S.room!==k)return;
@@ -169,7 +218,7 @@ async function loadCircle(k){
   S.cm=[...rows,...(S.cm||[]).filter(m=>!have.has(m.id))];
   drawCircle(1);
 }
-function drawCircle(snap){
+function drawCircle(snap,keep){
   const el=$('#msgs'),near=nearEnd(el),me=S.user.id;
   if(S.cm===null){el.innerHTML='<div class="empty" style="margin:auto">Loading...</div>';return}
   el.innerHTML=S.cm.length?S.cm.map(m=>{
@@ -178,6 +227,7 @@ function drawCircle(snap){
       ?`<div class="b me">${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span>${moreBtn('cm',m.id)}</small></div>`
       :`<div class="crow"><span class="lk" onclick="openProfile('${m.sender_id}')">${av(m.sender_id)}</span><div class="b"><span class="cn" style="color:${ac(m.sender_id)}">${esc(nm(m.sender_id))}${rb(m.sender_id)}</span>${esc(m.body)}<small class="t f"><span>${tm(m.created_at)}${ed}</span><button class="mmore" onclick="event.stopPropagation();openAx('cm','${m.id}')" aria-label="Message options">⋯</button></small></div></div>`}).join('')
     :`<div class="empty" style="margin:auto"><div style="font-size:44px;margin-bottom:8px">${em(S.room)}</div><b>No messages yet</b><div class="sm" style="margin-top:6px">${S.mine.has(S.room)?'Start the conversation in '+esc(iname(S.room))+'.':'Join this circle to start the conversation.'}</div></div>`;
+  if(keep){el.scrollTop=el.scrollHeight-keep.h+keep.t;mcount=S.cm.length;return}
   const last=S.cm[S.cm.length-1];
   settle(el,near,snap,S.cm.length,!last||last.sender_id==me);
 }

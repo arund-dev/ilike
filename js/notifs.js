@@ -34,6 +34,7 @@ function drawNotifs(){
   }).join('')||(S.nf=='mentions'?'<div class="empty">No mentions yet.<br>When someone mentions you, you will see it here.</div>':'<div class="empty">Nothing yet.<br>When someone likes a post, replies or follows you, you will see it here.</div>');
   if(S.nMore&&S.ng.length&&S.nf!='mentions')$('#nl').insertAdjacentHTML('beforeend','<button class="btn off" style="width:calc(100% - 32px);margin:8px 16px 16px" onclick="moreNotifs()">Load more</button>');
   $('#nmr').hidden=!S.notifs.some(n=>!n.read_at);
+  autoMore($('#nl button[onclick="moreNotifs()"]'),moreNotifs,$('#nl'));
 }
 function setNF(k){S.nf=k;document.querySelectorAll('#ntabs button').forEach((b,i)=>b.classList.toggle('on',(i==1)==(k=='mentions')));drawNotifs()}
 async function moreNotifs(){S.nLimit=(S.nLimit||40)+40;await loadNotifs()}

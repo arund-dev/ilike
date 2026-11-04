@@ -92,8 +92,17 @@ const SL_PAGE=30;
 function slDraw(){
   const L=S.sl;if(!L)return;
   $('#sll').innerHTML=(L.ids.slice(0,L.n).map(L.row).join('')||L.empty)+(L.n<L.ids.length?`<button class="btn off" style="width:100%;margin-top:8px" onclick="slMore()">Show more (${L.ids.length-L.n})</button>`:'')+(L.foot||'');
+  autoMore($('#sll button[onclick="slMore()"]'),slMore,$('#sll').parentElement);
 }
 function slMore(){S.sl.n+=SL_PAGE;slDraw()}
+// load the next page when the "show more" button scrolls into view
+let moreObs=null;
+function autoMore(btn,fn,root){
+  if(moreObs){moreObs.disconnect();moreObs=null}
+  if(!btn||!('IntersectionObserver' in window))return;
+  moreObs=new IntersectionObserver(e=>{if(e.some(x=>x.isIntersecting)){moreObs.disconnect();moreObs=null;fn()}},{root:root||null,rootMargin:'300px'});
+  moreObs.observe(btn);
+}
 let toastT;
 function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
 
