@@ -1004,3 +1004,55 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .pimgs.n6{grid-template-columns:repeat(3,1fr)}
 .pimgs.n6 img{aspect-ratio:1}
 #pcnt{margin:2px 0 6px}
+
+/* ---- full-screen post panels, photo editor, chosen photo grids ---- */
+.mod.fsp{align-items:stretch}
+.mod.fsp .sheet.fsheet{width:100%;max-width:none;height:100%;max-height:none!important;border-radius:0;border:0;padding:0;margin:0;display:flex;flex-direction:column;overflow:hidden;box-shadow:none}
+.mod.fsp .sheet.fsheet::before{display:none}
+.fs-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;border-bottom:1px solid var(--line);background:var(--card);flex:none}
+.fs-top b{font-size:17px}
+.fs-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;width:100%;max-width:680px;margin:0 auto;padding:16px 16px calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.fs-body textarea{min-height:120px;width:100%}
+.fs-l{font-weight:700;font-size:13px;margin-bottom:-6px}
+.photos.phg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0}
+.photos.phg:empty{display:none}
+.photos.phg .ph{width:auto;height:auto;aspect-ratio:1}
+.ph .pgrip{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:8px;background:rgba(0,0,0,.65);color:#fff;display:grid;place-items:center;font-size:16px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.ph .pnum{position:absolute;left:4px;bottom:4px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:rgba(0,0,0,.65);color:#fff;font:800 11px/20px system-ui,sans-serif;text-align:center;font-style:normal}
+.ph .pcrop{top:auto;bottom:4px;right:4px;width:26px;height:26px;border-radius:8px}
+.ph .pcrop svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ph.drag{z-index:5;box-shadow:0 12px 28px rgba(0,0,0,.4);transition:none}
+.ph.tgt{outline:2px solid var(--brand);outline-offset:-2px}
+.lays{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lays[hidden]{display:none}
+.lays button{width:64px;padding:6px;border-radius:14px;border:2px solid var(--line);background:var(--card);cursor:pointer}
+.lays button.on{border-color:var(--brand)}
+.pimgs.mini{margin:0;border-radius:6px;gap:2px;border:0;pointer-events:none}
+.pimgs.mini img{background:var(--line);cursor:default}
+.pimgs.x21{grid-template-columns:1fr}
+.pimgs.x21 img{aspect-ratio:16/10}
+.pimgs.x31{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;aspect-ratio:4/3}
+.pimgs.x31 img:first-child{grid-row:span 2}
+.pimgs.x32{grid-template-columns:1fr 1fr;grid-template-rows:2fr 1fr;aspect-ratio:1}
+.pimgs.x32 img:first-child{grid-column:span 2}
+.pimgs.x41{grid-template-columns:repeat(3,1fr);grid-template-rows:2fr 1fr;aspect-ratio:1}
+.pimgs.x41 img:first-child{grid-column:span 3}
+.pimgs.x42{grid-template-columns:2fr 1fr;grid-template-rows:repeat(3,1fr);aspect-ratio:4/3}
+.pimgs.x42 img:first-child{grid-row:span 3}
+.pimgs.x51{grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;aspect-ratio:2/1}
+.pimgs.x51 img:first-child{grid-column:span 2;grid-row:span 2}
+.pimgs.x52{grid-template-columns:repeat(4,1fr);grid-template-rows:2fr 1fr;aspect-ratio:1}
+.pimgs.x52 img:first-child{grid-column:span 4}
+.pimgs.x61{grid-template-columns:1fr 1fr}
+.pimgs.x61 img{aspect-ratio:4/3}
+.pimgs.x62{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);aspect-ratio:1}
+.pimgs.x62 img:first-child{grid-column:span 2;grid-row:span 2}
+/* crop screen */
+.pc-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.pc-stage img{position:absolute;left:0;top:0;max-width:none!important;transform-origin:0 0;will-change:transform;pointer-events:none}
+.pc-frame{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.6);pointer-events:none}
+.pc-bar{flex:none;padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;background:var(--card);border-top:1px solid var(--line)}
+.pc-ratios{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.pc-ratios button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.pc-ratios button.on{border-color:var(--brand)}
+#pcz{width:100%}
