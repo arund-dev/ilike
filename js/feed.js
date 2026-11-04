@@ -13,11 +13,18 @@ document.addEventListener('keydown',e=>{
   e.preventDefault();openThread(c.dataset.pi);
 });
 const DOTS='<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
+// Photo grids a poster can choose from: LAYS[n] = how many styles exist for n photos (0 = the automatic grid)
+const LAYS={2:2,3:3,4:3,5:3,6:3};
+const clampLay=(n,l)=>{l=+l||0;return n>=2&&l>0&&l<(LAYS[n]||1)?l:0};
+const layCls=(n,l)=>{n=Math.min(n,6);l=clampLay(n,l);return l?'x'+n+l:'n'+n};
+// casual post = no interest picked: shown to the poster and their followers
+const casual=p=>!p.tags.length&&(p.author_id==S.user.id||S.fol.has(p.author_id));
+function selUi(a,b){const x=$(b);if(x)x.style.display=$(a).value?'':'none'}
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
-  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs n${Math.min(p.imgs.length,6)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
+  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs ${layCls(p.imgs.length,p.layout)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
   return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
@@ -45,7 +52,7 @@ const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>c
 function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
   $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New to you'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
-  const F=S.F,l=F=='All'?S.posts.filter(p=>rel(p,S.mine)=='like'):F=='might'||F=='new'?S.posts.filter(p=>rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
+  const F=S.F,l=F=='All'?S.posts.filter(p=>p.tags.length?rel(p,S.mine)=='like':casual(p)):F=='might'||F=='new'?S.posts.filter(p=>p.tags.length&&rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
   $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||(S.fEnd?'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>':'');
   if(!(S.skel&&!S.posts.length)){
     $('#feed').insertAdjacentHTML('beforeend',S.fEnd?(S.posts.length>8?'<div class="mute sm" style="text-align:center;padding:18px 0 28px">You are all caught up</div>':''):
@@ -59,9 +66,9 @@ function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 function tapFab(){
   const pa=$('#sel').value,pb=$('#sel2').value;
   const o=[...S.mine].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
-  $('#sel').innerHTML=o;
+  $('#sel').innerHTML='<option value="">✨ Casual (no interest)</option>'+o;
   $('#sel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
-  setSel($('#sel'),pa);setSel($('#sel2'),pb);restoreDraft();
+  setSel($('#sel'),pa);setSel($('#sel2'),pb);restoreDraft();selUi('#sel','#sel2');phRender('p');
   $('#shr').textContent=S.pfail?'Retry':'Share';
   $('#fabBtn').classList.add('spin');$('#mod').classList.add('on');
 }
@@ -69,33 +76,12 @@ function closePost(){
   if($('#mod').classList.contains('on')&&$('#txt').value.trim())toast('Draft saved');
   $('#fabBtn').classList.remove('spin');$('#mod').classList.remove('on');
 }
-function renderPhotos(){
-  $('#pph').innerHTML=S.photos.map((ph,i)=>{
-    const s=ph.st||'ready';
-    return `<div class="ph ${s}"><img src="${ph.prev}" alt="Photo ${i+1}">${s=='up'?'<span class="phs"><i class="spn"></i></span>':s=='ok'?'<span class="phs ok">✓</span>':s=='fail'?'<button class="phs bad" onclick="publish()">↻ Retry</button>':''}${S.posting?'':`<button onclick="rmPhoto(${i})" aria-label="Remove photo">✕</button>`}</div>`;
-  }).join('');
-  $('#padd').hidden=S.photos.length>=6||!!S.posting;
-  const pc=$('#pcnt');if(pc){pc.hidden=!S.photos.length;pc.textContent=S.photos.length+'/6 photos'}
-}
-async function pickPhotos(inp){
-  const room=6-S.photos.length,files=[...inp.files].slice(0,room);if(inp.files.length>room)toast('Up to 6 photos per post');inp.value='';
-  if(!files.length)return;
-  toast('Preparing photos...');
-  for(const f of files){
-    if(f.type&&!/^image\//.test(f.type)){toast('That file is not a photo');continue}
-    if(f.size>25*1024*1024){toast('That photo is too big (25 MB max)');continue}
-    try{const blob=await prep(f,1600,false),tb=await prep(blob,THUMB_MAX,false);S.photos.push({blob,tb,prev:URL.createObjectURL(blob),st:'ready'})}
-    catch(e){toast(e.message)}
-  }
-  renderPhotos();
-}
-function rmPhoto(i){if(S.posting)return;const ph=S.photos[i];URL.revokeObjectURL(ph.prev);if(ph.url)rmFiles('post-images',[ph.url]);S.photos.splice(i,1);renderPhotos()}
+function renderPhotos(){phRender('p')}
 async function publish(){
   if(S.posting)return;
   if(muted())return;
-  const v=$('#txt').value.trim(),a=+$('#sel').value,b=+$('#sel2').value;
+  const v=$('#txt').value.trim(),a=+$('#sel').value,b=a?+$('#sel2').value:0;   // interest is optional: empty = casual post
   if(!v){$('#txt').focus();return}
-  if(!a){toast('Add something you like first');return}
   const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
   const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos()};
   let bad=0;
@@ -108,10 +94,11 @@ async function publish(){
   if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
   btn.textContent='Posting...';
   let data=S.pfail?await alreadySent('posts','author_id',{},v):null,error=null;
-  if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v}).select('id').single();data=r.data;error=r.error}
+  if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v,layout:clampLay(S.photos.length,S.pLay)}).select('id').single();data=r.data;error=r.error}
   if(error){S.pfail=true;done();toast(errMsg(error)+' Tap Retry.');return}
   S.pfail=false;
-  const t=await sb.from('post_interests').insert([...new Set([a,b].filter(Boolean))].map(n=>({post_id:data.id,interest_id:n})));
+  const tg=[...new Set([a,b].filter(Boolean))];
+  const t=tg.length?await sb.from('post_interests').insert(tg.map(n=>({post_id:data.id,interest_id:n}))):{};
   let imgFail=false;
   if(S.photos.length){
     const urls=S.photos.map(p=>p.url);
@@ -119,7 +106,7 @@ async function publish(){
     if(r.error){imgFail=true;rmFiles('post-images',urls)}
   }
   S.posting=false;btn.disabled=false;btn.textContent='Share';
-  S.photos.forEach(p=>URL.revokeObjectURL(p.prev));S.photos=[];renderPhotos();
+  S.photos.forEach(p=>p.blob&&URL.revokeObjectURL(p.prev));S.photos=[];S.pLay=0;renderPhotos();
   $('#txt').value='';clearDraft();closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
   toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
@@ -132,40 +119,57 @@ function openPm(id){
   $('#pm').classList.add('on');
 }
 function closePm(){$('#pm').classList.remove('on')}
-function renderEdPh(){
-  const p=findPost(S.edId);
-  $('#edph').innerHTML=((p&&p.imgs)||[]).map((u,i)=>`<div class="ph ${S.edRm.has(u)?'rm':''}"><img src="${esc(thumb(u))}" alt="Photo" loading="lazy" decoding="async"><button onclick="toggleRm(${i})" aria-label="${S.edRm.has(u)?'Keep photo':'Remove photo'}">${S.edRm.has(u)?'↺':'✕'}</button></div>`).join('');
+function closeEd(){
+  $('#ed').classList.remove('on');
+  (S.edPh||[]).forEach(x=>{if(x.blob&&x.prev)URL.revokeObjectURL(x.prev);if(x.url&&!x.old)rmFiles('post-images',[x.url])});
+  S.edPh=[];
 }
-function toggleRm(i){const u=findPost(S.edId).imgs[i];S.edRm.has(u)?S.edRm.delete(u):S.edRm.add(u);renderEdPh()}
 function openEd(id){
   const p=findPost(id);if(!p)return;
-  closePm();S.edId=id;S.edRm=new Set();
+  closePm();S.edId=id;S.edBusy=false;
   const o=[...new Set([...S.mine,...p.tags])].map(n=>`<option value="${n}">${em(n)} ${esc(iname(n))}</option>`).join('');
-  $('#edsel').innerHTML=o;
+  $('#edsel').innerHTML='<option value="">✨ Casual (no interest)</option>'+o;
   $('#edsel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
-  $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';
-  $('#edt').value=p.body;renderEdPh();$('#ed').classList.add('on');
+  $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';selUi('#edsel','#edsel2');
+  S.edOrig=[...(p.imgs||[])];S.edPh=S.edOrig.map(u=>({url:u,full:u,prev:thumb(u),old:true}));S.eLay=+p.layout||0;
+  $('#edt').value=p.body;$('#eds').textContent='Save';phRender('e');$('#ed').classList.add('on');
 }
 async function saveEd(){
-  const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=+$('#edsel2').value;
+  if(S.edBusy)return;
+  const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=a?+$('#edsel2').value:0;
   if(!v){$('#edt').focus();return}
-  if(!a){toast('Pick an interest');return}
-  const btn=$('#eds');btn.disabled=true;
-  const u=await sb.from('posts').update({body:v}).eq('id',id).eq('author_id',S.user.id);
-  if(u.error){btn.disabled=false;toast(u.error.message);return}
+  S.edBusy=true;const btn=$('#eds');btn.disabled=true;btn.textContent='Saving...';
+  const fin=()=>{S.edBusy=false;btn.disabled=false;btn.textContent='Save';phRender('e')};
+  let bad=0;
+  for(const ph of S.edPh){
+    if(ph.url)continue;
+    ph.st='up';phRender('e');
+    try{ph.url=await upload('post-images',ph.blob,ph.tb);ph.st='ok'}catch(e){ph.st='fail';bad++}
+    phRender('e');
+  }
+  if(bad){fin();toast(bad==1?'1 photo failed. Tap Save to retry, or remove it.':bad+' photos failed. Tap Save to retry, or remove them.');return}
+  const urls=S.edPh.map(x=>x.url),orig=S.edOrig||[];
+  const u=await sb.from('posts').update({body:v,layout:clampLay(urls.length,S.eLay)}).eq('id',id).eq('author_id',S.user.id);
+  if(u.error){fin();toast(u.error.message);return}
   const want=[...new Set([a,b].filter(Boolean))];
   const unchanged=want.length===p.tags.length&&want.every(x=>p.tags.includes(x));
   if(!unchanged){
     const d=await sb.from('post_interests').delete().eq('post_id',id);
-    if(!d.error)await sb.from('post_interests').insert(want.map(n=>({post_id:id,interest_id:n})));
+    if(!d.error&&want.length)await sb.from('post_interests').insert(want.map(n=>({post_id:id,interest_id:n})));
   }
-  if(S.edRm.size){
-    const urls=[...S.edRm];
-    const d=await sb.from('post_images').delete().eq('post_id',id).in('url',urls);
-    if(!d.error)rmFiles('post-images',urls);
+  let imgFail=false;
+  if(urls.length!==orig.length||urls.some((x,i)=>x!==orig[i])){   // photos added, removed, cropped or reordered
+    const d=await sb.from('post_images').delete().eq('post_id',id);
+    if(d.error)imgFail=true;
+    else{
+      const r=urls.length?await sb.from('post_images').insert(urls.map((url,i)=>({post_id:id,url,position:i}))):{};
+      if(r.error){imgFail=true;if(orig.length)await sb.from('post_images').insert(orig.map((url,i)=>({post_id:id,url,position:i})))}   // put the old photos back
+      else rmFiles('post-images',orig.filter(x=>!urls.includes(x)));
+    }
+    if(imgFail)rmFiles('post-images',urls.filter(x=>!orig.includes(x)));
   }
-  btn.disabled=false;$('#ed').classList.remove('on');
-  await loadPosts();draw();toast('Saved');
+  S.edPh=[];S.edBusy=false;btn.disabled=false;btn.textContent='Save';$('#ed').classList.remove('on');
+  await loadPosts();draw();toast(imgFail?'Saved, but photos failed':'Saved');
 }
 function delPost(id){
   closePm();
