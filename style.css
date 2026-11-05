@@ -1056,3 +1056,10 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .pc-ratios button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .pc-ratios button.on{border-color:var(--brand)}
 #pcz{width:100%}
+
+/* photo viewer: glide back after a drag, slide in on swipe */
+.lbst img.snap{transition:transform .22s ease}
+.lbst img.slider{animation:lbInR .24s ease}
+.lbst img.slidel{animation:lbInL .24s ease}
+@keyframes lbInR{from{translate:70px 0;opacity:.3}to{translate:0 0;opacity:1}}
+@keyframes lbInL{from{translate:-70px 0;opacity:.3}to{translate:0 0;opacity:1}}
