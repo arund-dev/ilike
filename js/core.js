@@ -256,21 +256,33 @@ async function rmFiles(bucket,urls){
   if(p.length)await sb.storage.from(bucket).remove(p);
 }
 
-const LB={list:[],i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,closedAt:0,ptrs:new Map()};
-function openLb(u,list,i){
-  LB.list=list&&list.length?list:[u];LB.i=Math.max(0,i||0);
+const LB={list:[],th:[],tok:0,i:0,z:1,x:0,y:0,dx:0,dy:0,sx:0,sy:0,d0:0,moved:false,lastTap:0,closedAt:0,ptrs:new Map()};
+function openLb(u,list,i,th){
+  LB.list=list&&list.length?list:[u];LB.th=th||[];LB.i=Math.max(0,i||0);
   $('#lb').classList.add('on');lbShow();
 }
-function closeLb(){LB.closedAt=Date.now();$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[]}
-function lbShow(){
-  LB.z=1;LB.x=LB.y=LB.dx=LB.dy=0;$('#lbi').src=LB.list[LB.i];lbPaint();
+function closeLb(){LB.closedAt=Date.now();$('#lb').classList.remove('on');LB.ptrs.clear();LB.list=[];LB.th=[]}
+function lbShow(dir){
+  LB.z=1;LB.x=LB.y=LB.dx=LB.dy=0;
+  const im=$('#lbi'),u=LB.list[LB.i],t=LB.th[LB.i],tok=++LB.tok;
+  im.classList.remove('slidel','slider','snap');
+  if(dir){void im.offsetWidth;im.classList.add(dir>0?'slider':'slidel')}   // new photo slides in from the side you swiped toward
+  if(t&&t!==u){   // show the small thumbnail at once, swap to full size when it has loaded
+    im.src=t;const f=new Image();f.onload=()=>{if(LB.tok==tok)im.src=u};f.src=u;
+  }else im.src=u;
+  lbPaint();
   const n=LB.list.length;
-  $('#lbc').textContent=n>1?(LB.i+1)+' / '+n:'';
+  $('#lbc').textContent=n>1?(LB.i+1)+' of '+n:'';
   $('#lbp').hidden=LB.i<=0;$('#lbnx').hidden=LB.i>=n-1;
   [LB.i-1,LB.i+1].forEach(k=>{if(LB.list[k])new Image().src=LB.list[k]});
 }
-function lbGo(d){const k=LB.i+d;if(k<0||k>=LB.list.length)return;LB.i=k;lbShow()}
-function lbPaint(){$('#lbi').style.transform=`translate(${LB.x+LB.dx}px,${LB.y+LB.dy}px) scale(${LB.z})`}
+function lbGo(d){const k=LB.i+d;if(k<0||k>=LB.list.length)return;LB.i=k;lbShow(d)}
+function lbPaint(){
+  // while dragging down/up to close, the photo shrinks a little and the backdrop fades
+  const f=LB.z==1&&Math.abs(LB.dy)>Math.abs(LB.dx)?Math.min(1,Math.abs(LB.dy)/320):0;
+  $('#lbi').style.transform=`translate(${LB.x+LB.dx}px,${LB.y+LB.dy}px) scale(${LB.z*(1-f*.18)})`;
+  $('#lb').style.background=f?`rgba(0,0,0,${.94*(1-f*.75)})`:'';
+}
 function lbClamp(){
   const im=$('#lbi'),mx=im.clientWidth*(LB.z-1)/2,my=im.clientHeight*(LB.z-1)/2;
   LB.x=Math.max(-mx,Math.min(mx,LB.x));LB.y=Math.max(-my,Math.min(my,LB.y));
@@ -285,7 +297,7 @@ function lbZoom(z,fx,fy){
   const st=$('#lbst');if(!st)return;
   const ctr=()=>{const r=st.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}};
   st.addEventListener('pointerdown',e=>{
-    st.setPointerCapture(e.pointerId);LB.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    $('#lbi').classList.remove('snap');st.setPointerCapture(e.pointerId);LB.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(LB.ptrs.size==1){LB.sx=e.clientX;LB.sy=e.clientY;LB.moved=false}
     LB.d0=0;
   });
@@ -311,7 +323,7 @@ function lbZoom(z,fx,fy){
       if(Math.abs(dy)>110&&Math.abs(dy)>Math.abs(dx)){closeLb();return}
       if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){const k=LB.i;lbGo(dx<0?1:-1);if(LB.i!==k)return}
     }
-    lbPaint();
+    $('#lbi').classList.add('snap');lbPaint();   // glide back to centre
     if(real&&!LB.moved){
       const r=$('#lbi').getBoundingClientRect(),inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
       if(!inside&&LB.z==1){closeLb();return}
@@ -332,6 +344,6 @@ function lbZoom(z,fx,fy){
 document.addEventListener('click',e=>{if(Date.now()-LB.closedAt<500){e.stopPropagation();e.preventDefault()}},true);
 document.addEventListener('click',e=>{
   const i=e.target.closest('.pimgs img,.phgrid img,.ev-gallery-item img');
-  if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')],full=x=>x.dataset.full||x.src;openLb(full(i),g.map(full),g.indexOf(i));return}
+  if(i){const g=[...i.parentElement.parentElement.querySelectorAll('img')],full=x=>x.dataset.full||x.src;openLb(full(i),g.map(full),g.indexOf(i),g.map(x=>x.src));return}
   const z=e.target.closest('[data-zoom]');if(z&&z.dataset.zoom)openLb(z.dataset.zoom);
 });
