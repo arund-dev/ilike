@@ -1063,3 +1063,12 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .lbst img.slidel{animation:lbInL .24s ease}
 @keyframes lbInR{from{translate:70px 0;opacity:.3}to{translate:0 0;opacity:1}}
 @keyframes lbInL{from{translate:-70px 0;opacity:.3}to{translate:0 0;opacity:1}}
+
+/* links, #topics, select + copy, character counter */
+.tl,.ht{color:var(--brand);font-weight:600;text-decoration:none;word-break:break-word}
+.tl:hover,.ht:hover{text-decoration:underline}
+.card>p,.rbody,.b,.ev-chat-bubble,.event-comment .grow>div:not(.row){-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.card>p,.rbody{cursor:text}
+.cc{position:fixed;z-index:200;padding:3px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);font:700 12px/1.5 system-ui,sans-serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.cc[hidden]{display:none}
+.cc.low{border-color:#e5484d;color:#e5484d}
