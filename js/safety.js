@@ -158,7 +158,7 @@ function openAx(t,id){
   const uid=t=='user'?String(id):(t=='cm'?m.sender_id:m.author_id);
   S.ax={t,id:String(id),uid};
   if(t=='reply'&&uid==S.user.id){
-    $('#axb').innerHTML=`<b style="font-size:18px">Your reply</b><button class="btn off wide danger" onclick="closeAx();delReply('${String(id)}')">Delete reply</button><button class="btn off wide" onclick="closeAx()">Cancel</button>`;
+    $('#axb').innerHTML=`<b style="font-size:18px">Your reply</b><button class="btn off wide" onclick="closeAx();editComment('reply','${String(id)}')">Edit reply</button><button class="btn off wide danger" onclick="closeAx();delReply('${String(id)}')">Delete reply</button><button class="btn off wide" onclick="closeAx()">Cancel</button>`;
     $('#ax').classList.add('on');return;
   }
   let h=`<b style="font-size:18px">${esc(nm(uid))}${rb(uid)}</b>`;

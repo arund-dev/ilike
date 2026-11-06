@@ -154,7 +154,7 @@ function renderEventFullscreen(){
     </div>`;
     }
   } else if(S.evTab==='comments'){
-    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${rich(c.body,1)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
+    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}${c.edited_at?' · edited':''}</span></div><div>${rich(c.body,1)}</div>${c.user_id==me?`<button class="link sm" style="width:auto;padding:2px 14px 2px 0;text-align:left" onclick="editComment('event','${c.id}')">Edit</button>`:''}${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
     tabBody=`<div class="ev-tab-content">
       <div class="event-comment-list">${rows}</div>
       <div class="event-comment-form">
@@ -344,7 +344,8 @@ document.addEventListener('visibilitychange',()=>{
 try{Object.keys(localStorage).filter(k=>k.startsWith('il-evchat-')||k.startsWith('il-evgal-')).forEach(k=>localStorage.removeItem(k))}catch(x){}
 
 async function loadEventComments(id){
-  const r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at').limit(100);
+  let r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at,edited_at').eq('event_id',id).order('created_at').limit(100);
+  if(r.error)r=await sb.from('event_comments').select('id,event_id,user_id,body,created_at').eq('event_id',id).order('created_at').limit(100);   // before comment-edit.sql has been run
   if(r.error){S.eventComments.set(id,[]);toast(eventCommentsError(r.error));return}
   await getProfiles((r.data||[]).map(c=>c.user_id));
   S.eventComments.set(id,r.data||[]);

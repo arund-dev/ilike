@@ -184,7 +184,7 @@ function evDraftFill(id){
 }
 
 // ---------- "N left" counter when 50 or fewer characters remain ----------
-const CC_IDS=new Set(['txt','edt','rin','ecin','peb']);   // posts, edit post, replies, event comments, bio
+const CC_IDS=new Set(['txt','edt','rin','ecin','peb','ect']);   // posts, edit post, replies, event comments, bio
 let ccEl=null;
 function ccHide(){if(ccEl)ccEl.hidden=true}
 function ccShow(t){
@@ -277,3 +277,14 @@ document.addEventListener('keydown',e=>{   // desktop: arrows / Enter / Tab / Es
   else return;
   e.preventDefault();e.stopPropagation();
 },true);
+
+// ---------- back-to-top arrow (appears after scrolling down a long way) ----------
+const bttBtn=document.createElement('button');
+bttBtn.className='btt';bttBtn.hidden=true;bttBtn.setAttribute('aria-label','Back to top');
+bttBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6"/></svg>';
+document.body.appendChild(bttBtn);
+let bttT=null;
+function bttSync(){bttBtn.hidden=!(bttT&&bttT.offsetParent&&bttT.scrollTop>700&&!document.querySelector('.ov.on,.mod.on'))}
+document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.matches&&t.matches('#feed,#s-events,.pscroll,#mine,.col-l')&&t.offsetParent){bttT=t;bttSync()}},true);
+document.addEventListener('click',()=>setTimeout(bttSync,60));
+bttBtn.onclick=()=>{if(bttT)bttT.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'})};

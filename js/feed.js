@@ -191,7 +191,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep" data-rid="${r.id}"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${rich(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
+const rep=r=>`<div class="rep" data-rid="${r.id}"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}${r.edited_at?' · edited':''}</span></div><div class="rbody">${rich(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -203,7 +203,8 @@ async function loadReplies(id,more,n){
   if(!more){S.reps=null;S.repOff=0;S.repMore=false;renderThread()}
   S.repBusy=true;
   const size=more?REP_PAGE:(n||REP_PAGE),off=more?S.repOff:0;
-  const r=await sb.from('replies').select('id,body,created_at,author_id').eq('post_id',id).order('created_at').range(off,off+size-1);
+  let r=await sb.from('replies').select('id,body,created_at,edited_at,author_id').eq('post_id',id).order('created_at').range(off,off+size-1);
+  if(r.error)r=await sb.from('replies').select('id,body,created_at,author_id').eq('post_id',id).order('created_at').range(off,off+size-1);   // before comment-edit.sql has been run
   S.repBusy=false;
   if(S.th!==id)return;
   if(r.error){toast('Could not load replies');if(!more)S.reps=[]}
@@ -228,6 +229,33 @@ function focusReply(){
 function moreReplies(){if(S.th)loadReplies(S.th,true)}
 function openThread(id,focus){S.th=String(id);S.thFocus=focus?{th:S.th,actor:focus.actor,at:focus.at,tries:0}:null;S.repOff=0;$('#rin').value=cdGet('r:'+S.th);$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');['#thl','#thcols','#thbody'].forEach(x=>{const e=$(x);if(e)e.scrollTop=0});loadReplies(S.th)}
 function closeThread(){S.th=null;S.thFocus=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
+// ---------- edit a comment (post replies and event comments) ----------
+let EC=null;
+function editComment(kind,id){
+  id=String(id);let cur;
+  if(kind=='reply')cur=(S.reps||[]).find(x=>String(x.id)==id);
+  else cur=(S.eventComments.get(S.evActiveId)||[]).find(x=>String(x.id)==id);
+  if(!cur)return;
+  EC={kind,id};$('#ect').value=cur.body;$('#ecs').disabled=false;$('#ecm').classList.add('on');
+  setTimeout(()=>{const t=$('#ect');t.focus();t.setSelectionRange(t.value.length,t.value.length)},60);
+}
+function ecClose(){$('#ecm').classList.remove('on');EC=null}
+async function ecSave(){
+  if(!EC||muted())return;
+  const v=$('#ect').value.trim();if(!v){$('#ect').focus();return}
+  const e=EC,isR=e.kind=='reply',tbl=isR?'replies':'event_comments',own=isR?'author_id':'user_id';
+  const cur=(isR?S.reps:S.eventComments.get(S.evActiveId)||[]).find(x=>String(x.id)==e.id);
+  if(!cur||v===cur.body){ecClose();return}
+  const b=$('#ecs');b.disabled=true;const now=new Date().toISOString();
+  const upd=o=>sb.from(tbl).update(o).eq('id',e.id).eq(own,S.user.id).select('id');
+  let r=await upd({body:v,edited_at:now});
+  if(r.error&&/edited_at/.test(r.error.message||''))r=await upd({body:v});   // before comment-edit.sql has been run
+  b.disabled=false;
+  if(r.error||!r.data||!r.data.length){toast(r.error?errMsg(r.error):"Couldn't save that edit");return}
+  cur.body=v;cur.edited_at=now;ecClose();
+  if(isR)renderThread();else if(S.evActiveId&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
+  toast('Saved');
+}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
   if(muted())return;
