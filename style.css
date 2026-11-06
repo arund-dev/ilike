@@ -1072,3 +1072,14 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .cc{position:fixed;z-index:200;padding:3px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);font:700 12px/1.5 system-ui,sans-serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .cc[hidden]{display:none}
 .cc.low{border-color:#e5484d;color:#e5484d}
+
+/* @mentions */
+.mn{color:var(--brand);font-weight:600;text-decoration:none}
+.mn:hover{text-decoration:underline}
+.mnp{position:fixed;z-index:220;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.28);overflow:hidden}
+.mnp[hidden]{display:none}
+.mnr{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.mnr.on,.mnr:hover{background:var(--line)}
+.mnr span{display:flex;flex-direction:column;min-width:0}
+.mnr b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mnr i{font-style:normal;font-size:12px;opacity:.65}
