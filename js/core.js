@@ -28,19 +28,25 @@ S.ticketQuantities={ga:1,vip:0,early:0};
 S.ticketPrices={ga:15,vip:35,early:10};
 
 const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-// Post and reply text: links and #topics become tappable (text is escaped first, only http/https links are allowed)
-const RICH_RE=/(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)|(^|[^\p{L}\p{N}_&\/])#([\p{L}\p{N}_]{2,30})(?![\p{L}\p{N}_])/gu;
-function rich(src){
+// Post and reply text: links, #topics and @mentions become tappable (text is escaped first, only http/https links are allowed)
+// lite = no #topic links (used in chats and comments)
+const RICH_RE=/(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)|(^|[^\p{L}\p{N}_&\/])#([\p{L}\p{N}_]{2,30})(?![\p{L}\p{N}_])|(^|[^\p{L}\p{N}_&\/.@])@([A-Za-z0-9_.]{3,20})(?![A-Za-z0-9_])/gu;
+function rich(src,lite){
   const s=String(src??'');let out='',i=0,m;RICH_RE.lastIndex=0;
   while((m=RICH_RE.exec(s))){
-    out+=esc(s.slice(i,m.index));
+    out+=esc(s.slice(i,m.index));i=RICH_RE.lastIndex;
     if(m[1]){
       let u=m[1],tail='';const t=u.match(/[.,!?;:)\]'"]+$/);
       if(t){tail=t[0];u=u.slice(0,-tail.length)}
       const href=/^www\./i.test(u)?'https://'+u:u,txt=u.replace(/^https?:\/\//i,'').replace(/^www\./i,''),disp=txt.length>38?txt.slice(0,37)+'…':txt;
       out+=`<a class="tl" href="${esc(href)}" target="_blank" rel="noopener noreferrer nofollow ugc" onclick="event.stopPropagation()">${esc(disp)}</a>`+esc(tail);
-    }else out+=esc(m[2])+`<a class="ht" href="#" role="button" onclick="event.stopPropagation();event.preventDefault();hashSearch('${m[3]}')">#${esc(m[3])}</a>`;
-    i=RICH_RE.lastIndex;
+    }else if(m[3]){
+      out+=lite?esc(m[0]):esc(m[2])+`<a class="ht" href="#" role="button" onclick="event.stopPropagation();event.preventDefault();hashSearch('${m[3]}')">#${esc(m[3])}</a>`;
+    }else{
+      let u=m[5],tail='';const t=u.match(/\.+$/);
+      if(t){tail=t[0];u=u.slice(0,-tail.length)}
+      out+=u.length<3?esc(m[0]):esc(m[4])+`<a class="mn" href="#" role="button" onclick="event.stopPropagation();event.preventDefault();openUser('${u.toLowerCase()}')">@${esc(u)}</a>`+esc(tail);
+    }
   }
   return out+esc(s.slice(i));
 }

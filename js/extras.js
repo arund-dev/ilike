@@ -202,3 +202,78 @@ document.addEventListener('focusin',e=>ccShow(e.target));
 document.addEventListener('focusout',ccHide);
 document.addEventListener('click',()=>setTimeout(()=>ccShow(document.activeElement),0));   // e.g. after Send clears the box
 document.addEventListener('scroll',()=>{if(ccEl&&!ccEl.hidden)ccShow(document.activeElement)},true);
+
+// ---------- @mentions: tap a @name to open that profile, and a people picker while typing ----------
+async function openUser(u){
+  const r=await sb.from('profiles').select('id').eq('username',String(u).toLowerCase()).maybeSingle();
+  if(r.error||!r.data){toast('No one has that username');return}
+  openProfile(r.data.id);
+}
+// fields that take mentions: new post, edit post, replies, event comments, event chat, circle chat (not direct messages)
+const MN_IDS=new Set(['txt','edt','rin','ecin','ev-chat-in','mi']);
+const mnOk=t=>!!t&&MN_IDS.has(t.id)&&(t.id!='mi'||S.room!=null);
+let mnEl=null,mnSt=null,mnTok=0,mnTimer=0;
+function mnToken(t){
+  const pos=t.selectionStart;if(pos==null||pos!==t.selectionEnd)return null;
+  const m=/(^|[\s(])@([A-Za-z0-9_.]{0,20})$/.exec(t.value.slice(0,pos));
+  return m?{q:m[2],start:pos-m[2].length-1,end:pos}:null;
+}
+async function mnSearch(q){
+  const cols='id,username,display_name,avatar_url';let r;
+  if(q)r=await sb.from('profiles').select(cols).or(`username.ilike.${q}%,display_name.ilike.%${q}%`).neq('id',S.user.id).limit(6);
+  else{   // just "@": suggest people you follow
+    const ids=[...S.fol].slice(0,6);if(!ids.length)return[];
+    r=await sb.from('profiles').select(cols).in('id',ids).limit(6);
+  }
+  if(r.error)return[];
+  r.data.forEach(p=>{S.names[p.id]=p.display_name;if(p.avatar_url)S.avs[p.id]=p.avatar_url});
+  return r.data.filter(p=>p.username&&!bl(p.id));
+}
+function mnHide(){mnSt=null;mnTok++;if(mnEl)mnEl.hidden=true}
+function mnUpdate(t){
+  if(!mnOk(t)){mnHide();return}
+  const k=mnToken(t);if(!k){mnHide();return}
+  mnSt={t,k,sel:0,rows:mnSt&&mnSt.t===t?mnSt.rows:[]};
+  clearTimeout(mnTimer);const tok=++mnTok;
+  mnTimer=setTimeout(async()=>{
+    const rows=await mnSearch(k.q);
+    if(tok!==mnTok||!mnSt)return;
+    mnSt.rows=rows;mnSt.sel=0;mnDraw();
+  },k.q?150:0);
+  mnDraw();
+}
+function mnDraw(){
+  const s=mnSt;
+  if(!s||!s.rows.length){if(mnEl)mnEl.hidden=true;return}
+  if(!mnEl){
+    mnEl=document.createElement('div');mnEl.className='mnp';mnEl.setAttribute('role','listbox');document.body.appendChild(mnEl);
+    mnEl.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-i]');if(!b)return;e.preventDefault();mnPick(+b.dataset.i)});   // keeps the keyboard open
+  }
+  mnEl.innerHTML=s.rows.map((p,i)=>`<button type="button" class="mnr ${i==s.sel?'on':''}" role="option" data-i="${i}">${av(p.id,'sm')}<span><b>${esc(p.display_name||p.username)}</b><i>@${esc(p.username)}</i></span></button>`).join('');
+  mnEl.hidden=false;
+  const r=s.t.getBoundingClientRect(),h=mnEl.offsetHeight,w=mnEl.offsetWidth;
+  let top=r.top-h-8;if(top<8)top=Math.min(r.bottom+8,innerHeight-h-8);
+  mnEl.style.top=Math.max(8,top)+'px';
+  mnEl.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
+}
+function mnPick(i){
+  const s=mnSt;if(!s||!s.rows[i])return;
+  const t=s.t,v=t.value,ins='@'+s.rows[i].username+' ',next=v.slice(0,s.k.start)+ins+v.slice(s.k.end);
+  if(t.maxLength>0&&next.length>t.maxLength){toast('Not enough room for that name');return}
+  t.value=next;const c=s.k.start+ins.length;t.setSelectionRange(c,c);t.focus();
+  mnHide();t.dispatchEvent(new Event('input',{bubbles:true}));
+}
+document.addEventListener('input',e=>mnUpdate(e.target));
+document.addEventListener('keyup',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key))mnUpdate(e.target)});
+document.addEventListener('click',e=>{if(!e.target.closest('.mnp'))setTimeout(()=>mnUpdate(document.activeElement),0)});
+document.addEventListener('focusout',()=>setTimeout(()=>{if(!mnOk(document.activeElement))mnHide()},0));
+document.addEventListener('scroll',()=>{if(mnSt)mnDraw()},true);
+document.addEventListener('keydown',e=>{   // desktop: arrows / Enter / Tab / Esc work on the list
+  if(!mnSt||!mnEl||mnEl.hidden||!mnSt.rows.length)return;
+  const n=mnSt.rows.length,k=e.key;
+  if(k=='ArrowDown'||k=='ArrowUp'){mnSt.sel=(mnSt.sel+(k=='ArrowDown'?1:n-1))%n;mnDraw()}
+  else if(k=='Enter'||k=='Tab')mnPick(mnSt.sel);
+  else if(k=='Escape')mnHide();
+  else return;
+  e.preventDefault();e.stopPropagation();
+},true);

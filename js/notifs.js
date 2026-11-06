@@ -5,10 +5,12 @@ async function notifMeta(list){
   if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);const got=new Set((r.data||[]).map(x=>x.id));(r.data||[]).forEach(x=>S.nposts[x.id]=x.body);if(!r.error)need.forEach(id=>{if(!got.has(id))S.nposts[id]=null})}
 }
 const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id);if(!p&&S.nposts[n.post_id]===null)return 'This post was deleted';const b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
-const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':n.type=='mention'?'mentioned you':'started following you';
+const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':n.type=='mention'?(n.ref_type=='circle'?'mentioned you in a circle chat':n.ref_type=='event_chat'?'mentioned you in an event chat':n.ref_type=='event_comment'?'mentioned you in an event comment':'mentioned you'):'started following you';
 async function loadNotifs(){
   const lim=S.nLimit||40;
-  const r=await sb.from('notifications').select('id,type,post_id,actor_id,created_at,read_at').order('created_at',{ascending:false}).limit(lim);
+  const nc='id,type,post_id,actor_id,created_at,read_at';
+  let r=await sb.from('notifications').select(nc+',ref_type,ref_id').order('created_at',{ascending:false}).limit(lim);
+  if(r.error)r=await sb.from('notifications').select(nc).order('created_at',{ascending:false}).limit(lim);   // before mentions.sql has been run
   if(r.error)return;
   S.nMore=r.data.length>=lim;
   await notifMeta(r.data);S.notifs=r.data.filter(n=>!bl(n.actor_id));updateBadges();
@@ -18,9 +20,9 @@ function ngroups(){
   const g=[],idx=new Map();
   for(const n of (S.nf=='mentions'?S.notifs.filter(n=>n.type=='mention'):S.notifs)){
     const day=n.type=='follow'?new Date(n.created_at).toDateString():'';
-    const k=n.type+'|'+(n.post_id||'')+'|'+day;
+    const k=n.type+'|'+(n.post_id||'')+'|'+(n.ref_type||'')+(n.ref_id||'')+'|'+day;
     let x=idx.get(k);
-    if(!x){x={type:n.type,post_id:n.post_id,items:[],actors:[]};idx.set(k,x);g.push(x)}
+    if(!x){x={type:n.type,post_id:n.post_id,ref_type:n.ref_type,ref_id:n.ref_id,items:[],actors:[]};idx.set(k,x);g.push(x)}
     x.items.push(n);if(!x.actors.includes(n.actor_id))x.actors.push(n.actor_id);
   }
   return g;
@@ -52,8 +54,13 @@ async function openNg(i){
   const g=S.ng&&S.ng[i];if(!g)return;
   markIds(g.items.filter(n=>!n.read_at).map(n=>n.id));
   if(g.type=='follow'){g.actors.length>1?openFollows(S.user.id,'ers'):openProfile(g.actors[0]);return}
+  if(g.type=='mention'&&g.ref_type=='circle'){$('#nv').classList.remove('on');openChat(g.ref_id);return}
+  if(g.type=='mention'&&(g.ref_type=='event_chat'||g.ref_type=='event_comment')){
+    if(!S.evm.get(g.ref_id)){toast('That event is not available');return}
+    $('#nv').classList.remove('on');openEvent(g.ref_id);setEvTab(g.ref_type=='event_chat'?'chat':'comments');return;
+  }
   if(!(await ensurePost(g.post_id))){toast('This post was deleted');return}
-  g.type=='reply'?openThread(g.post_id,{actor:g.items[0].actor_id,at:g.items[0].created_at}):openPost(g.post_id);
+  g.type=='reply'||g.ref_type=='reply'?openThread(g.post_id,{actor:g.items[0].actor_id,at:g.items[0].created_at}):openPost(g.post_id);
 }
 async function onNotif(n){
   if(bl(n.actor_id))return;

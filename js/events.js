@@ -154,7 +154,7 @@ function renderEventFullscreen(){
     </div>`;
     }
   } else if(S.evTab==='comments'){
-    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${esc(c.body)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
+    const rows=comments.filter(c=>!S.blocked.has(c.user_id)).map(c=>`<div class="event-comment">${av(c.user_id,'sm')}<div class="grow"><div class="row" style="justify-content:space-between"><b>${esc(nm(c.user_id))}</b><span class="mute sm">${ago(c.created_at)}</span></div><div>${rich(c.body,1)}</div>${c.user_id==me||isMod()?`<button class="link sm danger" style="width:auto;padding:2px 0;text-align:left" onclick="delEventComment('${id}','${c.id}')">Delete</button>`:''}</div></div>`).join('')||'<div class="mute sm" style="text-align:center;padding:20px">No comments yet. Share your thoughts below!</div>';
     tabBody=`<div class="ev-tab-content">
       <div class="event-comment-list">${rows}</div>
       <div class="event-comment-form">
@@ -217,7 +217,7 @@ const evChatLabel=id=>{const n=S.evUnread.get(id)||0,c=(S.evChats.get(id)||[]).l
 function evChatRows(id){
   const me=S.user.id,list=(S.evChats.get(id)||[]).filter(m=>!S.blocked.has(m.user_id));
   return list.length
-    ?list.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${esc(m.body)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join('')
+    ?list.map(m=>`<div class="ev-chat-msg ${m.user_id===me?'me':''}">${m.user_id!==me?av(m.user_id,'sm'):''}<div class="ev-chat-bubble">${m.user_id!==me?`<span class="ev-chat-author" style="color:${ac(m.user_id)}">${esc(nm(m.user_id))}${rb(m.user_id)}</span>`:''}${rich(m.body,1)}<span class="ev-chat-time">${tm(m.created_at)}</span></div></div>`).join('')
     :`<div class="empty" style="margin:auto"><b>No messages in event chat yet</b><div class="sm">Say hi to everyone attending!</div></div>`;
 }
 // Updates only the message list, so a message arriving never wipes what you are typing.
