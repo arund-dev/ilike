@@ -31,18 +31,35 @@ const skProf=()=>`<div class="pfh sk" aria-hidden="true"><span class="av big sk-
 
 // ---------- Drafts ----------
 const dKey=()=>'il-draft-'+(S.user?.id||'');
-const rdKey=()=>'il-rdraft-'+(S.user?.id||'');
+// Unsent comments and replies are kept on this device for 24 hours, then dropped
+const DRAFT_TTL=24*60*60*1000;
+const cdKey=()=>'il-cdraft-'+(S.user?.id||'');
+function cdPut(o){try{localStorage.setItem(cdKey(),JSON.stringify(o))}catch(e){}}
+function cdAll(){
+  let o={};try{o=JSON.parse(localStorage.getItem(cdKey())||'{}')||{}}catch(e){}
+  const n=Date.now();let ch=false;
+  for(const k in o)if(!o[k]||n-o[k].t>DRAFT_TTL){delete o[k];ch=true}
+  if(ch)cdPut(o);return o;
+}
+function cdGet(k){const d=cdAll()[k];return d?d.v:''}
+function cdSet(k,v){
+  const o=cdAll();
+  if((v||'').trim())o[k]={v,t:Date.now()};else delete o[k];
+  const ks=Object.keys(o);if(ks.length>30)delete o[ks[0]];
+  cdPut(o);
+}
 function setSel(el,v){if(v&&[...el.options].some(o=>o.value==v))el.value=v}
 function saveDraft(){
   const t=$('#txt').value;
   try{
-    if(t.trim())localStorage.setItem(dKey(),JSON.stringify({t,a:$('#sel').value,b:$('#sel2').value}));
+    if(t.trim())localStorage.setItem(dKey(),JSON.stringify({t,a:$('#sel').value,b:$('#sel2').value,ts:Date.now()}));
     else localStorage.removeItem(dKey());
   }catch(e){}
   $('#pdis').hidden=!t.trim();
 }
 function restoreDraft(){
   let d=null;try{d=JSON.parse(localStorage.getItem(dKey())||'null')}catch(e){}
+  if(d&&d.ts&&Date.now()-d.ts>DRAFT_TTL){clearDraft();d=null}   // older than 24 h
   if(d&&d.t&&!$('#txt').value){
     $('#txt').value=d.t;setSel($('#sel'),d.a);setSel($('#sel2'),d.b);toast('Draft restored');
   }
@@ -53,15 +70,7 @@ function discardDraft(){confirmBox('Discard this draft?','Discard',()=>{$('#txt'
 $('#txt')?.addEventListener('input',saveDraft);
 $('#sel')?.addEventListener('change',saveDraft);
 $('#sel2')?.addEventListener('change',saveDraft);
-function rdGet(){try{return JSON.parse(localStorage.getItem(rdKey())||'{}')||{}}catch(e){return{}}}
-function rdSet(id,v){
-  try{
-    const o=rdGet();
-    if((v||'').trim())o[id]=v;else delete o[id];
-    const k=Object.keys(o);if(k.length>20)delete o[k[0]];
-    localStorage.setItem(rdKey(),JSON.stringify(o));
-  }catch(e){}
-}
+function rdSet(id,v){cdSet('r:'+id,v)}
 function saveRD(){if(S.th)rdSet(S.th,$('#rin').value)}
 
 async function refreshAll(){
@@ -161,3 +170,35 @@ function updateThemeColor(){
   const m=document.querySelector('meta[name="theme-color"]');
   if(m&&c)m.setAttribute('content',c);
 }
+
+// ---------- event comment / chat drafts (same 24 h rule) ----------
+document.addEventListener('input',e=>{
+  const t=e.target;if(!S.evActiveId)return;
+  if(t.id=='ecin')cdSet('ec:'+S.evActiveId,t.value);
+  else if(t.id=='ev-chat-in')cdSet('ev:'+S.evActiveId,t.value);
+});
+function evDraftFill(id){
+  const a=$('#ecin'),b=$('#ev-chat-in');
+  if(a&&!a.value)a.value=cdGet('ec:'+id);
+  if(b&&!b.value)b.value=cdGet('ev:'+id);
+}
+
+// ---------- "N left" counter when 50 or fewer characters remain ----------
+const CC_IDS=new Set(['txt','edt','rin','ecin','peb']);   // posts, edit post, replies, event comments, bio
+let ccEl=null;
+function ccHide(){if(ccEl)ccEl.hidden=true}
+function ccShow(t){
+  if(!t||!CC_IDS.has(t.id)||!(t.maxLength>0)){ccHide();return}
+  const left=t.maxLength-t.value.length;
+  if(left>50){ccHide();return}
+  if(!ccEl){ccEl=document.createElement('div');ccEl.className='cc';ccEl.setAttribute('aria-live','polite');document.body.appendChild(ccEl)}
+  ccEl.textContent=left+' left';ccEl.classList.toggle('low',left<=10);ccEl.hidden=false;
+  const r=t.getBoundingClientRect();
+  ccEl.style.top=(r.top>44?r.top-30:r.bottom+6)+'px';
+  ccEl.style.left=Math.max(8,r.right-ccEl.offsetWidth-6)+'px';
+}
+document.addEventListener('input',e=>ccShow(e.target));
+document.addEventListener('focusin',e=>ccShow(e.target));
+document.addEventListener('focusout',ccHide);
+document.addEventListener('click',()=>setTimeout(()=>ccShow(document.activeElement),0));   // e.g. after Send clears the box
+document.addEventListener('scroll',()=>{if(ccEl&&!ccEl.hidden)ccShow(document.activeElement)},true);

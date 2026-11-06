@@ -203,7 +203,7 @@ function renderEventFullscreen(){
     
     ${tabBody}
   `;
-  restoreInputs(evKeep);
+  restoreInputs(evKeep);evDraftFill(id);
   if(S.evTab==='chat'){const sc=$('#ev-chat-list');if(sc)sc.scrollTop=sc.scrollHeight}
 }
 
@@ -248,7 +248,7 @@ async function sendEventChat(id){
   const r=await sb.from('event_messages').insert({event_id:id,user_id:S.user.id,body:text}).select('id,event_id,user_id,body,created_at').single();
   inEl.disabled=false;
   if(r.error){toast(evLiveError(r.error));inEl.focus();return}   // your text stays in the box
-  inEl.value='';
+  inEl.value='';cdSet('ev:'+id,'');
   const list=S.evChats.get(id)||[];
   if(!list.some(x=>x.id===r.data.id))list.push(r.data);
   S.evChats.set(id,list);
@@ -359,6 +359,7 @@ async function sendEventComment(id){
   const r=await sb.from('event_comments').insert({event_id:id,user_id:S.user.id,body}).select().single();
   input.disabled=false;
   if(r.error){toast(eventCommentsError(r.error));input.focus();return}
+  input.value='';cdSet('ec:'+id,'');   // sent: empty the box before the list redraws
   const comments=S.eventComments.get(id)||[];comments.push(r.data);S.eventComments.set(id,comments);
   if(S.evActiveId===id&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();
 }

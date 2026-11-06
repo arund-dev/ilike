@@ -3,10 +3,16 @@
 document.addEventListener('click',e=>{
   const c=e.target.closest&&e.target.closest('article.card[data-pi]');
   if(!c||c.closest('#th'))return;
+  const sel=getSelection();if(sel&&!sel.isCollapsed&&sel.toString().trim()&&c.contains(sel.anchorNode))return;   // selecting text is not a tap
   const it=e.target.closest('button,a,input,textarea,select,img,[onclick],[data-zoom]');
   if(it&&it!==c&&c.contains(it))return;
   openThread(c.dataset.pi);
 });
+// tapping a #topic opens Discover searching for it
+function hashSearch(tag){
+  closeThread();show('find');
+  const q=$('#q');if(q){q.value='#'+tag;findTab()}
+}
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ')return;
   const c=e.target;if(!c.matches||!c.matches('article.card[data-pi]')||c.closest('#th'))return;
@@ -25,7 +31,7 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs ${layCls(p.imgs.length,p.layout)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${esc(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${rich(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
@@ -185,7 +191,7 @@ function delPost(id){
 }
 
 // ---------- Replies ----------
-const rep=r=>`<div class="rep" data-rid="${r.id}"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${esc(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
+const rep=r=>`<div class="rep" data-rid="${r.id}"><span class="lk" onclick="openProfile('${r.author_id}')">${av(r.author_id)}</span><div class="grow"><div><b class="lk" onclick="openProfile('${r.author_id}')">${esc(nm(r.author_id))}${rb(r.author_id)}</b> <span class="mute sm">${tmk(r.created_at)}</span></div><div class="rbody">${rich(r.body)}</div></div><button class="ghost more" onclick="openAx('reply','${r.id}')" aria-label="More options">${DOTS}</button></div>`;
 function renderThread(){
   const p=findPost(S.th);if(!p){closeThread();return}
   $('#thp').innerHTML=post(p,{t:1});
@@ -220,7 +226,7 @@ function focusReply(){
   if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('rflash');setTimeout(()=>el.classList.remove('rflash'),2000)}
 }
 function moreReplies(){if(S.th)loadReplies(S.th,true)}
-function openThread(id,focus){S.th=String(id);S.thFocus=focus?{th:S.th,actor:focus.actor,at:focus.at,tries:0}:null;S.repOff=0;$('#rin').value=rdGet()[S.th]||'';$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');['#thl','#thcols','#thbody'].forEach(x=>{const e=$(x);if(e)e.scrollTop=0});loadReplies(S.th)}
+function openThread(id,focus){S.th=String(id);S.thFocus=focus?{th:S.th,actor:focus.actor,at:focus.at,tries:0}:null;S.repOff=0;$('#rin').value=cdGet('r:'+S.th);$('#rrt').hidden=!(S.rfail&&S.rfail.th==S.th);$('#th').classList.add('on');['#thl','#thcols','#thbody'].forEach(x=>{const e=$(x);if(e)e.scrollTop=0});loadReplies(S.th)}
 function closeThread(){S.th=null;S.thFocus=null;$('#rrt').hidden=true;$('#th').classList.remove('on')}
 async function sendReply(){
   const v=$('#rin').value.trim();if(!v||!S.th)return;
