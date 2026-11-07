@@ -18,7 +18,8 @@ function phRender(k){
     const tools=lock?'':`<span class="pgrip" onpointerdown="phDrag(event,'${k}',${i})" aria-label="Drag to reorder" title="Drag to reorder">⠿</span><button class="pcrop" onclick="phCrop('${k}',${i})" aria-label="Crop photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg></button><button onclick="phRm('${k}',${i})" aria-label="Remove photo">✕</button>`;
     return `<div class="ph ${s}"><img src="${esc(ph.prev)}"${fb} alt="Photo ${i+1}" draggable="false"><i class="pnum">${i+1}</i>${st}${tools}</div>`;
   }).join('');
-  $(I.add).hidden=n>=PH_MAX||lock;
+  $(I.add).hidden=n>=PH_MAX||lock||!!(k=='p'?S.vid:S.edVid);
+  const va=$('#vadd');if(k=='p'&&va)va.hidden=!!S.vid||lock||n>0;   // photos or one video, not both
   const c=$(I.cnt);if(c){c.hidden=!n;c.textContent=n+'/6 photos'}
   const cur=clampLay(n,k=='p'?(S.pLay||0):(S.eLay||0));
   if(k=='p')S.pLay=cur;else S.eLay=cur;
@@ -31,6 +32,7 @@ function phRender(k){
 function phSetLay(k,l){if(k=='p')S.pLay=l;else S.eLay=l;phRender(k)}
 
 async function phPick(inp,k){
+  if(k=='p'?S.vid:S.edVid){toast('A post can have photos or one video');inp.value='';return}
   const L=phList(k),room=PH_MAX-L.length,files=[...inp.files].slice(0,room);
   if(inp.files.length>room)toast('Up to 6 photos per post');inp.value='';
   if(!files.length)return;

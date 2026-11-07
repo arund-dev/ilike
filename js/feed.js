@@ -26,11 +26,24 @@ const layCls=(n,l)=>{n=Math.min(n,6);l=clampLay(n,l);return l?'x'+n+l:'n'+n};
 // casual post = no interest picked: shown to the poster and their followers
 const casual=p=>!p.tags.length&&(p.author_id==S.user.id||S.fol.has(p.author_id));
 function selUi(a,b){const x=$(b);if(x)x.style.display=$(a).value?'':'none'}
+// video posts: poster + play button in the feed, the player replaces it when tapped
+const fmtDur=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const vidBlock=p=>p.video_url?`<div class="pvid" data-v="${esc(p.video_url)}" onclick="event.stopPropagation();playVid(this)"><img src="${esc(thumb(p.video_poster)||'')}" alt="Video" loading="lazy" decoding="async"><button type="button" class="vplay" aria-label="Play video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>${p.video_secs?`<span class="vdur">${fmtDur(p.video_secs)}</span>`:''}</div>`:'';
+function playVid(el){
+  if(el.querySelector('video'))return;
+  document.querySelectorAll('.pvid video').forEach(x=>x.pause());
+  const v=document.createElement('video'),im=el.querySelector('img');
+  v.src=el.dataset.v;v.controls=true;v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
+  if(im&&im.src)v.poster=im.currentSrc||im.src;
+  v.onerror=()=>toast("This video can't be played on this device");
+  el.querySelectorAll('.vplay,.vdur').forEach(x=>x.remove());el.appendChild(v);
+  const pr=v.play();if(pr&&pr.catch)pr.catch(()=>{});
+}
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
-  const imgs=p.imgs&&p.imgs.length?`<div class="pimgs ${layCls(p.imgs.length,p.layout)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
+  const imgs=(p.imgs&&p.imgs.length?`<div class="pimgs ${layCls(p.imgs.length,p.layout)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'')+vidBlock(p);
   return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div>${p.body?`<p>${rich(p.body)}</p>`:''}<div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
@@ -87,9 +100,9 @@ async function publish(){
   if(S.posting)return;
   if(muted())return;
   const v=$('#txt').value.trim(),a=+$('#sel').value,b=a?+$('#sel2').value:0;   // interest is optional: empty = casual post
-  if(!v&&!S.photos.length){$('#txt').focus();return}   // a photo alone is enough
-  const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
-  const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos()};
+  if(!v&&!S.photos.length&&!S.vid){$('#txt').focus();return}   // a photo alone is enough
+  const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length||S.vid?'Uploading...':'Posting...';
+  const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos();vidRender('p')};
   let bad=0;
   for(const ph of S.photos){
     if(ph.url)continue;
@@ -98,9 +111,17 @@ async function publish(){
     renderPhotos();
   }
   if(bad){done();toast(bad==1?'1 photo failed. Tap Retry, or remove it.':bad+' photos failed. Tap Retry, or remove them.');return}
+  if(S.vid&&!S.vid.url){   // the video goes up after the photos; a retry skips what already uploaded
+    S.vid.st='up';vidRender('p');
+    try{
+      if(!S.vid.purl)S.vid.purl=await upload('post-images',S.vid.poster,S.vid.tb);
+      S.vid.url=await vidUpload(S.vid);S.vid.st='ok';
+    }catch(e){S.vid.st='fail';vidRender('p');done();toast('Video upload failed. Tap Retry, or remove it.');return}
+    vidRender('p');
+  }
   btn.textContent='Posting...';
   let data=S.pfail?await alreadySent('posts','author_id',{},v):null,error=null;
-  if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v,layout:clampLay(S.photos.length,S.pLay)}).select('id').single();data=r.data;error=r.error}
+  if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v,layout:clampLay(S.photos.length,S.pLay),...(S.vid?{video_url:S.vid.url,video_poster:S.vid.purl,video_secs:S.vid.secs}:{})}).select('id').single();data=r.data;error=r.error}
   if(error){S.pfail=true;done();toast(!v&&/check|constraint|violat/i.test(error.message||'')?'Photo-only posts need photo-only-posts.sql run in Supabase first.':errMsg(error)+' Tap Retry.');return}
   S.pfail=false;
   const tg=[...new Set([a,b].filter(Boolean))];
@@ -112,7 +133,7 @@ async function publish(){
     if(r.error){imgFail=true;rmFiles('post-images',urls)}
   }
   S.posting=false;btn.disabled=false;btn.textContent='Share';
-  S.photos.forEach(p=>p.blob&&URL.revokeObjectURL(p.prev));S.photos=[];S.pLay=0;renderPhotos();
+  S.photos.forEach(p=>p.blob&&URL.revokeObjectURL(p.prev));S.photos=[];S.pLay=0;renderPhotos();if(S.vid&&S.vid.prev)URL.revokeObjectURL(S.vid.prev);S.vid=null;vidRender('p');
   $('#txt').value='';clearDraft();closePost();S.F='All';
   await loadPosts();draw();$('#feed').scrollTop=0;
   toast(t.error?'Posted, but tags failed':imgFail?'Posted, but photos failed':'Posted');checkAch();
@@ -128,7 +149,7 @@ function closePm(){$('#pm').classList.remove('on')}
 function closeEd(){
   $('#ed').classList.remove('on');
   (S.edPh||[]).forEach(x=>{if(x.blob&&x.prev)URL.revokeObjectURL(x.prev);if(x.url&&!x.old)rmFiles('post-images',[x.url])});
-  S.edPh=[];
+  S.edPh=[];S.edVid=null;
 }
 function openEd(id){
   const p=findPost(id);if(!p)return;
@@ -138,12 +159,14 @@ function openEd(id){
   $('#edsel2').innerHTML='<option value="">Mix with another interest (optional)</option>'+o;
   $('#edsel').value=p.tags[0]??'';$('#edsel2').value=p.tags[1]??'';selUi('#edsel','#edsel2');
   S.edOrig=[...(p.imgs||[])];S.edPh=S.edOrig.map(u=>({url:u,full:u,prev:thumb(u),old:true}));S.eLay=+p.layout||0;
-  $('#edt').value=p.body;$('#eds').textContent='Save';phRender('e');$('#ed').classList.add('on');
+  $('#edt').value=p.body;S.edOrigVid=p.video_url?{url:p.video_url,poster:p.video_poster,secs:p.video_secs}:null;
+  S.edVid=S.edOrigVid?{...S.edOrigVid,old:true,prev:thumb(p.video_poster)}:null;
+  $('#eds').textContent='Save';phRender('e');vidRender('e');$('#ed').classList.add('on');
 }
 async function saveEd(){
   if(S.edBusy)return;
   const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=a?+$('#edsel2').value:0;
-  if(!v&&!S.edPh.length){$('#edt').focus();return}
+  if(!v&&!S.edPh.length&&!S.edVid){$('#edt').focus();return}
   S.edBusy=true;const btn=$('#eds');btn.disabled=true;btn.textContent='Saving...';
   const fin=()=>{S.edBusy=false;btn.disabled=false;btn.textContent='Save';phRender('e')};
   let bad=0;
@@ -155,8 +178,10 @@ async function saveEd(){
   }
   if(bad){fin();toast(bad==1?'1 photo failed. Tap Save to retry, or remove it.':bad+' photos failed. Tap Save to retry, or remove them.');return}
   const urls=S.edPh.map(x=>x.url),orig=S.edOrig||[];
-  const u=await sb.from('posts').update({body:v,layout:clampLay(urls.length,S.eLay)}).eq('id',id).eq('author_id',S.user.id);
+  const vidGone=!!S.edOrigVid&&!S.edVid;   // video removed in this edit
+  const u=await sb.from('posts').update({body:v,layout:clampLay(urls.length,S.eLay),...(vidGone?{video_url:null,video_poster:null,video_secs:null}:{})}).eq('id',id).eq('author_id',S.user.id);
   if(u.error){fin();toast(u.error.message);return}
+  if(vidGone){rmFiles('post-videos',[S.edOrigVid.url]);if(S.edOrigVid.poster)rmFiles('post-images',[S.edOrigVid.poster])}
   const want=[...new Set([a,b].filter(Boolean))];
   const unchanged=want.length===p.tags.length&&want.every(x=>p.tags.includes(x));
   if(!unchanged){
@@ -174,14 +199,14 @@ async function saveEd(){
     }
     if(imgFail)rmFiles('post-images',urls.filter(x=>!orig.includes(x)));
   }
-  S.edPh=[];S.edBusy=false;btn.disabled=false;btn.textContent='Save';$('#ed').classList.remove('on');
+  S.edPh=[];S.edVid=null;S.edBusy=false;btn.disabled=false;btn.textContent='Save';$('#ed').classList.remove('on');
   await loadPosts();draw();toast(imgFail?'Saved, but photos failed':'Saved');
 }
 function delPost(id){
   closePm();
   confirmBox('Delete this post?','Delete',()=>{
     const p=findPost(id);if(!p)return;
-    const imgs=[...(p.imgs||[])],ia=S.posts.findIndex(x=>x.id===id),ib=S.myPosts.findIndex(x=>x.id===id);
+    const imgs=[...(p.imgs||[])],vid=p.video_url?{u:p.video_url,p:p.video_poster}:null,ia=S.posts.findIndex(x=>x.id===id),ib=S.myPosts.findIndex(x=>x.id===id);
     undoable('Post deleted',()=>{
       S.posts=S.posts.filter(x=>x.id!==id);S.myPosts=S.myPosts.filter(x=>x.id!==id);
       if(S.th==String(id))closeThread();
@@ -194,6 +219,7 @@ function delPost(id){
         draw();toast(error?error.message:"Couldn't delete the post");return;
       }
       if(imgs.length)rmFiles('post-images',imgs);
+      if(vid){rmFiles('post-videos',[vid.u]);if(vid.p)rmFiles('post-images',[vid.p])}
       S.pm.delete(String(id));
     },()=>{
       if(ia>=0&&!S.posts.some(x=>x.id===id))S.posts.splice(Math.min(ia,S.posts.length),0,p);
@@ -321,7 +347,7 @@ function findTab(){
   $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);
   $('#fx').innerHTML=S.skel&&!S.posts.length?'<div class="gridx">'+'<div class="gt sk-b"></div>'.repeat(6)+'</div>':m.length?'<div class="gridx">'+m.map(p=>{
-    const img=p.imgs&&p.imgs[0];
+    const img=(p.imgs&&p.imgs[0])||p.video_poster;
     return `<button class="gt ${img?'has-img':''}" style="--c:${col(p.tags[0])}${img?`;background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.7)),url('${esc(thumb(img))}')`:''}" onclick="openPost('${p.id}')"><span class="ge">${em(p.tags[0])}</span><span class="gtx">${esc(p.body)}</span></button>`}).join('')+'</div>':'<div class="empty">Nothing found</div>';
 }
 function ftab(i){

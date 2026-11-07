@@ -92,7 +92,7 @@ async function getProfiles(ids){
   (a.data||[]).forEach(x=>{S.names[x.id]=x.display_name;S.roles[x.id]=x.role||'user';if(x.avatar_url)S.avs[x.id]=x.avatar_url;else delete S.avs[x.id]});
 }
 
-const COLS='id,body,created_at,edited_at,author_id,layout';
+const COLS='id,body,created_at,edited_at,author_id,layout,video_url,video_poster,video_secs';
 const FEED_PAGE=20;   // posts loaded at start and on each "scroll to the end" (was 50)
 async function replyCounts(ids){
   const m=new Map(),c=await sb.from('posts').select('id,replies(count)').in('id',ids);
