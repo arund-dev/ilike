@@ -69,3 +69,70 @@ function vidRm(k){
   if(v.url&&!v.old){rmFiles('post-videos',[v.url]);if(v.purl)rmFiles('post-images',[v.purl])}   // already uploaded by an earlier attempt
   vidSet(k,null);vidRender(k);phRender(k);
 }
+
+// ---------- videos in the feed: play while on screen, pause when scrolled away ----------
+// Autoplay is muted (browsers require it); if you unmute one, the next ones start with sound.
+// A video you pause yourself stays paused for 1 minute. If you scroll away and come back after a minute, the pause is forgotten and it starts again from the beginning.
+const VID_HOLD_MS=60*1000;
+function vidMake(el){
+  const v=document.createElement('video'),im=el.querySelector('img');
+  v.src=el.dataset.v;v.controls=true;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.muted=!S.vSound;
+  if(im&&im.currentSrc)v.poster=im.currentSrc;   // thumbnail shows inside the player until the first frame
+  v.addEventListener('pause',()=>{if(v._sys){v._sys=false;return}if(!v.ended)el._up=Date.now()});   // paused by hand
+  v.addEventListener('play',()=>{el._up=0});
+  v.addEventListener('volumechange',()=>{if(v._vol){v._vol=false;return}S.vSound=!v.muted});
+  v.addEventListener('error',()=>{vidReset(el);el._noAuto=true;toast("This video can't be played on this device")});
+  el.classList.add('playing');el.appendChild(v);
+  return v;
+}
+function vidPlay(el,v){
+  const pr=v.play();
+  if(pr&&pr.catch)pr.catch(()=>{
+    if(!v.muted){v._vol=true;v.muted=true;v.play().catch(()=>{vidReset(el);el._noAuto=true})}   // sound not allowed: try muted
+    else{vidReset(el);el._noAuto=true}   // autoplay blocked: poster and play button stay for a tap
+  });
+}
+function vidPause(el){const v=el.querySelector('video');if(v&&!v.paused){v._sys=true;v.pause()}}
+function vidReset(el){
+  const v=el.querySelector('video');
+  if(v){v._sys=true;v.pause();v.removeAttribute('src');v.remove()}
+  el.classList.remove('playing');
+}
+function vidAuto(el){
+  if(el._noAuto)return;
+  const v0=el.querySelector('video'),away=el._left?Date.now()-el._left:0;
+  el._left=0;
+  if(away>=VID_HOLD_MS){el._up=0;if(v0)v0.currentTime=0}   // scrolled away for a minute: forget the pause and start over
+  else if(el._up&&Date.now()-el._up<VID_HOLD_MS)return;     // you paused it less than a minute ago
+  el._up=0;
+  const v=v0||vidMake(el);
+  if(v.paused&&v.src)vidPlay(el,v);
+}
+function playVid(el){   // tap on the poster or its play button
+  if(el.classList.contains('playing'))return;
+  el._noAuto=false;el._up=0;
+  const v=vidMake(el);v.muted=false;S.vSound=true;
+  document.querySelectorAll('.pvid').forEach(x=>{if(x!==el)vidPause(x)});
+  vidPlay(el,v);
+}
+function vidTick(){
+  const list=[...document.querySelectorAll('.pvid')];if(!list.length)return;
+  const layer=document.querySelector('.mod.on,.ov.on'),vh=innerHeight;
+  let best=null,bd=1e9;
+  list.forEach(el=>{
+    const r=el.getBoundingClientRect();
+    const ok=document.visibilityState!='hidden'&&el.offsetParent&&r.height>0&&(!layer||el.closest('.mod.on,.ov.on'));   // behind a panel counts as hidden
+    el._ratio=ok?Math.max(0,Math.min(r.bottom,vh)-Math.max(r.top,0))/r.height:0;
+    if(el._ratio>=.6){const d=Math.abs((r.top+r.bottom)/2-vh/2);if(d<bd){bd=d;best=el}}
+  });
+  list.forEach(el=>{
+    if(el===best)vidAuto(el);
+    else{vidPause(el);if(el.querySelector('video')&&!el._left)el._left=Date.now()}   // remember when it left the screen
+  });
+}
+let vtRaf=0;
+function vidTickSoon(){if(!vtRaf)vtRaf=requestAnimationFrame(()=>{vtRaf=0;vidTick()})}
+document.addEventListener('scroll',vidTickSoon,true);
+addEventListener('resize',vidTickSoon);
+document.addEventListener('visibilitychange',vidTickSoon);
+new MutationObserver(vidTickSoon).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});   // feed redraws, panels opening and closing

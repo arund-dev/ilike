@@ -26,19 +26,9 @@ const layCls=(n,l)=>{n=Math.min(n,6);l=clampLay(n,l);return l?'x'+n+l:'n'+n};
 // casual post = no interest picked: shown to the poster and their followers
 const casual=p=>!p.tags.length&&(p.author_id==S.user.id||S.fol.has(p.author_id));
 function selUi(a,b){const x=$(b);if(x)x.style.display=$(a).value?'':'none'}
-// video posts: poster + play button in the feed, the player replaces it when tapped
+// video posts: poster + play button; playback (autoplay while on screen) lives in video.js
 const fmtDur=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const vidBlock=p=>p.video_url?`<div class="pvid" data-v="${esc(p.video_url)}" onclick="event.stopPropagation();playVid(this)"><img src="${esc(thumb(p.video_poster)||'')}" alt="Video" loading="lazy" decoding="async"><button type="button" class="vplay" aria-label="Play video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>${p.video_secs?`<span class="vdur">${fmtDur(p.video_secs)}</span>`:''}</div>`:'';
-function playVid(el){
-  if(el.querySelector('video'))return;
-  document.querySelectorAll('.pvid video').forEach(x=>x.pause());
-  const v=document.createElement('video'),im=el.querySelector('img');
-  v.src=el.dataset.v;v.controls=true;v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
-  if(im&&im.src)v.poster=im.currentSrc||im.src;
-  v.onerror=()=>toast("This video can't be played on this device");
-  el.querySelectorAll('.vplay,.vdur').forEach(x=>x.remove());el.appendChild(v);
-  const pr=v.play();if(pr&&pr.catch)pr.catch(()=>{});
-}
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
