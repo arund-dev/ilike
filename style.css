@@ -1102,3 +1102,4 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .vtile .vplay.mini svg{width:26px;height:26px}
 .vtile .vrm{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;cursor:pointer}
 .vtile .vst{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.55);color:#fff;font-weight:800;border:0}
+.pvid.playing img,.pvid.playing .vplay,.pvid.playing .vdur{display:none}
