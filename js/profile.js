@@ -154,7 +154,21 @@ function ask(n){
   confirmBox((on?'Remove ':'Add ')+iname(n)+(on?' from':' to')+(isArt(n)?' your artists?':' your interests?'),on?'Remove':'Add',()=>toggleInt(n));
 }
 async function toggleInt(n){
+  await flushUndo();
   const on=S.mine.has(n);
+  if(on){   // removing an interest / leaving a circle: Undo for 5 s, then it is saved
+    const apply=v=>{
+      v?S.mine.add(n):S.mine.delete(n);
+      S.cnt[n]=Math.max(0,(S.cnt[n]||0)+(v?1:-1));
+      draw();if($('#pk').classList.contains('on'))drawPk();
+      if(S.room===n){setBar();drawCircle()}
+    };
+    undoable('Removed '+iname(n),()=>apply(false),async()=>{
+      const r=await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n});
+      if(r.error){apply(true);toast(r.error.message)}
+    },()=>apply(true));
+    return;
+  }
   const r=on?await sb.from('user_interests').delete().match({user_id:S.user.id,interest_id:n}):await sb.from('user_interests').insert({user_id:S.user.id,interest_id:n});
   if(r.error){toast(r.error.message);return}
   on?S.mine.delete(n):S.mine.add(n);

@@ -31,7 +31,7 @@ function post(p,o){
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;
   const dots=DOTS;
   const imgs=p.imgs&&p.imgs.length?`<div class="pimgs ${layCls(p.imgs.length,p.layout)}">${p.imgs.slice(0,6).map(u=>timg(u)).join('')}</div>`:'';
-  return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div><p>${rich(p.body)}</p><div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
+  return `<article class="card" data-pi="${p.id}"${o.t?'':' tabindex="0"'}><div class="who"><span class="lk" onclick="openProfile('${p.author_id}')">${av(p.author_id)}</span><div class="grow"><b class="lk" onclick="openProfile('${p.author_id}')">${esc(nm(p.author_id))}${rb(p.author_id)}</b><div class="mute sm">${tmk(p.created_at)}${p.edited_at?' · edited':''}</div></div><button class="ghost more" onclick="${mine?`openPm('${p.id}')`:`openAx('post','${p.id}')`}" aria-label="More options">${dots}</button></div>${p.body?`<p>${rich(p.body)}</p>`:''}<div class="path">${p.tags.map(tgb).join('')}</div>${imgs}<div class="acts"><button class="like-btn ${on?'on':''}" onclick="same('${p.id}',this)" aria-label="Like">${ICO_HEART}</button>${o.t?'':`<button class="ghost ic" onclick="openThread('${p.id}')" aria-label="Reply">${ICO_REPLY}${p.rc?'<span>'+p.rc+'</span>':''}</button>`}<button class="ghost ic" onclick="share('${p.id}')" aria-label="Share">${ICO_SHARE}</button></div><div class="who2" onclick="openSames('${p.id}')">${sm(p)}</div></article>`;
 }
 const HP='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 const ICO_HEART=`<span class="hw"><svg class="ho" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><svg class="hf" viewBox="0 0 24 24" aria-hidden="true"><path d="${HP}"/></svg><i class="hr"></i></span>`;
@@ -87,7 +87,7 @@ async function publish(){
   if(S.posting)return;
   if(muted())return;
   const v=$('#txt').value.trim(),a=+$('#sel').value,b=a?+$('#sel2').value:0;   // interest is optional: empty = casual post
-  if(!v){$('#txt').focus();return}
+  if(!v&&!S.photos.length){$('#txt').focus();return}   // a photo alone is enough
   const btn=$('#shr');S.posting=true;btn.disabled=true;btn.textContent=S.photos.length?'Uploading...':'Posting...';
   const done=()=>{S.posting=false;btn.disabled=false;btn.textContent=S.pfail?'Retry':'Share';renderPhotos()};
   let bad=0;
@@ -101,7 +101,7 @@ async function publish(){
   btn.textContent='Posting...';
   let data=S.pfail?await alreadySent('posts','author_id',{},v):null,error=null;
   if(!data){const r=await sb.from('posts').insert({author_id:S.user.id,body:v,layout:clampLay(S.photos.length,S.pLay)}).select('id').single();data=r.data;error=r.error}
-  if(error){S.pfail=true;done();toast(errMsg(error)+' Tap Retry.');return}
+  if(error){S.pfail=true;done();toast(!v&&/check|constraint|violat/i.test(error.message||'')?'Photo-only posts need photo-only-posts.sql run in Supabase first.':errMsg(error)+' Tap Retry.');return}
   S.pfail=false;
   const tg=[...new Set([a,b].filter(Boolean))];
   const t=tg.length?await sb.from('post_interests').insert(tg.map(n=>({post_id:data.id,interest_id:n}))):{};
@@ -143,7 +143,7 @@ function openEd(id){
 async function saveEd(){
   if(S.edBusy)return;
   const id=S.edId,p=findPost(id),v=$('#edt').value.trim(),a=+$('#edsel').value,b=a?+$('#edsel2').value:0;
-  if(!v){$('#edt').focus();return}
+  if(!v&&!S.edPh.length){$('#edt').focus();return}
   S.edBusy=true;const btn=$('#eds');btn.disabled=true;btn.textContent='Saving...';
   const fin=()=>{S.edBusy=false;btn.disabled=false;btn.textContent='Save';phRender('e')};
   let bad=0;
@@ -179,14 +179,27 @@ async function saveEd(){
 }
 function delPost(id){
   closePm();
-  confirmBox('Delete this post?','Delete',async()=>{
-    const p=findPost(id),imgs=p?[...(p.imgs||[])]:[];
-    const{data,error}=await sb.from('posts').delete().eq('id',id).select('id');
-    if(error||!data||!data.length){toast(error?error.message:"Couldn't delete the post");return}
-    if(imgs.length)rmFiles('post-images',imgs);
-    S.pm.delete(String(id));if(S.th==String(id))closeThread();
-    S.posts=S.posts.filter(p=>p.id!==id);S.myPosts=S.myPosts.filter(p=>p.id!==id);
-    $('#pv').classList.remove('on');draw();toast('Deleted');
+  confirmBox('Delete this post?','Delete',()=>{
+    const p=findPost(id);if(!p)return;
+    const imgs=[...(p.imgs||[])],ia=S.posts.findIndex(x=>x.id===id),ib=S.myPosts.findIndex(x=>x.id===id);
+    undoable('Post deleted',()=>{
+      S.posts=S.posts.filter(x=>x.id!==id);S.myPosts=S.myPosts.filter(x=>x.id!==id);
+      if(S.th==String(id))closeThread();
+      $('#pv').classList.remove('on');draw();
+    },async()=>{
+      const{data,error}=await sb.from('posts').delete().eq('id',id).select('id');
+      if(error||!data||!data.length){
+        if(ia>=0&&!S.posts.some(x=>x.id===id))S.posts.splice(Math.min(ia,S.posts.length),0,p);
+        if(ib>=0&&!S.myPosts.some(x=>x.id===id))S.myPosts.splice(Math.min(ib,S.myPosts.length),0,p);
+        draw();toast(error?error.message:"Couldn't delete the post");return;
+      }
+      if(imgs.length)rmFiles('post-images',imgs);
+      S.pm.delete(String(id));
+    },()=>{
+      if(ia>=0&&!S.posts.some(x=>x.id===id))S.posts.splice(Math.min(ia,S.posts.length),0,p);
+      if(ib>=0&&!S.myPosts.some(x=>x.id===id))S.myPosts.splice(Math.min(ib,S.myPosts.length),0,p);
+      draw();
+    });
   });
 }
 
@@ -280,13 +293,30 @@ function delReply(id){
 // ---------- Discover ----------
 function mix(q){
   const b={like:[],might:[],new:[]};
-  S.posts.forEach(p=>{if((p.body+nm(p.author_id)+p.tags.map(iname).join()).toLowerCase().includes(q))b[rel(p,S.mine)].push(p)});
+  const vis=p=>p.tags.length||p.author_id==S.user.id||S.fol.has(p.author_id);   // casual posts only for the poster and followers
+  S.posts.forEach(p=>{if(vis(p)&&(p.body+nm(p.author_id)+p.tags.map(iname).join()).toLowerCase().includes(q))b[rel(p,S.mine)].push(p)});
+  if(q===sqQ)(S.sres||[]).forEach(p=>{if(vis(p)&&!S.posts.some(x=>x.id===p.id))b[rel(p,S.mine)].push(p)});   // matches found on the server
   const pat=['like','like','new','like','might','like','new','like','like','new'],u={like:0,might:0,new:0},o=[],total=b.like.length+b.might.length+b.new.length;
   for(let k=0;o.length<total;k++){const t=pat[k%pat.length];if(u[t]<b[t].length)o.push(b[t][u[t]++])}
   return o;
 }
+// Discover search also looks through every post, not only the ones already loaded
+let sqT=0,sqQ='';
+function searchPostsSoon(q){
+  if(q.length<2){clearTimeout(sqT);sqQ='';S.sres=[];return}
+  if(q===sqQ)return;
+  clearTimeout(sqT);sqQ=q;
+  sqT=setTimeout(async()=>{
+    if(q!==$('#q').value.toLowerCase())return;
+    const r=await sb.from('posts').select(COLS).ilike('body','%'+q.replace(/[\%_]/g,'\$&')+'%').order('created_at',{ascending:false}).limit(30);
+    if(r.error){sqQ='';return}
+    const rows=await hydrate(r.data);
+    if(q!==$('#q').value.toLowerCase())return;
+    S.sres=rows.filter(p=>!bl(p.author_id));findTab();
+  },350);
+}
 function findTab(){
-  const q=$('#q').value.toLowerCase();
+  const q=$('#q').value.toLowerCase();searchPostsSoon(q);
   $('#ppl').innerHTML=S.skel&&!S.people.length?skPerson().repeat(4):S.people.map(p=>({p,c:p.ids.filter(x=>S.mine.has(x))})).filter(o=>(o.p.name+o.p.ids.map(iname).join()).toLowerCase().includes(q)).sort((a,b)=>b.c.length-a.c.length).map(o=>`<div class="card row tapc" onclick="openProfile('${o.p.id}')">${av(o.p.id)}<div class="grow"><b>${esc(o.p.name)}${rb(o.p.id)}</b><div class="mute sm">${o.c.length?'You both like':'Into'}</div><div>${(o.c.length?o.c:o.p.ids.slice(0,2)).map(chip).join('')}</div></div><div class="acol"><button class="btn" onclick="event.stopPropagation();sayHi('${o.p.id}')"><span class="wave-btn">👋</span> Say hi</button><button class="btn off sbtn" style="margin:0" onclick="event.stopPropagation();toggleFollow('${o.p.id}')">${S.fol.has(o.p.id)?'Following ✓':'Follow'}</button></div></div>`).join('')||'<div class="empty">No one else here yet.<br>Invite a friend to see them.</div>';
   $('#rooms').innerHTML=[...S.ints].filter(i=>i.name.toLowerCase().includes(q)).sort((a,b)=>S.mine.has(b.id)-S.mine.has(a.id)).map(i=>`<button class="room" onclick="openChat(${i.id})"><span>${em(i.id)}</span>${esc(i.name)}<small>${S.cnt[i.id]||0} ${S.cnt[i.id]==1?'member':'members'}</small></button>`).join('')||'<div class="empty">No circles found</div>';
   const m=mix(q);

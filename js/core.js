@@ -127,6 +127,27 @@ function autoMore(btn,fn,root){
 }
 let toastT;
 function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
+// Undo toast: the change shows on screen at once, the real change is made after 5 s unless Undo is tapped
+let UD=null,udEl=null;
+function udHide(){if(udEl)udEl.classList.remove('on')}
+function undoable(msg,hide,commit,revert){
+  flushUndo();hide();
+  if(!udEl){
+    udEl=document.createElement('div');udEl.className='udt';udEl.setAttribute('role','status');
+    udEl.innerHTML='<span></span><button type="button">Undo</button>';
+    udEl.querySelector('button').onclick=()=>{if(!UD)return;const u=UD;UD=null;clearTimeout(u.t);udHide();u.revert()};
+    document.body.appendChild(udEl);
+  }
+  udEl.firstChild.textContent=msg;udEl.classList.add('on');
+  UD={commit,revert,t:setTimeout(()=>flushUndo(),5000)};
+}
+function flushUndo(){
+  if(!UD)return Promise.resolve();
+  const u=UD;UD=null;clearTimeout(u.t);udHide();
+  return Promise.resolve(u.commit());
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState=='hidden')flushUndo()});
+addEventListener('pagehide',()=>{flushUndo()});
 
 const postUrl=id=>location.origin+location.pathname+'#post='+id;
 const eventUrl=id=>location.origin+location.pathname+'#event='+id;

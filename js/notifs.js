@@ -4,7 +4,7 @@ async function notifMeta(list){
   const need=[...new Set(list.map(n=>n.post_id))].filter(id=>id&&!(id in S.nposts)&&!findPost(id));
   if(need.length){const r=await sb.from('posts').select('id,body').in('id',need);const got=new Set((r.data||[]).map(x=>x.id));(r.data||[]).forEach(x=>S.nposts[x.id]=x.body);if(!r.error)need.forEach(id=>{if(!got.has(id))S.nposts[id]=null})}
 }
-const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id);if(!p&&S.nposts[n.post_id]===null)return 'This post was deleted';const b=p?p.body:(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
+const nsnip=n=>{if(!n.post_id)return '';const p=findPost(n.post_id);if(!p&&S.nposts[n.post_id]===null)return 'This post was deleted';const b=p?(p.body||(p.imgs&&p.imgs.length?'Photo':'')):(S.nposts[n.post_id]||'');return b.length>80?b.slice(0,80)+'…':b};
 const ntext=n=>n.type=='same'?'liked your post':n.type=='reply'?'replied to your post':n.type=='mention'?(n.ref_type=='circle'?'mentioned you in a circle chat':n.ref_type=='event_chat'?'mentioned you in an event chat':n.ref_type=='event_comment'?'mentioned you in an event comment':'mentioned you'):'started following you';
 async function loadNotifs(){
   const lim=S.nLimit||40;
@@ -97,6 +97,7 @@ async function loadFollows(){
 }
 async function toggleFollow(id){
   id=String(id);if(id==S.user.id)return;
+  await flushUndo();
   const on=!S.fol.has(id);
   const set=v=>{
     v?S.fol.add(id):S.fol.delete(id);
@@ -104,10 +105,16 @@ async function toggleFollow(id){
     draw();
   };
   set(on);
-  const r=on?await sb.from('follows').insert({follower_id:S.user.id,following_id:id})
-            :await sb.from('follows').delete().match({follower_id:S.user.id,following_id:id});
-  if(r.error){set(!on);toast("Couldn't update that");return}
-  if(on){toast('Following '+nm(id));checkAch()}
+  if(!on){   // unfollow: Undo for 5 s, then it is saved
+    undoable('Unfollowed '+nm(id),()=>{},async()=>{
+      const r=await sb.from('follows').delete().match({follower_id:S.user.id,following_id:id});
+      if(r.error){set(true);toast("Couldn't update that")}
+    },()=>set(true));
+    return;
+  }
+  const r=await sb.from('follows').insert({follower_id:S.user.id,following_id:id});
+  if(r.error){set(false);toast("Couldn't update that");return}
+  toast('Following '+nm(id));checkAch();
 }
 function peopleSheet(title,ids){
   $('#slt').textContent=title;
