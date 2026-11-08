@@ -1109,3 +1109,6 @@ body:has(#pf.on) #pf-bd{opacity:1;visibility:visible;pointer-events:auto;transit
 .pvid.playing.paused .vplay{display:grid}
 .vmute{position:absolute;right:10px;bottom:10px;z-index:2;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.6);display:grid;place-items:center;cursor:pointer}
 .vmute svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vspin{display:none;position:absolute;inset:0;margin:auto;width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;box-shadow:0 0 0 6px rgba(0,0,0,.25);animation:vspin .8s linear infinite;z-index:3;pointer-events:none}
+.pvid.loading .vspin{display:block}
+@keyframes vspin{to{transform:rotate(360deg)}}
