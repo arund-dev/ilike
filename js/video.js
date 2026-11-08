@@ -94,13 +94,18 @@ function vidMake(el){
     v.muted=!S.vSound;   // S.vSound starts on: videos start with sound
     if(el.dataset.p)v.poster=el.dataset.p;
     if(s.pos){const p=s.pos;s.pos=0;v.addEventListener('loadedmetadata',()=>{try{v.currentTime=p}catch(e){}},{once:true})}
+    const spin=on=>{if(v._el)v._el.classList.toggle('loading',on)};   // circle while the video is loading or buffering
+    v.addEventListener('waiting',()=>{if(!v.paused)spin(true)});
+    v.addEventListener('stalled',()=>{if(!v.paused&&v.readyState<3)spin(true)});
+    v.addEventListener('canplay',()=>{if(!v.paused)spin(false)});
     v.addEventListener('pause',()=>{
+      spin(false);
       if(v._sys){v._sys=false;return}
       if(!v.isConnected||v.ended)return;   // taken off the page by a redraw: not a pause by hand
       vst(url).up=Date.now();if(v._el)v._el.classList.add('paused');
     });
     v.addEventListener('play',()=>{vst(url).up=0;if(v._el)v._el.classList.remove('paused')});
-    v.addEventListener('playing',()=>{if(v._el)v._el.classList.add('live')});   // first frame is showing: hide the poster
+    v.addEventListener('playing',()=>{spin(false);if(v._el)v._el.classList.add('live')});   // first frame is showing: hide the poster and the circle
     v.addEventListener('volumechange',()=>{vidIcon(v);if(v._vol){v._vol=false;return}S.vSound=!v.muted});
     v.addEventListener('error',()=>{const e=v._el;vst(url).noAuto=true;if(e)vidReset(e);else vidKill(v);toast("This video can't be played on this device")});
     VKEEP.set(url,v);
@@ -110,6 +115,9 @@ function vidMake(el){
   if(full)v.setAttribute('controlsList','nodownload noplaybackrate');else v.removeAttribute('controlslist');
   el.classList.add('playing');
   if(reuse&&v.readyState>=2)el.classList.add('live');
+  if(!(reuse&&v.readyState>=3&&!v.paused))el.classList.add('loading');
+  el.querySelectorAll('.vspin').forEach(b=>b.remove());
+  const sp=document.createElement('div');sp.className='vspin';el.appendChild(sp);
   if(v.paused&&s.up&&Date.now()-s.up<VID_HOLD_MS)el.classList.add('paused');
   el.appendChild(v);
   el.querySelectorAll('.vmute').forEach(b=>b.remove());
@@ -132,13 +140,15 @@ function vidPause(el){const v=el.querySelector('video');if(v&&!v.paused){v._sys=
 function vidReset(el){
   const v=el.querySelector('video');if(v){v.remove();vidKill(v)}
   el.querySelectorAll('.vmute').forEach(b=>b.remove());
-  el.classList.remove('playing','live','paused');
+  el.querySelectorAll('.vspin').forEach(b=>b.remove());
+  el.classList.remove('playing','live','paused','loading');
 }
 function vidAuto(el){
   const url=el.dataset.v,s=vst(url);
   if(s.noAuto)return;
   const kept=VKEEP.get(url),v0=el.querySelector('video')||(kept&&!kept.isConnected&&!kept._dead?kept:null);
-  if(!v0){   // start only after it has been the video in view for a moment (not while the feed is still redrawing or flying past)
+  if(!v0){   // start only after the page has loaded and it has been the video in view for a moment (not while the feed is still redrawing or flying past)
+    if(document.readyState!=='complete'){setTimeout(vidTickSoon,300);return}
     const now=Date.now();if(!el._since)el._since=now;
     if(now-el._since<250){setTimeout(vidTickSoon,280);return}
   }
@@ -183,5 +193,6 @@ let vtRaf=0;
 function vidTickSoon(){if(!vtRaf)vtRaf=requestAnimationFrame(()=>{vtRaf=0;vidTick()})}
 document.addEventListener('scroll',vidTickSoon,true);
 addEventListener('resize',vidTickSoon);
+addEventListener('load',vidTickSoon);
 document.addEventListener('visibilitychange',vidTickSoon);
 new MutationObserver(vidTickSoon).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});   // feed redraws, panels opening and closing
