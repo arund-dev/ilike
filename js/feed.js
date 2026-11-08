@@ -28,7 +28,7 @@ const casual=p=>!p.tags.length&&(p.author_id==S.user.id||S.fol.has(p.author_id))
 function selUi(a,b){const x=$(b);if(x)x.style.display=$(a).value?'':'none'}
 // video posts: poster + play button; playback (autoplay while on screen) lives in video.js
 const fmtDur=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
-const vidBlock=p=>p.video_url?`<div class="pvid" data-v="${esc(p.video_url)}" onclick="event.stopPropagation();playVid(this)"><img src="${esc(thumb(p.video_poster)||'')}" alt="Video" loading="lazy" decoding="async"><button type="button" class="vplay" aria-label="Play video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>${p.video_secs?`<span class="vdur">${fmtDur(p.video_secs)}</span>`:''}</div>`:'';
+const vidBlock=p=>p.video_url?`<div class="pvid" data-v="${esc(p.video_url)}" data-p="${esc(thumb(p.video_poster)||'')}" onclick="event.stopPropagation();playVid(this)"><img src="${esc(thumb(p.video_poster)||'')}" alt="Video" loading="lazy" decoding="async"><button type="button" class="vplay" aria-label="Play video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>${p.video_secs?`<span class="vdur">${fmtDur(p.video_secs)}</span>`:''}</div>`:'';
 function post(p,o){
   o=o||{};
   const on=p.sames.includes(S.user.id),mine=p.author_id==S.user.id;

@@ -1,6 +1,6 @@
 // iLike service worker: lets the app install and open instantly.
 // Bump VERSION when you want every device to drop its old cache.
-const VERSION='ilike-v54';
+const VERSION='ilike-v55';
 const IMG='ilike-img',IMG_MAX=250;   // photo store (kept across updates; trimmed by js/store.js and below)
 const SHELL=['./','index.html','style.css','js/catalog.js','js/core.js','js/store.js','js/auth.js','js/data.js','js/feed.js','js/photos.js','js/video.js','js/profile.js','js/settings.js','js/chat.js','js/notifs.js','js/members.js','js/events.js','js/tickets.js','js/extras.js','js/safety.js','js/moderation.js','js/legal.js','js/admin.js','js/main.js','manifest.webmanifest','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png'];
 const LIBS=['cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'];

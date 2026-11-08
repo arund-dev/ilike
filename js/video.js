@@ -70,52 +70,101 @@ function vidRm(k){
   vidSet(k,null);vidRender(k);phRender(k);
 }
 
-// ---------- videos in the feed: play while on screen, pause when scrolled away ----------
-// Autoplay is muted (browsers require it); if you unmute one, the next ones start with sound.
-// A video you pause yourself stays paused for 1 minute. If you scroll away and come back after a minute, the pause is forgotten and it starts again from the beginning.
+// ---------- videos in the feed ----------
+// Feed: plays with sound while on screen, pauses when scrolled away, only a mute button is shown, a tap pauses / resumes.
+// Opened post: the player's own controls (no download or playback speed).
+// Browsers may start a video muted until you have tapped something on the page; the mute button shows the real state.
+// A video you pause yourself stays paused for 1 minute. Scroll away and come back after a minute: the pause is forgotten and it starts from the beginning.
 const VID_HOLD_MS=60*1000;
+const VST=new Map(),VKEEP=new Map();   // per video link: pause / away times, and the player kept alive across feed redraws
+const vst=u=>{let s=VST.get(u);if(!s){s={up:0,left:0,noAuto:false,pos:0};VST.set(u,s)}return s};
+const VI_ON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const VI_OFF='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+function vidIcon(v){if(v._btn){v._btn.innerHTML=v.muted?VI_OFF:VI_ON;v._btn.setAttribute('aria-label',v.muted?'Unmute':'Mute')}}
+function vidKill(v){v._dead=true;v._sys=true;try{v.pause()}catch(e){}v.removeAttribute('src');VKEEP.delete(v._url)}
 function vidMake(el){
-  const v=document.createElement('video'),im=el.querySelector('img');
-  v.src=el.dataset.v;v.controls=true;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.muted=!S.vSound;
-  if(im&&im.currentSrc)v.poster=im.currentSrc;   // thumbnail shows inside the player until the first frame
-  v.addEventListener('pause',()=>{if(v._sys){v._sys=false;return}if(!v.ended)el._up=Date.now()});   // paused by hand
-  v.addEventListener('play',()=>{el._up=0});
-  v.addEventListener('volumechange',()=>{if(v._vol){v._vol=false;return}S.vSound=!v.muted});
-  v.addEventListener('error',()=>{vidReset(el);el._noAuto=true;toast("This video can't be played on this device")});
-  el.classList.add('playing');el.appendChild(v);
+  const url=el.dataset.v,full=!!el.closest('#th'),s=vst(url);
+  let v=VKEEP.get(url);
+  if(v&&(v.isConnected||v._dead))v=null;   // still on the page elsewhere, or broken: start a fresh one
+  const reuse=!!v;
+  if(!v){
+    v=document.createElement('video');v._url=url;
+    v.src=url;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
+    v.disablePictureInPicture=true;v.setAttribute('disableremoteplayback','');
+    v.muted=!S.vSound;   // S.vSound starts on: videos start with sound
+    if(el.dataset.p)v.poster=el.dataset.p;
+    if(s.pos){const p=s.pos;s.pos=0;v.addEventListener('loadedmetadata',()=>{try{v.currentTime=p}catch(e){}},{once:true})}
+    v.addEventListener('pause',()=>{
+      if(v._sys){v._sys=false;return}
+      if(!v.isConnected||v.ended)return;   // taken off the page by a redraw: not a pause by hand
+      vst(url).up=Date.now();if(v._el)v._el.classList.add('paused');
+    });
+    v.addEventListener('play',()=>{vst(url).up=0;if(v._el)v._el.classList.remove('paused')});
+    v.addEventListener('playing',()=>{if(v._el)v._el.classList.add('live')});   // first frame is showing: hide the poster
+    v.addEventListener('volumechange',()=>{vidIcon(v);if(v._vol){v._vol=false;return}S.vSound=!v.muted});
+    v.addEventListener('error',()=>{const e=v._el;vst(url).noAuto=true;if(e)vidReset(e);else vidKill(v);toast("This video can't be played on this device")});
+    VKEEP.set(url,v);
+  }
+  v._el=el;
+  v.controls=full;
+  if(full)v.setAttribute('controlsList','nodownload noplaybackrate');else v.removeAttribute('controlslist');
+  el.classList.add('playing');
+  if(reuse&&v.readyState>=2)el.classList.add('live');
+  if(v.paused&&s.up&&Date.now()-s.up<VID_HOLD_MS)el.classList.add('paused');
+  el.appendChild(v);
+  el.querySelectorAll('.vmute').forEach(b=>b.remove());
+  v._btn=null;
+  if(!full){   // feed: a mute button is the only control
+    const b=document.createElement('button');b.type='button';b.className='vmute';
+    b.onclick=e=>{e.stopPropagation();v.muted=!v.muted;S.vSound=!v.muted};
+    v._btn=b;el.appendChild(b);vidIcon(v);
+  }
   return v;
 }
 function vidPlay(el,v){
   const pr=v.play();
   if(pr&&pr.catch)pr.catch(()=>{
-    if(!v.muted){v._vol=true;v.muted=true;v.play().catch(()=>{vidReset(el);el._noAuto=true})}   // sound not allowed: try muted
-    else{vidReset(el);el._noAuto=true}   // autoplay blocked: poster and play button stay for a tap
+    if(!v.muted){v._vol=true;v.muted=true;v.play().catch(()=>{vst(el.dataset.v).noAuto=true;vidReset(el)})}   // sound not allowed yet: play muted
+    else{vst(el.dataset.v).noAuto=true;vidReset(el)}   // autoplay blocked: poster and play button stay for a tap
   });
 }
 function vidPause(el){const v=el.querySelector('video');if(v&&!v.paused){v._sys=true;v.pause()}}
 function vidReset(el){
-  const v=el.querySelector('video');
-  if(v){v._sys=true;v.pause();v.removeAttribute('src');v.remove()}
-  el.classList.remove('playing');
+  const v=el.querySelector('video');if(v){v.remove();vidKill(v)}
+  el.querySelectorAll('.vmute').forEach(b=>b.remove());
+  el.classList.remove('playing','live','paused');
 }
 function vidAuto(el){
-  if(el._noAuto)return;
-  const v0=el.querySelector('video'),away=el._left?Date.now()-el._left:0;
-  el._left=0;
-  if(away>=VID_HOLD_MS){el._up=0;if(v0)v0.currentTime=0}   // scrolled away for a minute: forget the pause and start over
-  else if(el._up&&Date.now()-el._up<VID_HOLD_MS)return;     // you paused it less than a minute ago
-  el._up=0;
-  const v=v0||vidMake(el);
+  const url=el.dataset.v,s=vst(url);
+  if(s.noAuto)return;
+  const kept=VKEEP.get(url),v0=el.querySelector('video')||(kept&&!kept.isConnected&&!kept._dead?kept:null);
+  if(!v0){   // start only after it has been the video in view for a moment (not while the feed is still redrawing or flying past)
+    const now=Date.now();if(!el._since)el._since=now;
+    if(now-el._since<250){setTimeout(vidTickSoon,280);return}
+  }
+  const away=s.left?Date.now()-s.left:0;s.left=0;
+  if(away>=VID_HOLD_MS){s.up=0;s.pos=0;if(v0)v0.currentTime=0}   // away for a minute: forget the pause and start over
+  else if(s.up&&Date.now()-s.up<VID_HOLD_MS)return;               // you paused it less than a minute ago
+  s.up=0;
+  const v=el.querySelector('video')||vidMake(el);
   if(v.paused&&v.src)vidPlay(el,v);
 }
-function playVid(el){   // tap on the poster or its play button
-  if(el.classList.contains('playing'))return;
-  el._noAuto=false;el._up=0;
-  const v=vidMake(el);v.muted=false;S.vSound=true;
+function playVid(el){   // tap on the video, its poster or the play button
+  const s=vst(el.dataset.v),v=el.querySelector('video');
+  if(v&&el.closest('#th'))return;   // opened post: the player's own controls
+  if(v){if(v.paused){s.up=0;vidPlay(el,v)}else v.pause();return}   // feed: a tap pauses or resumes
+  s.noAuto=false;s.up=0;
+  const nv=vidMake(el);nv.muted=false;S.vSound=true;   // a tap is allowed to start with sound
   document.querySelectorAll('.pvid').forEach(x=>{if(x!==el)vidPause(x)});
-  vidPlay(el,v);
+  vidPlay(el,nv);
 }
 function vidTick(){
+  const now=Date.now();
+  VKEEP.forEach((v,u)=>{   // forget a player that has been off the page for a few seconds
+    if(v.isConnected){v._gone=0;return}
+    if(!v._gone){v._gone=now;return}
+    if(now-v._gone>5000){vst(u).pos=v.currentTime||0;vidKill(v)}
+  });
   const list=[...document.querySelectorAll('.pvid')];if(!list.length)return;
   const layer=document.querySelector('.mod.on,.ov.on'),vh=innerHeight;
   let best=null,bd=1e9;
@@ -127,7 +176,7 @@ function vidTick(){
   });
   list.forEach(el=>{
     if(el===best)vidAuto(el);
-    else{vidPause(el);if(el.querySelector('video')&&!el._left)el._left=Date.now()}   // remember when it left the screen
+    else{el._since=0;vidPause(el);if(el.querySelector('video')){const s=vst(el.dataset.v);if(!s.left)s.left=now}}   // remember when it left the screen
   });
 }
 let vtRaf=0;
