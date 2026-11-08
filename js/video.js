@@ -91,7 +91,7 @@ function vidMake(el){
     v=document.createElement('video');v._url=url;
     v.src=url;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
     v.disablePictureInPicture=true;v.setAttribute('disableremoteplayback','');
-    v.muted=!S.vSound;   // S.vSound starts on: videos start with sound
+    v.muted=S.vSound===false;   // sound is on unless you muted a video
     if(el.dataset.p)v.poster=el.dataset.p;
     if(s.pos){const p=s.pos;s.pos=0;v.addEventListener('loadedmetadata',()=>{try{v.currentTime=p}catch(e){}},{once:true})}
     const spin=on=>{if(v._el)v._el.classList.toggle('loading',on)};   // circle while the video is loading or buffering
@@ -124,7 +124,7 @@ function vidMake(el){
   v._btn=null;
   if(!full){   // feed: a mute button is the only control
     const b=document.createElement('button');b.type='button';b.className='vmute';
-    b.onclick=e=>{e.stopPropagation();v.muted=!v.muted;S.vSound=!v.muted};
+    b.onclick=e=>{e.stopPropagation();v._autoMuted=false;v.muted=!v.muted;S.vSound=!v.muted};
     v._btn=b;el.appendChild(b);vidIcon(v);
   }
   return v;
@@ -132,7 +132,7 @@ function vidMake(el){
 function vidPlay(el,v){
   const pr=v.play();
   if(pr&&pr.catch)pr.catch(()=>{
-    if(!v.muted){v._vol=true;v.muted=true;v.play().catch(()=>{vst(el.dataset.v).noAuto=true;vidReset(el)})}   // sound not allowed yet: play muted
+    if(!v.muted){v._autoMuted=true;v._vol=true;v.muted=true;v.play().catch(()=>{vst(el.dataset.v).noAuto=true;vidReset(el)})}   // sound not allowed yet: play muted
     else{vst(el.dataset.v).noAuto=true;vidReset(el)}   // autoplay blocked: poster and play button stay for a tap
   });
 }
@@ -196,3 +196,26 @@ addEventListener('resize',vidTickSoon);
 addEventListener('load',vidTickSoon);
 document.addEventListener('visibilitychange',vidTickSoon);
 new MutationObserver(vidTickSoon).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});   // feed redraws, panels opening and closing
+
+// Browsers only allow sound after a tap on the page. A video that had to start muted gets its sound at the next tap anywhere.
+['pointerup','touchend','click','keydown'].forEach(t=>addEventListener(t,e=>{
+  if(S.vSound===false||(e.target&&e.target.closest&&e.target.closest('.vmute')))return;
+  document.querySelectorAll('.pvid video').forEach(v=>{if(v._autoMuted&&v.muted&&!v.paused){v._autoMuted=false;v._vol=true;v.muted=false}});
+},true));
+
+// A feed redraw replaces every post on screen. A playing video is moved into the new markup in the same moment,
+// so it never pauses or flashes (a player taken off the page and put back within the same step keeps playing).
+function vidWrapDraw(orig){
+  return function(...a){
+    const keep=[...document.querySelectorAll('.pvid.playing')].filter(e=>e.querySelector('video')).map(e=>({e,th:!!e.closest('#th'),u:e.dataset.v}));
+    const r=orig.apply(this,a);
+    keep.forEach(k=>{
+      if(k.e.isConnected)return;   // this redraw left it alone
+      const nw=[...document.querySelectorAll('.pvid')].find(x=>!!x.closest('#th')===k.th&&x.dataset.v===k.u&&!x.querySelector('video'));
+      if(nw)nw.replaceWith(k.e);
+    });
+    return r;
+  };
+}
+function vidHookDraw(){if(typeof draw=='function'&&!draw._vk){const w=vidWrapDraw(draw);w._vk=1;draw=w}}
+if(document.readyState==='complete')vidHookDraw();else addEventListener('load',vidHookDraw);
