@@ -131,7 +131,7 @@ document.addEventListener('touchend',ptrEnd);
 document.addEventListener('touchcancel',ptrEnd);
 
 // ---------- PWA Install ----------
-const APP_VERSION='v41';
+const APP_VERSION='v59';
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   // When a newer version takes over, reload once so a phone does not keep running the old app.
