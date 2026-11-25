@@ -278,9 +278,10 @@ function prep(file,max,square,ratio){
 // Thumbnails: a photo uploaded with a small copy is saved as <name>_f.jpg (full) + <name>_t.jpg (thumb).
 // Older photos (plain <name>.jpg) have no thumb and are shown as they are.
 const FULL='_f.jpg',THUMB='_t.jpg',THUMB_MAX=720;
-const thumb=u=>u&&u.endsWith(FULL)?u.slice(0,-FULL.length)+THUMB:u;
+const THUMB_BAD=new Set();   // photos whose thumbnail is missing: go straight to full size next time
+const thumb=u=>u&&u.endsWith(FULL)&&!THUMB_BAD.has(u)?u.slice(0,-FULL.length)+THUMB:u;
 // <img> that shows the thumbnail, keeps the full-size URL for the photo viewer, and falls back to full size if the thumb is missing
-const timg=u=>{const t=thumb(u);return `<img src="${esc(t)}" data-full="${esc(u)}" loading="lazy" decoding="async" alt="Photo"${t!==u?` onerror="this.onerror=null;this.src=this.dataset.full"`:''}>`};
+const timg=u=>{const t=thumb(u);return `<img src="${esc(t)}" data-full="${esc(u)}" loading="lazy" decoding="async" alt="Photo"${t!==u?` onerror="this.onerror=null;THUMB_BAD.add(this.dataset.full);this.src=this.dataset.full"`:''}>`};
 async function upload(bucket,blob,tb){
   const base=`${S.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}`,opt={contentType:'image/jpeg',cacheControl:'31536000'},st=sb.storage.from(bucket);
   let path=base+'.jpg';

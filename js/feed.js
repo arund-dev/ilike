@@ -58,16 +58,32 @@ function openSames(id){
   $('#sl').classList.add('on');
 }
 const rel=(p,l)=>p.tags.some(n=>l.has(n))?'like':p.tags.some(n=>[...l].some(m=>cat(m)==cat(n)))?'might':'new';
+// Update the feed in place. A post whose markup did not change keeps its element, so a redraw no longer
+// flashes every photo and video; only new, changed or removed posts are touched. `extra` is the markup after the posts
+// (loading skeleton, empty note, "load older" footer) and is rebuilt each time.
+function paintFeed(root,posts,extra){
+  const old=new Map(),box=document.createElement('div');
+  [...root.children].forEach(e=>{if(e._k)old.set(e._k,e)});
+  const want=posts.map(p=>{
+    const k=String(p.id),h=post(p),e=old.get(k);
+    if(e&&e._h===h){old.delete(k);return e}
+    box.innerHTML=h;const n=box.firstElementChild;n._k=k;n._h=h;return n;
+  });
+  [...root.children].forEach(e=>{if(!want.includes(e))e.remove()});
+  let at=root.firstElementChild;
+  want.forEach(n=>{if(n===at)at=at.nextElementSibling;else root.insertBefore(n,at)});
+  box.innerHTML=extra;root.append(...box.children);
+}
 function home(){
   if(!['All','might','new'].includes(S.F)&&!S.mine.has(S.F)&&!(S.F=='fol'&&S.fol.size))S.F='All';
   $('#fl').innerHTML=[['All','All'],['might','Might like'],['new','New to you'],...(S.fol.size?[['fol','Following']]:[]),...[...S.mine].map(n=>[n,em(n)+' '+iname(n),col(n)])].map(t=>`<button class="fc ${t[0]===S.F?'on':''}" ${t[2]?`style="--c:${t[2]}"`:''} onclick='setF(${JSON.stringify(t[0])})'>${esc(t[1])}</button>`).join('');
   const F=S.F,l=F=='All'?S.posts.filter(p=>p.tags.length?rel(p,S.mine)=='like':casual(p)):F=='might'||F=='new'?S.posts.filter(p=>p.tags.length&&rel(p,S.snap)==F):F=='fol'?S.posts.filter(p=>S.fol.has(p.author_id)):S.posts.filter(p=>p.tags.includes(F));
-  $('#feed').innerHTML=S.skel&&!S.posts.length?skPost().repeat(3):l.map(p=>post(p)).join('')||(S.fEnd?'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>':'');
-  if(!(S.skel&&!S.posts.length)){
-    $('#feed').insertAdjacentHTML('beforeend',S.fEnd?(S.posts.length>8?'<div class="mute sm" style="text-align:center;padding:18px 0 28px">You are all caught up</div>':''):
-      `<div id="fmore" style="text-align:center;padding:16px 0 28px">${S.fBusy?'<span class="mute sm">Loading older posts...</span>':`<button class="btn off sbtn" onclick="morePosts()">${S.fErr?'Could not load. Tap to retry':'Load older posts'}</button>`}</div>`);
-    watchMore();
-  }
+  const skel=S.skel&&!S.posts.length;
+  paintFeed($('#feed'),skel?[]:l,skel?skPost().repeat(3):
+    (l.length?'':S.fEnd?'<div class="empty">No posts here yet.<br>Tap + and write the first one.</div>':'')+
+    (S.fEnd?(S.posts.length>8?'<div class="mute sm" style="text-align:center;padding:18px 0 28px">You are all caught up</div>':''):
+      `<div id="fmore" style="text-align:center;padding:16px 0 28px">${S.fBusy?'<span class="mute sm">Loading older posts...</span>':`<button class="btn off sbtn" onclick="morePosts()">${S.fErr?'Could not load. Tap to retry':'Load older posts'}</button>`}</div>`));
+  if(!skel)watchMore();
 }
 function setF(n){S.F=n;if(n=='might'||n=='new')S.snap=new Set(S.mine);home()}
 

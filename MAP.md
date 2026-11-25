@@ -19,7 +19,7 @@ Give AI this file plus only the file(s) the task touches. All JS files in `js/` 
 4. **js/data.js** (184 lines): Boot, loading and hydrating data, #post / #event links.
    - boot, load, syncInterestCatalog, getProfiles, replyCounts, hydrate, loadPosts, morePosts, watchMore, loadPeople, ensurePost, openPostId
 5. **js/feed.js** (348 lines): Home feed, compose post, post menu/edit/delete, replies, Discover.
-   - post, same, openSames, home, setF, tapFab, closePost, renderPhotos, publish, openPm, closePm, openEd, saveEd, delPost, renderThread, loadReplies, focusReply, moreReplies, openThread, closeThread, sendReply, delReply, mix, findTab, ftab, openPost
+   - post, same, openSames, paintFeed, home, setF, tapFab, closePost, renderPhotos, publish, openPm, closePm, openEd, saveEd, delPost, renderThread, loadReplies, focusReply, moreReplies, openThread, closeThread, sendReply, delReply, mix, findTab, ftab, openPost
 5b. **js/photos.js** (184 lines): Post photos: crop, drag to reorder, grid layout (New post and Edit post).
    - phRender, phSetLay, phPick, phRm, phDrag, dgMove, dgEnd, phCrop, pcInit, pcRatio, pcReset, pcPlace, pcZoom, pcSlide, pcClose, pcDone
 5c. **js/video.js** (221 lines): Video posts: one video (up to 60 s and 50 MB) with a thumbnail taken from the video, playback.
