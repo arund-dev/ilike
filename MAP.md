@@ -44,8 +44,8 @@ Give AI this file plus only the file(s) the task touches. All JS files in `js/` 
    - muted, applyBlocks, syncStatus, blockUser, paintFbk, openFb, closeFb, sendFb, drawStats, setStN, paintStats, drawFeedback, fbDone, openDa, closeDa, daCheck, doDelete, openBlocked, unblock, axGet, openAx, closeAx, axBlock, axModerate, axDelete, axReport, drawRp, closeRp, sendReport, loadRepCount, paintRepBadge
 15. **js/moderation.js** (199 lines): Moderator panel, user admin, duplicate checks, lists, invites.
    - openMod, drawMod, drawReports, repClose, repDelete, drawUsers, searchUsers, drawEventPublishers, searchEventPublishers, setEventPublisher, openUa, drawUa, closeUa, uaDone, uaMute, uaRole, uaBan, lev, similarTo, dupAsk, drawLists, drawInvites, admNewInvite, toggleInvite, copyInvite
-16. **js/legal.js** (29 lines): Terms / Privacy / Contact sheet.
-   - openLegal, drawLegal
+16. **js/legal.js** (7 lines): Opens Terms / Privacy / Contact on the landing site in the browser (`LANDING_URL` in core.js).
+   - openLegal
 17. **js/admin.js** (70 lines): Admin artist/interest tools (merge, rename, delete).
    - admAddArtist, admCreateArtist, admDupes, admPair, admArt, admRename, admSaveRename, admMerge, drawMg, admDoMerge, admDelete, refreshInterests
 18. **js/main.js** (3 lines): Starts the app. Always LAST.

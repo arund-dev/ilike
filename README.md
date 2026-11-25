@@ -69,7 +69,7 @@ The web manifest and service worker are registered by the app when served over H
 
 ## Invite codes and legal pages (Batch 4a)
 
-Signups require an invite code. The check runs inside the database (a trigger on `auth.users` created by `batch4a.sql`), so it cannot be bypassed from the browser. Admins create, copy and switch off codes in **Settings → Moderation tools → Invites**. A code's link (`…/#invite=CODE`) opens the signup form with the code filled in. Terms, privacy and contact text lives in `LEGAL` in `js/legal.js`; the contact address is `CONTACT_EMAIL` in `js/core.js`.
+Signups require an invite code. The check runs inside the database (a trigger on `auth.users` created by `batch4a.sql`), so it cannot be bypassed from the browser. Admins create, copy and switch off codes in **Settings → Moderation tools → Invites**. A code's link (`…/#invite=CODE`) opens the signup form with the code filled in. Terms, Privacy and Contact are not stored in the app: `openLegal()` in `js/legal.js` opens the pages on the landing site (`LANDING_URL` in `js/core.js`) in the browser, so there is only one copy to keep up to date.
 
 ## First-run onboarding (Batch 4b)
 
