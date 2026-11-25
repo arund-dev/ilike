@@ -120,7 +120,6 @@ function renderEventFullscreen(){
   const gone=!!e.cancelled_at;
   const past=!!e.past||new Date(e.starts_at)<Date.now()-3*36e5;
 
-  const cal='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   const pin='<svg viewBox="0 0 24 24"><path d="M12 22s7-6.5 7-13a7 7 0 0 0-14 0c0 6.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>';
   const usr='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>';
   const chats=S.evChats.get(id)||[];
@@ -375,8 +374,6 @@ function delEventComment(eid,cid){
     toast('Comment deleted');
   });
 }
-
-function openGoers(id){const e=S.evm.get(id);if(e)peopleSheet('Going ('+e.goers.length+')',ord(e.goers))}
 
 function paintEv(e){
   const on=e.goers.includes(S.user.id);

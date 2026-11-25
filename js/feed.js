@@ -200,7 +200,7 @@ function delPost(id){
     undoable('Post deleted',()=>{
       S.posts=S.posts.filter(x=>x.id!==id);S.myPosts=S.myPosts.filter(x=>x.id!==id);
       if(S.th==String(id))closeThread();
-      $('#pv').classList.remove('on');draw();
+      draw();
     },async()=>{
       const{data,error}=await sb.from('posts').delete().eq('id',id).select('id');
       if(error||!data||!data.length){
@@ -345,7 +345,4 @@ function ftab(i){
   ['fp','fg','fx'].forEach((id,k)=>$('#'+id).style.display=k==i?'block':'none');
   $('#q').placeholder=['Search people','Search circles','Search posts'][i];$('#q').value='';findTab();
 }
-let pvFn=null;
-function showPv(fn){pvFn=fn;$('#pv').classList.add('on');refreshPv()}
-function refreshPv(){if(pvFn&&$('#pv').classList.contains('on'))$('#pvb').innerHTML=pvFn()}
 function openPost(id){openThread(id)}

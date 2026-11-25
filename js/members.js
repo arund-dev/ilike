@@ -6,7 +6,7 @@ function closePf(all){
   PF_STACK=[];$('#pf')?.classList.remove('on');S.pf=null;
 }
 function closeAll(){
-  ['#pv','#pf','#th','#sl','#nv','#info','#ev-ov','#ticket-mod'].forEach(x=>$(x)?.classList.remove('on'));
+  ['#pf','#th','#sl','#nv','#info','#ev-ov','#ticket-mod'].forEach(x=>$(x)?.classList.remove('on'));
   S.th=null;PF_STACK=[];S.pf=null;S.evActiveId=null;evLiveStop();closeOv();
 }
 async function openProfile(id,back){

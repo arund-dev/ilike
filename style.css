@@ -81,7 +81,6 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:18px 18px 8px}
 .stk{display:inline-flex;padding-left:8px;margin-right:8px;vertical-align:middle}
 
 .chip{display:inline-flex;align-items:center;gap:6px;margin:4px;padding:5px 14px;border-radius:50px;font-size:13px;font-weight:700;border:1px solid color-mix(in srgb,var(--c) 30%,transparent);background:color-mix(in srgb,var(--c) 14%,var(--card));color:color-mix(in srgb,var(--c) 72%,var(--text));transition:all 0.2s ease}
-.pic{height:170px;border-radius:20px;margin:12px 0;display:grid;place-items:center;font-size:64px;background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 18%,var(--card)),color-mix(in srgb,var(--brand-dark) 16%,var(--card)));border:1px solid var(--line)}
 
 /* ── Wipe buttons (Same / I'm in) ── */
 .same,.imin-btn{position:relative;background:transparent;border:2px solid var(--line);font-weight:800;cursor:pointer;color:var(--text);overflow:hidden;transition:color .25s,border-color .25s,box-shadow .25s}
@@ -155,7 +154,6 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 
 .sheet{background:var(--card);width:100%;border-radius:28px 28px 0 0;padding:24px 18px calc(24px + env(safe-area-inset-bottom,0px));box-shadow:0 -16px 40px -10px var(--glow);border-top:1px solid var(--line);position:relative}
 .sheet::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:40px;height:4px;border-radius:4px;background:var(--line)}
-#pv .sheet::before{display:none}
 .sheet textarea,.sheet select{width:100%;margin:10px 0;padding:12px;border-radius:16px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;transition:.2s}
 .sheet textarea{height:100px;resize:none}
 
@@ -192,8 +190,6 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
 .gt{min-width:0;overflow:hidden;aspect-ratio:1;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 24%,var(--card)),var(--card) 75%);display:flex;flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:8px;padding:12px;cursor:pointer;color:var(--text);font-family:inherit;text-align:left;border-radius:22px;border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:var(--shadow);transition:.2s}
 .gt:active{transform:scale(.96)}
 .ge{font-size:20px;line-height:1;flex:none}.gtx{font-size:12px;line-height:1.3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;font-weight:600;min-width:0;flex:1}
-.ev-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;color:var(--mute)}
-.ev-row svg{width:18px;height:18px;flex-shrink:0;color:var(--brand)}
 
 .wave-btn{animation:wave 1.8s ease-in-out infinite;transform-origin:70% 70%;display:inline-block}
 @keyframes wave{0%,100%{transform:rotate(0deg)}15%{transform:rotate(14deg)}30%{transform:rotate(-8deg)}40%{transform:rotate(10deg)}50%{transform:rotate(-4deg)}60%{transform:rotate(0deg)}}
@@ -361,7 +357,7 @@ nav button.on::before{content:"";position:absolute;top:-9px;width:30px;height:4p
   .mod .sheet{width:min(520px,calc(100% - 48px));border-radius:28px;border:1px solid var(--line);padding-bottom:24px;box-shadow:0 30px 80px -20px var(--glow);transform:translateY(24px) scale(.97)}
   .mod.on .sheet{transform:none}
   .sheet::before{display:none}
-  #pv .sheet,#th .sheet,#ticket-mod .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
+  #th .sheet,#ticket-mod .sheet{width:min(560px,calc(100% - 48px));max-height:90vh;border-radius:28px!important}
   .thsheet{padding-bottom:16px}
   .btn:hover,.ghost:hover,.fc:hover,.ib:hover{filter:brightness(1.08)}
   .ghost:hover{color:var(--brand)}
@@ -457,7 +453,6 @@ body.noapp nav,body.noapp .fab{display:none}
 .ph{position:relative;width:76px;height:76px;border-radius:14px;overflow:hidden;border:1px solid var(--line);flex:none}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .ph button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center}
-.ph.rm img{opacity:.3}
 
 .lb{align-items:center;justify-content:center;background:rgba(0,0,0,.94)}
 .lbst{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -516,24 +511,11 @@ body.noapp nav,body.noapp .fab{display:none}
 .cn{display:block;font-size:12px;font-weight:800;margin-bottom:2px}
 .room small{display:block;font-size:12px;font-weight:600;color:var(--mute);margin-top:2px}
 
-.evp{padding:0 24px 8px}
-.evbn{height:150px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:64px;margin:0 0 20px}
-.evt{margin:0 0 14px!important;font-size:22px;line-height:1.3}
-.ev-row span{font-size:14px;font-weight:600}
-.ev-row small{font-weight:500;color:var(--mute)}
-.ev-row b{color:var(--text)}
-.evdesc{margin:20px 0;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
-.evh{font-size:13px;font-weight:800;margin:18px 0 12px;letter-spacing:.5px;color:var(--mute)}
-.evgo{margin-bottom:24px;gap:10px}
 .evem{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
 .evem button{width:42px;height:42px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:22px;cursor:pointer;transition:.2s}
 .evem button.on{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 18%,var(--card))}
 .evact{display:flex;gap:10px}
 .evact .btn{flex:1}
-.evc .who2{margin:0}
-.event-card{width:100%;border:1px solid var(--line);background:var(--card);color:var(--text);text-align:left;font:inherit;cursor:pointer}
-.event-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-.event-comments{margin-top:14px}
 .event-comment-list{display:flex;flex-direction:column;gap:12px;margin:10px 0 14px}
 .event-comment{display:flex;align-items:flex-start;gap:9px;line-height:1.45;overflow-wrap:anywhere;padding:10px 14px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
 .event-comment .av{width:32px;height:32px;font-size:13px;border-width:1px;flex:none}
@@ -652,7 +634,7 @@ body.noapp nav,body.noapp .fab{display:none}
 
 #pevs{padding:14px 16px 90px}
 .pastbtn{display:block;margin:12px auto 16px;font-weight:800}
-.evx,.evpast{opacity:.65}
+.evx{opacity:.65}
 .evbadge{font-size:12px;font-weight:800;padding:4px 10px;border-radius:50px;background:#b42318;color:#fff}
 .evcx{margin:10px 0;padding:10px 14px;border-radius:12px;font-weight:800;background:#b42318;color:#fff}
 .evcx.soft{background:var(--card);color:var(--mute)}
@@ -909,15 +891,6 @@ body:has(#ev-ov.on) #ev-bd{
 .fi.bad{border-color:#f87171}
 .lab.first{margin-top:6px}
 .set-action[hidden]{display:none!important}
-
-/* Floating close button that stays visible while a sheet scrolls (profile, post view) */
-.sx{position:sticky;top:10px;height:0;z-index:6;display:flex;justify-content:flex-end;padding-right:12px;pointer-events:none}
-.sxb{
-  pointer-events:auto;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;
-  display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.52);
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-}
-.sxb svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round}
 
 
 /* ═══ Profile v2: full-screen profile page + compact header ═══ */

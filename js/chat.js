@@ -252,7 +252,7 @@ async function joinRoom(){
   if(S.room===k&&S.mine.has(k)){setBar();drawCircle()}
 }
 function sayHi(id){
-  $('#sl')?.classList.remove('on');$('#pv')?.classList.remove('on');closeThread();closePf(true);
+  $('#sl')?.classList.remove('on');closeThread();closePf(true);
   openDm(id);
 }
 function markRead(id){

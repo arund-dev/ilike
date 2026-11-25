@@ -214,7 +214,7 @@ async function newInterest(){
 }
 
 function draw(){
-  home();findTab();eventsTab();meTab();refreshPv();
+  home();findTab();eventsTab();meTab();
   if(S.th&&findPost(S.th)&&$('#th').classList.contains('on'))renderThread();
   if(S.pf&&$('#pf').classList.contains('on'))drawPf();
   if(S.evActiveId&&$('#ev-ov').classList.contains('on'))renderEventFullscreen();

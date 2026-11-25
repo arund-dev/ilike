@@ -35,7 +35,7 @@ function blockUser(id){
     const{error}=await sb.rpc('block_user',{target:id});
     if(error){toast(errMsg(error));return}
     S.blocked.add(id);S.fol.delete(id);S.folrs.delete(id);
-    ['#pv','#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));closePf(true);
+    ['#sl','#ev-ov'].forEach(x=>$(x)?.classList.remove('on'));closePf(true);
     S.notifs=S.notifs.filter(n=>!bl(n.actor_id));updateBadges();if($('#nv')?.classList.contains('on'))drawNotifs();
     applyBlocks();draw();if(S.th)renderThread();
     toast('Blocked '+nm(id));
